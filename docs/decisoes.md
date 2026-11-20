@@ -40,3 +40,19 @@
 - A checagem de tenant_id na publicação fica numa subclasse do Celery (send_task), não no sinal before_task_publish: o Celery engole exceções de sinais e a publicação seguiria.
 - Tarefa de tenant aceita só argumentos nomeados; tenant_id, empresas e usuario_id são reservados. Sem empresas, o escopo é o tenant; lista vazia de empresas não vê nenhuma (nunca vira o tenant inteiro).
 - O log da requisição lê o tenant de request.state: o BaseHTTPMiddleware roda o endpoint em outra task, e os contextvars ligados lá não voltam.
+
+## 2026-11-20: identidade (P04)
+
+- Login só por OIDC com Google e Microsoft, entrada só por convite e quatro perfis (administrador, gestor, responsável, colaborador): decisões do usuário.
+- O login lê acessos antes de existir contexto de tenant. Em vez de abrir exceções nas políticas de RLS, criamos o papel app_identidade (sem login, com BYPASSRLS), dono só de cinco funções SECURITY DEFINER com search_path fixo. O app_user tem só EXECUTE nelas; o teste de cobertura trava o papel (sem login, sem tabelas, sem membros além do app_owner, lista fechada de funções).
+- usuario e identidade são globais: a pessoa existe antes de escolher um cliente e pode estar em vários. usuario tem RLS próprio (a pessoa vê a si mesma; com contexto de tenant, vê os membros dele); identidade não é legível pelo app_user.
+- Na migração, REVOKE e GRANT das funções vêm antes do ALTER OWNER: depois da troca de dono o app_owner não revoga mais nada, e o Postgres só avisa. O teste pegou o EXECUTE para PUBLIC que ficava valendo.
+- Convite: o token leva tenant_id, convite_id e um segredo de 32 bytes; o banco guarda só o SHA-256 do segredo e a busca é pela chave (tenant_id, convite_id), sem índice global. Um único erro (CL001) para todo motivo de recusa.
+- E-mail só conta quando o provedor garante a posse: email_verified no Google, xms_edov no Microsoft (claim opcional que precisa ser ligada no Entra). Vincular um segundo provedor à mesma pessoa só acontece por convite aceito com o mesmo e-mail.
+- Microsoft pelo endpoint "organizations": sem contas pessoais. O emissor é validado contra o tid do próprio token.
+- Sessão no Redis em vez de JWT: dá para encerrar e trocar de cliente no servidor. O acesso (perfil e empresas) é relido no banco a cada requisição, em vez de guardado na sessão, para a revogação valer na hora.
+- CSRF por cabeçalho X-CSRF-Token com o token da sessão em toda escrita com cookie; falha responde 404, como acesso negado.
+- Sem cookie de sessão, o middleware não consulta o Redis: o /saude e as rotas públicas não dependem do armazém de sessões.
+- Mensagens de erro de validação com 422 e texto que diz como corrigir; falhas de login respondem 404 sem motivo, e o motivo vai para o log (evento login_falhou, sem dado pessoal).
+- Provedor simulado de dev: mock-oauth2-server (navikt), com trava que o proíbe em produção.
+- Os testes não leem o .env local (tests/conftest.py desliga o env_file da Configuracao): o resultado não pode depender da máquina de quem roda.

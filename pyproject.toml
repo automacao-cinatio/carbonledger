@@ -25,6 +25,7 @@ dependencies = [
     "playwright>=1.48",
     "pyhanko>=0.25",
     "anthropic>=0.40",
+    "joserfc>=1.0",
 ]
 
 [dependency-groups]

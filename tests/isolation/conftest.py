@@ -7,7 +7,7 @@ import sys
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import asyncpg
 import pytest
@@ -38,6 +38,10 @@ class Dados:
     empresa_a2: UUID
     empresa_b1: UUID
     empresa_b2: UUID
+    admin_a: UUID
+    responsavel_a1: UUID
+    admin_b: UUID
+    responsavel_b1: UUID
 
 
 DADOS = Dados(
@@ -47,6 +51,10 @@ DADOS = Dados(
     empresa_a2=UUID("aaaaaaaa-0000-4000-8000-000000000002"),
     empresa_b1=UUID("bbbbbbbb-0000-4000-8000-000000000001"),
     empresa_b2=UUID("bbbbbbbb-0000-4000-8000-000000000002"),
+    admin_a=UUID("aaaaaaaa-1111-4000-8000-000000000001"),
+    responsavel_a1=UUID("aaaaaaaa-1111-4000-8000-000000000002"),
+    admin_b=UUID("bbbbbbbb-1111-4000-8000-000000000001"),
+    responsavel_b1=UUID("bbbbbbbb-1111-4000-8000-000000000002"),
 )
 
 
@@ -84,6 +92,39 @@ async def _semear(dsn_admin: str) -> None:
                 (DADOS.tenant_a, DADOS.empresa_a2, "Empresa A2"),
                 (DADOS.tenant_b, DADOS.empresa_b1, "Empresa B1"),
                 (DADOS.tenant_b, DADOS.empresa_b2, "Empresa B2"),
+            ],
+        )
+        await conexao.executemany(
+            "INSERT INTO usuario (usuario_id, email, nome) VALUES ($1, $2, $3)",
+            [
+                (DADOS.admin_a, "admin@a.example", "Admin A"),
+                (DADOS.responsavel_a1, "resp@a.example", "Responsavel A1"),
+                (DADOS.admin_b, "admin@b.example", "Admin B"),
+                (DADOS.responsavel_b1, "resp@b.example", "Responsavel B1"),
+            ],
+        )
+        await conexao.executemany(
+            "INSERT INTO membro (tenant_id, usuario_id, perfil) VALUES ($1, $2, $3)",
+            [
+                (DADOS.tenant_a, DADOS.admin_a, "administrador"),
+                (DADOS.tenant_a, DADOS.responsavel_a1, "responsavel"),
+                (DADOS.tenant_b, DADOS.admin_b, "administrador"),
+                (DADOS.tenant_b, DADOS.responsavel_b1, "responsavel"),
+            ],
+        )
+        await conexao.executemany(
+            "INSERT INTO membro_empresa (tenant_id, usuario_id, empresa_id) VALUES ($1, $2, $3)",
+            [
+                (DADOS.tenant_a, DADOS.responsavel_a1, DADOS.empresa_a1),
+                (DADOS.tenant_b, DADOS.responsavel_b1, DADOS.empresa_b1),
+            ],
+        )
+        await conexao.executemany(
+            "INSERT INTO convite (tenant_id, convite_id, email, perfil, segredo_hash, expira_em)"
+            " VALUES ($1, $2, $3, 'gestor', $4, now() + interval '7 days')",
+            [
+                (DADOS.tenant_a, uuid4(), "gestor@a.example", bytes(32)),
+                (DADOS.tenant_b, uuid4(), "gestor@b.example", bytes(32)),
             ],
         )
     finally:

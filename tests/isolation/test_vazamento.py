@@ -65,21 +65,34 @@ async def test_contexto_de_tenant_ve_so_o_proprio_tenant(
 
 @pytest.mark.parametrize("tabela", TABELAS_POR_EMPRESA)
 async def test_escopo_de_empresas_ve_so_as_empresas_listadas(
-    conexao_app: asyncpg.Connection, dados: Dados, tabela: str
+    conexao_app: asyncpg.Connection,
+    conexao_admin: asyncpg.Connection,
+    dados: Dados,
+    tabela: str,
 ) -> None:
+    # O esperado vem dos dados reais (lidos sem RLS): vale para qualquer tabela por empresa.
+    existentes = {
+        linha["empresa_id"]
+        for linha in await conexao_admin.fetch(
+            f"SELECT DISTINCT empresa_id FROM {tabela} WHERE tenant_id = $1",  # noqa: S608  # nosec B608
+            dados.tenant_a,
+        )
+    }
+    assert dados.empresa_a1 in existentes, "a semente precisa de linha da empresa A1"
     casos = [
-        ((dados.empresa_a1,), {dados.empresa_a1}),
-        ((dados.empresa_a1, dados.empresa_a2), {dados.empresa_a1, dados.empresa_a2}),
-        ((), set()),
+        (dados.empresa_a1,),
+        (dados.empresa_a1, dados.empresa_a2),
+        (),
         # Empresa de outro tenant na lista nao abre nada: a politica de tenant vale antes.
-        ((dados.empresa_b1,), set()),
-        ((dados.empresa_a2, dados.empresa_b2), {dados.empresa_a2}),
+        (dados.empresa_b1,),
+        (dados.empresa_a2, dados.empresa_b2),
     ]
-    for empresas, visiveis in casos:
+    for empresas in casos:
         async with conexao_app.transaction():
             await aplicar_contexto(conexao_app, _contexto_empresas(dados.tenant_a, *empresas))
             linhas = await _linhas(conexao_app, tabela)
-        assert {linha["empresa_id"] for linha in linhas} == visiveis, empresas
+        visiveis = {linha["empresa_id"] for linha in linhas}
+        assert visiveis == set(empresas) & existentes, empresas
 
 
 @pytest.mark.parametrize("tabela", TABELAS)

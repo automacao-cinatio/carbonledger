@@ -15,12 +15,29 @@ class AcessoNegado(Exception):
     """Sem contexto, sem permissao ou recurso de outro tenant: a resposta e sempre 404."""
 
 
+class ErroValidacao(Exception):
+    """Dado recusado por regra de negocio. A mensagem diz como corrigir e vai para a tela."""
+
+    def __init__(self, campo: str, mensagem: str) -> None:
+        super().__init__(mensagem)
+        self.campo = campo
+        self.mensagem = mensagem
+
+
 def _nao_encontrado() -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=CORPO_NAO_ENCONTRADO)
 
 
 async def _tratar_acesso_negado(_request: Request, _erro: Exception) -> JSONResponse:
     return _nao_encontrado()
+
+
+async def _tratar_validacao(_request: Request, erro: Exception) -> JSONResponse:
+    assert isinstance(erro, ErroValidacao)  # noqa: S101  # nosec B101
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={"erros": [{"campo": erro.campo, "mensagem": erro.mensagem}]},
+    )
 
 
 async def _tratar_http(request: Request, erro: Exception) -> JSONResponse:
@@ -36,4 +53,5 @@ async def _tratar_http(request: Request, erro: Exception) -> JSONResponse:
 
 def registrar_tratadores(app: FastAPI) -> None:
     app.add_exception_handler(AcessoNegado, _tratar_acesso_negado)
+    app.add_exception_handler(ErroValidacao, _tratar_validacao)
     app.add_exception_handler(StarletteHTTPException, _tratar_http)

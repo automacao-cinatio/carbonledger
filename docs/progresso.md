@@ -4,7 +4,7 @@
 - [x] P01 Esqueleto
 - [x] P02 Banco e RLS
 - [x] P03 Contexto de tenant
-- [ ] P04 Identidade
+- [x] P04 Identidade
 - [ ] P05 Trilha e chaves
 - [ ] P05A Base visual
 - [ ] P06 Estrutura
@@ -58,4 +58,17 @@
 - Logs: tenant_id no log da requisição e no da tarefa; usuario_id fica fora. Worker com o mesmo formato JSON da API.
 - Testes com Postgres real: cada tenant vê só o seu pela API e pela tarefa, escopo de empresas, conexão volta ao pool sem contexto, commit no meio, rollback em erro.
 - make check verde: 106 testes.
-- Próximo: P04 (identidade), que preenche o contexto a partir do usuário autenticado.
+
+## P04 Identidade (concluído em 2026-11-20)
+
+- Login só por OIDC (Google, Microsoft com contas corporativas e, fora de produção, provedor simulado), fluxo de código com PKCE, state amarrado ao navegador por cookie e nonce. id_token validado com joserfc: assinatura RS256 pelo JWKS (com nova leitura em rotação de chave), emissor por provedor, audiência, validade, nonce e azp.
+- Entrada só por convite do administrador: vale para o e-mail convidado (verificado pelo provedor), uma vez, por 7 dias. Comando python -m app.cli criar-tenant cria o cliente e o convite do primeiro administrador.
+- Perfis administrador, gestor, responsável e colaborador. Administrador e gestor veem o tenant inteiro; responsável e colaborador, só as empresas atribuídas.
+- Migração 0002: usuario e identidade (globais, com RLS), membro, membro_empresa e convite (por tenant). Funções identidade_* SECURITY DEFINER do papel app_identidade, únicas portas de leitura antes do contexto de tenant.
+- Sessão no Redis (cookie HttpOnly e SameSite=Lax, __Host- em HTTPS; Redis guarda só o hash do token), expiração por inatividade e idade máxima, CSRF por cabeçalho em toda escrita. O acesso é relido no banco a cada requisição: desativar um membro corta o acesso na hora.
+- API do administrador: convidar (e-mail por SMTP), listar e revogar convites, listar membros, alterar perfil e empresas, desativar e reativar.
+- Runbook docs/runbooks/login-e-acessos.md com a configuração do Google e do Entra ID.
+- Testes: OIDC com chaves geradas no teste; funções de login e papel app_identidade no banco; roteiro de ponta a ponta com Postgres, Redis e o provedor simulado reais.
+- Pendente para os próximos prompts: telas de login, escolha de cliente e gestão de usuários (P05A e P14); trilha de auditoria de login e convites (P05); limite de tentativas de login.
+- Até o portal existir, o login termina em /sessao (JSON).
+- make check verde: 180 testes. Teste manual no ambiente de dev: login pelo provedor simulado, convite com CSRF e e-mail no Mailpit.

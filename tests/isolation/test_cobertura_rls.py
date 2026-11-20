@@ -124,7 +124,7 @@ async def test_semente_cobre_os_dois_tenants(
     tenants = await conexao_admin.fetchval(
         f"SELECT array_agg(DISTINCT tenant_id) FROM {tabela}"  # noqa: S608  # nosec B608
     )
-    assert set(tenants or []) == {dados.tenant_a, dados.tenant_b}
+    assert {dados.tenant_a, dados.tenant_b} <= set(tenants or [])
 
 
 async def test_papeis_sem_privilegio_de_contornar_rls(conexao_admin: asyncpg.Connection) -> None:

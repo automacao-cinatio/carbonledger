@@ -16,6 +16,17 @@ x-app: &app
     CLAMAV_PORT: ${CLAMAV_PORT:-3310}
     SMTP_HOST: ${SMTP_HOST:-mailpit}
     SMTP_PORT: ${SMTP_PORT:-1025}
+    SMTP_USUARIO: ${SMTP_USUARIO:-}
+    SMTP_SENHA: ${SMTP_SENHA:-}
+    SMTP_TLS: ${SMTP_TLS:-false}
+    EMAIL_REMETENTE: ${EMAIL_REMETENTE:-CarbonLedger <nao-responda@carbonledger.local>}
+    APP_URL_BASE: ${APP_URL_BASE:-http://localhost:8000}
+    COOKIE_SEGURO: ${COOKIE_SEGURO:-true}
+    SESSAO_INATIVIDADE_MIN: ${SESSAO_INATIVIDADE_MIN:-120}
+    SESSAO_MAXIMA_H: ${SESSAO_MAXIMA_H:-12}
+    CONVITE_VALIDADE_DIAS: ${CONVITE_VALIDADE_DIAS:-7}
+    OIDC_DEV_EMISSOR: ${OIDC_DEV_EMISSOR:-}
+    OIDC_DEV_URL_PUBLICA: ${OIDC_DEV_URL_PUBLICA:-}
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ANTHROPIC_MODELO: ${ANTHROPIC_MODELO:-}
@@ -172,6 +183,16 @@ services:
       timeout: 10s
       retries: 10
       start_period: 120s
+
+  # Provedor OIDC simulado, so em desenvolvimento: login sem conta Google ou Microsoft.
+  # O navegador usa localhost:18080; a API fala com mock-oidc:8080 (OIDC_DEV_URL_PUBLICA).
+  mock-oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:latest
+    restart: unless-stopped
+    environment:
+      JSON_CONFIG: '{"interactiveLogin": true}'
+    ports:
+      - "127.0.0.1:18080:8080"
 
   mailpit:
     image: axllent/mailpit:latest
