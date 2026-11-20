@@ -1,6 +1,7 @@
 .PHONY: up down logs migrate seed test check lint tipos seguranca caracteres
 
 COMPOSE ?= docker compose
+# Modo git: varre o historico de commits (rapido e sem o .venv).
 GITLEAKS ?= docker run --rm -v "$(CURDIR):/repo" zricethezav/gitleaks:latest
 
 .env:
@@ -35,7 +36,7 @@ tipos:
 seguranca:
 	uv run bandit -q -r app
 	uv run pip-audit
-	$(GITLEAKS) dir /repo --no-banner
+	$(GITLEAKS) git /repo --no-banner
 
 caracteres:
 	uv run python scripts/verificar_caracteres.py

@@ -1,7 +1,7 @@
 # Progresso
 
 - [x] P00 Contexto
-- [ ] P01 Esqueleto
+- [x] P01 Esqueleto
 - [ ] P02 Banco e RLS
 - [ ] P03 Contexto de tenant
 - [ ] P04 Identidade
@@ -29,3 +29,12 @@
 - [ ] P25 Infra AWS
 - [ ] P26 CI/CD
 - [ ] P27 Backup e go-live
+
+## P01 Esqueleto (concluído em 2026-11-20)
+
+- Pilha de desenvolvimento sobe com docker compose up -d --build --wait: api, worker, beat, postgres, redis, minio (com bucket de evidências em Object Lock), clamav e mailpit, todos saudáveis.
+- /saude responde 200 com banco, Redis e MinIO ok; worker responde ao ping do Celery; ClamAV responde PONG.
+- Object Lock conferido: o bucket evidencias aceita retenção e uma versão em COMPLIANCE recusa exclusão.
+- Postgres sem porta publicada; as portas expostas ficam em 127.0.0.1.
+- make check verde: ruff, mypy, pytest (11 testes, com Postgres real via testcontainers), bandit, pip-audit, gitleaks e verificação de caracteres.
+- Pendência de ambiente: o make não está instalado no Windows nem no Ubuntu do WSL; os alvos foram executados um a um.

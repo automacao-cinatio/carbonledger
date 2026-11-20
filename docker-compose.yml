@@ -14,7 +14,7 @@ x-app: &app
 services:
   api:
     <<: *app
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -81,8 +81,10 @@ services:
       timeout: 3s
       retries: 10
 
+  # As imagens oficiais do MinIO sairam do Docker Hub e do quay.io; a Chainguard
+  # compila o MinIO a partir do codigo-fonte. A variante -dev traz shell, mc e wget.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest-dev
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -93,14 +95,14 @@ services:
     volumes:
       - minio_dados:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   # Cria o bucket de evidencias com Object Lock e termina.
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio-client:latest-dev
     depends_on:
       minio:
         condition: service_healthy
