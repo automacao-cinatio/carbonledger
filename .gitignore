@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Dados locais
+data/local/
+*.dump
+*.sql.gz
+
+# Certificados e chaves
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# Editor e sistema
+.idea/
+.DS_Store
+Thumbs.db
