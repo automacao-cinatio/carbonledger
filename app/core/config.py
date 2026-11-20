@@ -33,4 +33,4 @@ class Configuracao(BaseSettings):
 
 @lru_cache
 def obter_configuracao() -> Configuracao:
-    return Configuracao()  # type: ignore[call-arg]
+    return Configuracao()

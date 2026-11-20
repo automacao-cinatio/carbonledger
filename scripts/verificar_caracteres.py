@@ -12,7 +12,7 @@ PROIBIDOS = {"\u2013": "U+2013", "\u2014": "U+2014"}
 
 def listar_arquivos(raiz: Path) -> list[Path]:
     try:
-        saida = subprocess.run(  # noqa: S603
+        saida = subprocess.run(
             ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],  # noqa: S607
             cwd=raiz,
             capture_output=True,
@@ -21,9 +21,7 @@ def listar_arquivos(raiz: Path) -> list[Path]:
         return [raiz / nome for nome in saida.decode("utf-8").split("\0") if nome]
     except (OSError, subprocess.CalledProcessError):
         ignorados = {".git", ".venv", "node_modules", "__pycache__"}
-        return [
-            p for p in raiz.rglob("*") if p.is_file() and not ignorados.intersection(p.parts)
-        ]
+        return [p for p in raiz.rglob("*") if p.is_file() and not ignorados.intersection(p.parts)]
 
 
 def encontrar_proibidos(arquivos: list[Path]) -> list[str]:

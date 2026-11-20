@@ -1,5 +1,5 @@
 import pytest
-from testcontainers.postgres import PostgresContainer
+from testcontainers.community.postgres import PostgresContainer
 
 from app.modules.saude.servico import checar_banco
 
