@@ -1,0 +1,55 @@
+{#
+  Tabelas numericas e graficos. Numeros em pt-BR, alinhados a direita, unidade no cabecalho.
+  Grafico so com ECharts e sempre com a tabela equivalente (leitor de tela e impressao).
+  Componente novo entra primeiro na pagina /ui.
+#}
+
+{#
+  colunas: lista de dicts com chave, titulo e, para numeros, unidade e casas.
+  linhas: lista de dicts com as mesmas chaves.
+#}
+{% macro tabela(legenda, colunas, linhas, classe_legenda="") -%}
+<div class="table-responsive">
+  <table class="table table-vcenter card-table">
+    <caption class="{{ classe_legenda }}">{{ legenda }}</caption>
+    <thead>
+      <tr>
+        {% for coluna in colunas %}
+        <th scope="col"{{ ' class="cl-numero"' | safe if coluna.unidade is defined else "" }}>
+          {{ coluna.titulo }}{% if coluna.unidade is defined %} <span class="cl-unidade">({{ coluna.unidade }})</span>{% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for linha in linhas %}
+      <tr>
+        {% for coluna in colunas %}
+        {% if coluna.unidade is defined %}
+        <td class="cl-numero">{{ linha[coluna.chave] | numero(coluna.casas if coluna.casas is defined else 2) }}</td>
+        {% else %}
+        <td>{{ linha[coluna.chave] }}</td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}
+
+{#
+  opcoes: dict com as opcoes do ECharts (sem funcoes: a CSP nao deixa eval).
+  O app.js le o JSON e desenha; a tabela fica num <details> logo abaixo.
+#}
+{% macro grafico(id, titulo, opcoes, colunas, linhas) -%}
+<figure class="mb-0">
+  <figcaption class="h3">{{ titulo }}</figcaption>
+  <div id="{{ id }}" class="cl-grafico" data-grafico="dados-{{ id }}" role="img" aria-label="{{ titulo }}. Os valores estão na tabela abaixo."></div>
+  <script type="application/json" id="dados-{{ id }}">{{ opcoes | tojson }}</script>
+  <details class="mt-2">
+    <summary>Ver os dados em tabela</summary>
+    {{ tabela(titulo, colunas, linhas, "cl-tabela-do-grafico") }}
+  </details>
+</figure>
+{%- endmacro %}

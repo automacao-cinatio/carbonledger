@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% block titulo %}Entrar{% endblock %}
+{% block conteudo %}
+<div class="container-tight py-4">
+  {{ cabecalho_pagina("Entrar no CarbonLedger") }}
+  <div class="card card-md">
+    <div class="card-body">
+      <p>Entre com a conta corporativa que recebeu o convite. Não há senha para criar.</p>
+      {% if provedores %}
+      <div class="d-grid gap-2">
+        {% for provedor in provedores %}
+        <a href="/entrar/{{ provedor.nome }}" class="btn btn-outline-primary">
+          <i class="ti ti-{{ provedor.icone }} me-2" aria-hidden="true"></i>Entrar com {{ provedor.rotulo }}
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-danger mb-0">Nenhuma forma de entrada está configurada. Avise o suporte da CINATIO.</p>
+      {% endif %}
+    </div>
+  </div>
+  {{ proximo_passo("Ainda não tem acesso? Peça um convite ao administrador da sua empresa.") }}
+</div>
+{% endblock %}

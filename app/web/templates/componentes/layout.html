@@ -1,0 +1,86 @@
+{#
+  Estrutura das telas: cabecalho, proximo passo, estado do inventario, progresso, seletor de
+  empresa e icones. Componente novo entra primeiro na pagina /ui.
+#}
+
+{% macro icone(nome, rotulo=None) -%}
+<i class="ti ti-{{ nome }}" aria-hidden="true"></i>{% if rotulo %}<span class="visually-hidden">{{ rotulo }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro cabecalho_pagina(titulo, pretitulo=None) -%}
+<div class="page-header d-print-none mb-3">
+  <div class="row align-items-center">
+    <div class="col">
+      {% if pretitulo %}<div class="page-pretitle">{{ pretitulo }}</div>{% endif %}
+      <h1 class="page-title">{{ titulo }}</h1>
+    </div>
+    {% if caller is defined %}
+    <div class="col-auto ms-auto d-print-none">{{ caller() }}</div>
+    {% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+{# Toda tela termina com o proximo passo. Sem url, o passo ainda nao tem tela. #}
+{% macro proximo_passo(texto, url=None, rotulo="Continuar") -%}
+<section class="card cl-proximo-passo mt-4" aria-labelledby="titulo-proximo-passo">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <div class="flex-fill">
+      <h2 id="titulo-proximo-passo" class="h3 mb-1">Próximo passo</h2>
+      <p class="mb-0">{{ texto }}</p>
+    </div>
+    {% if url %}
+    <a href="{{ url }}" class="btn btn-primary">{{ rotulo }}<i class="ti ti-arrow-right ms-1" aria-hidden="true"></i></a>
+    {% endif %}
+  </div>
+</section>
+{%- endmacro %}
+
+{% macro barra_progresso(rotulo, feitos, total) -%}
+{% set percentual = ((feitos * 100) // total) if total else 0 %}
+<div class="cl-progresso">
+  <div class="d-flex justify-content-between small">
+    <span id="rotulo-{{ rotulo | lower | replace(' ', '-') }}">{{ rotulo }}</span>
+    <span class="cl-numero">{{ feitos }} de {{ total }} ({{ percentual }}%)</span>
+  </div>
+  <progress class="progress progress-sm" value="{{ feitos }}" max="{{ total if total else 1 }}"
+            aria-labelledby="rotulo-{{ rotulo | lower | replace(' ', '-') }}">{{ percentual }}%</progress>
+</div>
+{%- endmacro %}
+
+{#
+  inventario: None ou objeto com ano, estado, coleta (feitos, total), evidencia (feitos, total).
+  Sempre visivel na faixa abaixo do topo.
+#}
+{% macro estado_inventario(inventario) -%}
+{% if inventario is none %}
+<div class="col-auto">
+  <span class="badge bg-secondary-lt">Sem inventário aberto</span>
+</div>
+<div class="col small text-secondary">O estado do inventário e o progresso da coleta aparecem aqui.</div>
+{% else %}
+<div class="col-auto">
+  <span class="fw-bold">Inventário {{ inventario.ano }}</span>
+  <span class="badge bg-primary-lt ms-1">{{ inventario.estado }}</span>
+</div>
+<div class="col-12 col-md-4">{{ barra_progresso("Coleta", inventario.coleta[0], inventario.coleta[1]) }}</div>
+<div class="col-12 col-md-4">{{ barra_progresso("Evidências", inventario.evidencia[0], inventario.evidencia[1]) }}</div>
+{% endif %}
+{%- endmacro %}
+
+{# Seletor de empresa: sempre visivel no topo quando ha cliente escolhido. #}
+{% macro seletor_empresa(empresas, atual=None) -%}
+{% if empresas %}
+<form class="d-flex align-items-center" hx-post="/sessao/empresa" hx-trigger="change" hx-swap="none" hx-indicator="#ind-seletor-empresa">
+  <label for="seletor-empresa" class="cl-topo-texto me-2 small">Empresa</label>
+  <select id="seletor-empresa" name="empresa_id" class="form-select form-select-sm">
+    {% for empresa in empresas %}
+    <option value="{{ empresa.id }}"{{ ' selected' if empresa.id == atual else "" }}>{{ empresa.nome }}</option>
+    {% endfor %}
+  </select>
+  <span id="ind-seletor-empresa" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"><span class="visually-hidden">Carregando</span></span>
+</form>
+{% else %}
+<span class="cl-topo-texto small">Nenhuma empresa cadastrada</span>
+{% endif %}
+{%- endmacro %}

@@ -1,0 +1,81 @@
+{
+  "pacotes": {
+    "tabler-1.7.5": {
+      "npm": "@tabler/core@1.7.5",
+      "licenca": "MIT"
+    },
+    "tabler-icons-3.52.0": {
+      "npm": "@tabler/icons-webfont@3.52.0",
+      "licenca": "MIT"
+    },
+    "htmx-2.0.11": {
+      "npm": "htmx.org@2.0.11",
+      "licenca": "0BSD"
+    },
+    "echarts-6.1.0": {
+      "npm": "echarts@6.1.0",
+      "licenca": "Apache-2.0"
+    }
+  },
+  "arquivos": {
+    "echarts-6.1.0/echarts.min.js": "b66b25aeb4df84e33199dc21694014d336d222cbd9deb0e5a7c14bd6aa0d0fd0",
+    "echarts-6.1.0/LICENSE": "634293835b43a6dd2094fa39182a3d9a6b9ca43b7fdb9ac354e8037af2a3093a",
+    "echarts-6.1.0/NOTICE": "d491d358344f842685c1b1585970999db65fe30ecf7ef3867af8814f4016c016",
+    "htmx-2.0.11/htmx.min.js": "d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717",
+    "htmx-2.0.11/LICENSE": "d3d2456f76414f2456104660ebd65aff1c04cd7966b942bdabd63f3cdb316a38",
+    "tabler-1.7.5/css/tabler.min.css": "d1708c69e6b07a5a3138b8549bf64e00cd9d18c130b9b2ba2d9e294956f7c564",
+    "tabler-1.7.5/js/tabler.min.js": "f63744ad8e12180089844d0e550c5b3abd66eda0e52dead2eb31eef017148e93",
+    "tabler-1.7.5/LICENSE": "55df2154eb158c938bc82dc9a973fc89b344877c00d6d6b8a864e6e1effe2baf",
+    "tabler-icons-3.52.0/fonts/tabler-icons.animals.woff2": "197b9dfdf4c01a5fea1372da349bee3537cf69f7677c2d16acab0ebbe857528a",
+    "tabler-icons-3.52.0/fonts/tabler-icons.arrows-1.woff2": "635e87a7788ce1fdac2f4bd311bb40a4601160db1e6a0bd207f04e41df90fe3b",
+    "tabler-icons-3.52.0/fonts/tabler-icons.arrows-2.woff2": "35756d0c1177ffec7acd173908f519efb5ec143c40148fa7e2be0903baff3a3a",
+    "tabler-icons-3.52.0/fonts/tabler-icons.badges.woff2": "300579269ec892eaecca61e1f5677989b68854187d6c80db5828a44e3878b2f0",
+    "tabler-icons-3.52.0/fonts/tabler-icons.brand-1.woff2": "7ec9e64776c71337da50651b3a58a9dfaa9babce80acd35b9387e9446f16ea16",
+    "tabler-icons-3.52.0/fonts/tabler-icons.brand-2.woff2": "515868694c3b7d22efb30587e8aff93b7cf85477e1367ec1051be9fbf5b243fc",
+    "tabler-icons-3.52.0/fonts/tabler-icons.buildings.woff2": "5682c4ee7414bd3d09abb164b776360bc3402557fe208a03e7f920a4d5e24e43",
+    "tabler-icons-3.52.0/fonts/tabler-icons.charts.woff2": "4b246fd37f2caa45d50e9b88b7b41ceda9e65d9a868b59e401ffc679fa7bef7f",
+    "tabler-icons-3.52.0/fonts/tabler-icons.communication.woff2": "34797b80fecf678ff5937ebaf48ced2e70f73572266d71a69fd0063bda201cbe",
+    "tabler-icons-3.52.0/fonts/tabler-icons.computers.woff2": "d2f2f695d2d0226a4fec1ac1d938994e2b30eec01937ce4f970c5744eec3a31e",
+    "tabler-icons-3.52.0/fonts/tabler-icons.core.woff2": "0d6117c3b68313383a2404282526446bec147e064697db26ff1a356744cae8c4",
+    "tabler-icons-3.52.0/fonts/tabler-icons.currencies.woff2": "c09bcfdb292ee2705ab5eebd800db32fe8c29df6f5298a23c063d3fc8607780f",
+    "tabler-icons-3.52.0/fonts/tabler-icons.database.woff2": "5b65dd8b857afee5dd80b12386cb29afbab802c97674e5cb3405689cb21b6203",
+    "tabler-icons-3.52.0/fonts/tabler-icons.design-1.woff2": "7fcfa7214e7930ac6e49976d8db5147a40af3555fb5923fc7b8a4bf9995594a2",
+    "tabler-icons-3.52.0/fonts/tabler-icons.design-2.woff2": "1dbea87accfc707b56b88095d8128859b24e4b773b9323fd79991e14e73a9f27",
+    "tabler-icons-3.52.0/fonts/tabler-icons.development.woff2": "9594e36bfbf9b99abb1188a2db7546123d73e1f454e0f96459857e57cf36f7c3",
+    "tabler-icons-3.52.0/fonts/tabler-icons.devices-1.woff2": "cc859573f80eab00d449a41fd51ffa054be54b79e978cb3f62acd22901e2e6ca",
+    "tabler-icons-3.52.0/fonts/tabler-icons.devices-2.woff2": "183009f3c466720f65a454b72d4a22b6e2b75c60e58e98dbd80e04f6204efa0a",
+    "tabler-icons-3.52.0/fonts/tabler-icons.document.woff2": "f79b00601bf98d3bfe0a84f273d82a9d60fdfc434f4763123ef13c04dfe0f30c",
+    "tabler-icons-3.52.0/fonts/tabler-icons.e-commerce.woff2": "56b7cd24c376dc8113f44a113f1ed0871d6b3d63219f0c62de7eb0dd051df3b5",
+    "tabler-icons-3.52.0/fonts/tabler-icons.electrical.woff2": "bf39a0cff0d5d556186ece4c761b41f337d1ef27e87989494323374776e6bdd2",
+    "tabler-icons-3.52.0/fonts/tabler-icons.extensions.woff2": "43b5f799b2d887bf29846d814d844341e2e4ed61f7b422baa00c88ec7a29e422",
+    "tabler-icons-3.52.0/fonts/tabler-icons.food.woff2": "3e571483842c263b9eadb5687530e19f47efce382f6071c2dbedf31a343972dd",
+    "tabler-icons-3.52.0/fonts/tabler-icons.games.woff2": "898045f213735f4fd33c4b5838437bf1ec7fa795d8ff505de19ea85603d2d7e3",
+    "tabler-icons-3.52.0/fonts/tabler-icons.gender.woff2": "77be56122f6382c6c6e6cedda53f52f6466fa85e2f8a61f99258dd93a2680cea",
+    "tabler-icons-3.52.0/fonts/tabler-icons.gestures.woff2": "32f2e7f40824a853046c54c0ccf2490a7df5c639b4ccde635459a5354feed282",
+    "tabler-icons-3.52.0/fonts/tabler-icons.health.woff2": "fabb52a23b6dfaa2a18e07d53168e7d2035ed931331a2a27b93e29c592ab9c9f",
+    "tabler-icons-3.52.0/fonts/tabler-icons.laundry.woff2": "9f82b7cffa50d7cd180aa8542d7d650e315ded450ecbd5a7ab36fab07941964d",
+    "tabler-icons-3.52.0/fonts/tabler-icons.letters.woff2": "23680091027596f7293d050060780b5593f24fc15ea1ce455ba771b79858dfcd",
+    "tabler-icons-3.52.0/fonts/tabler-icons.logic.woff2": "282c1a4af72b9f711b75b46328d52bf542330de95cd55c0fa22b8e586474f19d",
+    "tabler-icons-3.52.0/fonts/tabler-icons.map-1.woff2": "ca6244790478e907b75021ce0bc7a45aa22f9b355c0d886ba7ecbc5afb3092ee",
+    "tabler-icons-3.52.0/fonts/tabler-icons.map-2.woff2": "500f391104e1480e4b7b221ca10c8ef5dc4be8db52f3fa4daf2c2c01bcd739f6",
+    "tabler-icons-3.52.0/fonts/tabler-icons.math.woff2": "0b97963e7a7ce8ea86283007848c1042252e208dcde6600e89a730162ff6ebff",
+    "tabler-icons-3.52.0/fonts/tabler-icons.media.woff2": "c2c3b21e180599a38cbdcb413e1f6cbd5b5e79686f069b8cfbba4b52f2df3982",
+    "tabler-icons-3.52.0/fonts/tabler-icons.mood.woff2": "0b4e8faec137bae733bad0f491747121a8af0fd8208cc597dd4dc687c4a9823a",
+    "tabler-icons-3.52.0/fonts/tabler-icons.nature.woff2": "e5243b6ba2e68c60feab0824c6dfbe707dd490c73dd1517ea1e824f012e2d450",
+    "tabler-icons-3.52.0/fonts/tabler-icons.numbers.woff2": "a3fa5f57681746c2e01f4db00f5d59d83cf3216721c423347a523dcbbdfff3a2",
+    "tabler-icons-3.52.0/fonts/tabler-icons.photography.woff2": "90fc14016c77c6b3fa4300502d4e9c71bb560fc9f5cf485bfddc595daa1e313e",
+    "tabler-icons-3.52.0/fonts/tabler-icons.shapes.woff2": "fd4453dcb9155106105dfa56b8c8e6d9772dd257f7f40316ebc77616b28ab5ac",
+    "tabler-icons-3.52.0/fonts/tabler-icons.sport.woff2": "a6a26edc3f8ab92c02af13461140b84ee9cf8029018a8ad6783e34196450d64f",
+    "tabler-icons-3.52.0/fonts/tabler-icons.symbols.woff2": "f1a2eea29ee551a289cd34ec21bc62e9be798a82fb037a2162ca3171f293e80d",
+    "tabler-icons-3.52.0/fonts/tabler-icons.system-1.woff2": "b6a046e66f14c892dd9e4ecd9eefb2daf93af220d42728db6eac086d82a19425",
+    "tabler-icons-3.52.0/fonts/tabler-icons.system-2.woff2": "2bb8ec6a44efa95eb58d1dc31b7d452d589c4b219129f2edfef9ce30949ffb7b",
+    "tabler-icons-3.52.0/fonts/tabler-icons.system-3.woff2": "887e3d33e7ad1d4fb74a27c92e9d010318ad2e7f556853fe6899014374fca5e4",
+    "tabler-icons-3.52.0/fonts/tabler-icons.text.woff2": "f60023107628b9300fa81a5cd3581ba78b5df3a20b98627b752828e28db21094",
+    "tabler-icons-3.52.0/fonts/tabler-icons.vehicles.woff2": "639343511c59b571c3a11b5bf9df078c624600b2b4fea8273caa804621cefc94",
+    "tabler-icons-3.52.0/fonts/tabler-icons.version-control.woff2": "f14067a36a5b4a54273b08812a0832cd4239da2807c876747924690291805533",
+    "tabler-icons-3.52.0/fonts/tabler-icons.weather.woff2": "31a06f62e51fdf8566d7d482c412cc4fca8393e1d6a914a6c3cea1c838f6e13c",
+    "tabler-icons-3.52.0/fonts/tabler-icons.zodiac.woff2": "fc78b52b9e2408ede55ef4042a58175d5f3ba05f44c32c0cbdb3858ea464dcc7",
+    "tabler-icons-3.52.0/LICENSE": "b740a1d46122672da62833e97f7e7c8a13fa85cbc7445b584b297cc00dde93db",
+    "tabler-icons-3.52.0/tabler-icons.min.css": "a0fd1e808c70840f73badd85423b9b609b761439ef7b7f0f85765c2a316ba3ff"
+  }
+}

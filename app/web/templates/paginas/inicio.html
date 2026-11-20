@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/feedback.html" import glossario %}
+{% block titulo %}Início{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Olá, " ~ portal.usuario_nome, pretitulo=portal.tenant_nome) }}
+<div class="card">
+  <div class="card-body">
+    <p>
+      Aqui você monta o {{ glossario("inventário de emissões", "Levantamento das emissões de gases de efeito estufa de uma empresa em um ano, seguindo o Programa Brasileiro GHG Protocol.") }}
+      da sua empresa: organiza as unidades, coleta os dados, confere o cálculo, fecha o inventário e entrega para verificação.
+    </p>
+    {% if not portal.empresas %}
+    <p class="mb-0">Ainda não há empresas cadastradas neste cliente.</p>
+    {% endif %}
+  </div>
+</div>
+{% if portal.empresas %}
+{{ proximo_passo("Revise as empresas e unidades antes de começar a coleta.") }}
+{% else %}
+{{ proximo_passo("Cadastre a primeira empresa e as unidades dela. O cadastro chega na próxima etapa do portal.") }}
+{% endif %}
+{% endblock %}

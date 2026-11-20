@@ -27,3 +27,12 @@ def test_ignora_binario(tmp_path: Path) -> None:
     binario = tmp_path / "x.bin"
     binario.write_bytes(b"\xff\xfe\x00\x80")
     assert verificador.encontrar_proibidos([binario]) == []
+
+
+def test_so_as_pastas_vendor_ficam_de_fora(tmp_path: Path) -> None:
+    raiz = tmp_path
+    assert verificador.de_terceiros(raiz / "app/web/static/vendor/x-1.0/a.js", raiz)
+    assert verificador.de_terceiros(raiz / "tests/e2e/vendor/axe/axe.min.js", raiz)
+    assert not verificador.de_terceiros(raiz / "app/web/static/js/app.js", raiz)
+    assert not verificador.de_terceiros(raiz / "app/web/vendor/a.js", raiz)
+    assert not verificador.de_terceiros(raiz / "docs/vendor/nota.md", raiz)

@@ -1,0 +1,66 @@
+{#
+  Avisos, confirmacao de acao irreversivel e dica de glossario.
+  Componente novo entra primeiro na pagina /ui.
+#}
+
+{% macro alerta(tipo, titulo, mensagem=None) -%}
+{% set icones = {"success": "circle-check", "info": "info-circle", "warning": "alert-triangle", "danger": "alert-octagon"} %}
+<div class="alert alert-{{ tipo }}" role="{{ 'alert' if tipo == 'danger' else 'status' }}">
+  <div class="d-flex">
+    <div><i class="ti ti-{{ icones[tipo] }} alert-icon" aria-hidden="true"></i></div>
+    <div>
+      <h2 class="alert-title h4">{{ titulo }}</h2>
+      {% if mensagem %}<div class="text-secondary">{{ mensagem }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{#
+  Acao irreversivel: o modal mostra o efeito antes de confirmar. Com texto_exigido, o botao so
+  libera quando a pessoa digita exatamente esse texto (ex.: o nome da empresa ao fechar o
+  inventario).
+#}
+{% macro confirmacao_irreversivel(id, rotulo_botao, titulo, efeitos, acao_url, rotulo_confirmar, texto_exigido=None) -%}
+<button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#{{ id }}">
+  <i class="ti ti-alert-triangle me-1" aria-hidden="true"></i>{{ rotulo_botao }}
+</button>
+<div class="modal fade" id="{{ id }}" tabindex="-1" aria-labelledby="titulo-{{ id }}" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-status bg-danger"></div>
+      <div class="modal-header">
+        <h2 class="modal-title h3" id="titulo-{{ id }}">{{ titulo }}</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar sem fazer nada"></button>
+      </div>
+      <div class="modal-body">
+        <p class="fw-bold">Esta ação não pode ser desfeita. O que vai acontecer:</p>
+        <ul>
+          {% for efeito in efeitos %}<li>{{ efeito }}</li>{% endfor %}
+        </ul>
+        {% if texto_exigido %}
+        <label class="form-label" for="confirmar-{{ id }}">Para confirmar, digite <strong>{{ texto_exigido }}</strong></label>
+        <input id="confirmar-{{ id }}" type="text" class="form-control" autocomplete="off"
+               data-confirmar-texto="{{ texto_exigido }}" data-confirmar-botao="botao-{{ id }}">
+        {% endif %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" id="botao-{{ id }}" class="btn btn-danger"
+                hx-post="{{ acao_url }}" hx-swap="none" hx-indicator="#ind-{{ id }}"
+                {{- ' disabled' if texto_exigido else "" }}>
+          {{ rotulo_confirmar }}
+          <span id="ind-{{ id }}" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"><span class="visually-hidden">Carregando</span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Termo tecnico com dica: a definicao aparece ao focar ou clicar no botao de ajuda. #}
+{% macro glossario(termo, definicao) -%}
+<span class="cl-termo">{{ termo }}</span><button type="button" class="cl-dica" data-bs-toggle="popover"
+  data-bs-trigger="focus" data-bs-placement="top" data-bs-content="{{ definicao }}"
+  aria-label="O que é {{ termo }}?"><i class="ti ti-help-circle" aria-hidden="true"></i></button>
+{%- endmacro %}

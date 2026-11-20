@@ -4,9 +4,10 @@ from contextlib import asynccontextmanager
 import httpx
 import redis.asyncio as redis_async
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.api import auditoria, autenticacao, organizacao, saude
+from app.api import auditoria, autenticacao, organizacao, paginas, saude, ui
 from app.core.config import obter_configuracao
 from app.core.db import criar_motor
 from app.core.erros import registrar_tratadores
@@ -16,6 +17,8 @@ from app.core.security.acesso import MiddlewareSessao
 from app.core.security.oidc import ClienteOidc, provedores_habilitados
 from app.core.security.sessao import ArmazemSessoes
 from app.core.tenancy import SessaoTenant
+from app.web.cabecalhos import MiddlewareCabecalhos
+from app.web.renderizacao import PASTA_ESTATICOS
 
 TEMPO_LIMITE_OIDC_S = 10.0
 
@@ -46,14 +49,20 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
 
 
 def criar_app() -> FastAPI:
-    configurar_logs(obter_configuracao().log_nivel)
+    configuracao = obter_configuracao()
+    configurar_logs(configuracao.log_nivel)
     app = FastAPI(title="CarbonLedger", docs_url=None, redoc_url=None, lifespan=ciclo_de_vida)
-    # O ultimo adicionado e o mais externo: o request_id envolve a leitura da sessao.
+    # O ultimo adicionado e o mais externo: os cabecalhos de seguranca valem ate para erro,
+    # e o request_id envolve a leitura da sessao.
     app.add_middleware(MiddlewareSessao)
     app.add_middleware(MiddlewareRequestId)
+    app.add_middleware(MiddlewareCabecalhos, hsts=configuracao.em_producao)
     registrar_tratadores(app)
+    app.mount("/static", StaticFiles(directory=PASTA_ESTATICOS), name="static")
     app.include_router(saude.router)
     app.include_router(autenticacao.router)
+    app.include_router(paginas.router)
+    app.include_router(ui.router)
     app.include_router(organizacao.router)
     app.include_router(auditoria.router)
     return app

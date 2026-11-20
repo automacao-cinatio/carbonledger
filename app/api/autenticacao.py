@@ -34,8 +34,7 @@ from app.core.tenancy import ContextoTenant, Escopo, sessao_de_tenant
 router = APIRouter(tags=["autenticacao"])
 log = structlog.get_logger()
 
-# Ate o portal existir (P05A), o login termina na descricao da sessao.
-DESTINO_APOS_LOGIN = "/sessao"
+DESTINO_APOS_LOGIN = "/"
 
 # Erros que o banco usa para recusar convite: invalido (CL001) e empresa de outro tenant.
 SQLSTATES_DE_CONVITE_RECUSADO = frozenset({"CL001", "23503"})
@@ -178,7 +177,7 @@ async def _usuario_do_login(
     return UUID(str(usuario_id)), unico
 
 
-async def _auditar_sessao(
+async def auditar_sessao(
     request: Request, usuario_id: UUID, tenant_id: UUID, acao: str, dados: dict[str, str]
 ) -> None:
     """Entrada e saida ficam na trilha do tenant, com o contexto do proprio usuario."""
@@ -236,7 +235,7 @@ async def retorno(
     token, _ = await armazem.criar(usuario_id, tenant_id)
     log.info("login", provedor=p.nome, tenant_id=None if tenant_id is None else str(tenant_id))
     if tenant_id is not None:
-        await _auditar_sessao(request, usuario_id, tenant_id, "sessao.entrou", {"provedor": p.nome})
+        await auditar_sessao(request, usuario_id, tenant_id, "sessao.entrou", {"provedor": p.nome})
 
     resposta = RedirectResponse(DESTINO_APOS_LOGIN, status_code=status.HTTP_303_SEE_OTHER)
     _definir_cookie(
@@ -294,7 +293,7 @@ async def escolher_tenant(request: Request, sessao: SessaoAtual, escolha: Escolh
         raise AcessoNegado
     armazem: ArmazemSessoes = request.app.state.sessoes
     await armazem.trocar_tenant(sessao, escolha.tenant_id)
-    await _auditar_sessao(
+    await auditar_sessao(
         request,
         sessao.usuario_id,
         escolha.tenant_id,
@@ -308,8 +307,10 @@ async def sair(request: Request, sessao: SessaoAtual, configuracao: Config) -> R
     armazem: ArmazemSessoes = request.app.state.sessoes
     await armazem.encerrar(sessao)
     if sessao.tenant_id is not None:
-        await _auditar_sessao(request, sessao.usuario_id, sessao.tenant_id, "sessao.saiu", {})
+        await auditar_sessao(request, sessao.usuario_id, sessao.tenant_id, "sessao.saiu", {})
     resposta = Response(status_code=status.HTTP_204_NO_CONTENT)
+    if "hx-request" in request.headers:
+        resposta.headers["HX-Redirect"] = "/entrar"
     cookie_sessao, _ = nomes_dos_cookies(configuracao.cookie_seguro)
     resposta.delete_cookie(cookie_sessao, path="/", secure=configuracao.cookie_seguro)
     return resposta

@@ -1,0 +1,209 @@
+/*
+ * Tema unico do CarbonLedger. Nenhuma cor ou fonte fora deste arquivo.
+ * Paleta azul-marinho e indigo; fonte Arial ou Liberation Sans (sem download).
+ * Contraste conferido para WCAG 2.2 AA: texto >= 4,5:1; foco e bordas de controle >= 3:1.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Paleta */
+  --cl-marinho-950: #0b1426;
+  --cl-marinho-900: #13213f; /* branco sobre ele: 15,9:1 */
+  --cl-marinho-700: #233b6e; /* branco sobre ele: 10,9:1 */
+  --cl-marinho-100: #e6ebf5;
+  --cl-indigo-800: #312e81;
+  --cl-indigo-700: #3730a3; /* branco sobre ele e ele sobre branco: 9,9:1 */
+  --cl-indigo-600: #4338ca; /* sobre branco: 7,9:1 */
+  --cl-indigo-50: #eef0ff;
+  --cl-ambar-300: #fcd34d; /* foco sobre o marinho: 11,0:1 */
+  --cl-branco: #ffffff;
+  --cl-fundo: #f5f7fb;
+  --cl-texto: #1f2937; /* sobre branco: 14,7:1 */
+  --cl-texto-suave: #4b5563; /* sobre branco: 7,5:1; sobre o fundo: 7,0:1 */
+  --cl-borda: #8592ab; /* controle sobre branco: 3,1:1 */
+  --cl-borda-suave: #d5dbe7;
+  --cl-sucesso: #1d6b3f; /* sobre branco: 6,5:1 */
+  --cl-alerta: #8a5300; /* sobre branco: 6,3:1 */
+  --cl-perigo: #b42318; /* sobre branco: 6,5:1 */
+  --cl-info: #1e4fa8; /* sobre branco: 7,6:1 */
+
+  --cl-fonte: Arial, "Liberation Sans", Helvetica, sans-serif;
+
+  /* Tabler: cores e fonte pelas variaveis previstas, sem reescrever componentes */
+  --tblr-font-sans-serif: var(--cl-fonte);
+  --tblr-body-font-family: var(--cl-fonte);
+  --tblr-body-color: var(--cl-texto);
+  --tblr-body-bg: var(--cl-fundo);
+  --tblr-secondary-color: var(--cl-texto-suave);
+  /* O cinza 500 do Tabler nao alcanca 4,5:1 sobre fundos tingidos (axe-core apontou). */
+  --tblr-secondary: var(--cl-texto-suave);
+  --tblr-secondary-rgb: 75, 85, 99;
+  --tblr-border-color: var(--cl-borda-suave);
+  --tblr-primary: var(--cl-indigo-700);
+  --tblr-primary-rgb: 55, 48, 163;
+  --tblr-primary-fg: var(--cl-branco);
+  --tblr-primary-darken: var(--cl-indigo-800);
+  --tblr-link-color: var(--cl-indigo-700);
+  --tblr-link-color-rgb: 55, 48, 163;
+  --tblr-link-hover-color: var(--cl-indigo-800);
+  --tblr-success: var(--cl-sucesso);
+  --tblr-success-rgb: 29, 107, 63;
+  --tblr-warning: var(--cl-alerta);
+  --tblr-warning-rgb: 138, 83, 0;
+  --tblr-danger: var(--cl-perigo);
+  --tblr-danger-rgb: 180, 35, 24;
+  --tblr-info: var(--cl-info);
+  --tblr-info-rgb: 30, 79, 168;
+  --tblr-focus-ring-color: var(--cl-indigo-600);
+}
+
+body {
+  font-family: var(--cl-fonte);
+  color: var(--cl-texto);
+  background-color: var(--cl-fundo);
+}
+
+/* Foco sempre visivel (WCAG 2.4.7 e 2.4.13) */
+:focus-visible {
+  outline: 3px solid var(--cl-indigo-600);
+  outline-offset: 2px;
+}
+
+.cl-topo :focus-visible {
+  outline-color: var(--cl-ambar-300);
+}
+
+/* Pular para o conteudo: invisivel ate receber foco */
+.cl-pular {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+}
+
+.cl-pular:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 2000;
+  padding: 0.5rem 1rem;
+  background: var(--cl-branco);
+  color: var(--cl-indigo-700);
+}
+
+/* Topo em azul-marinho */
+.cl-topo {
+  background-color: var(--cl-marinho-900);
+  color: var(--cl-branco);
+}
+
+.cl-topo .navbar-brand,
+.cl-topo .nav-link,
+.cl-topo .cl-topo-texto {
+  color: var(--cl-branco);
+}
+
+.cl-topo .nav-link:hover,
+.cl-topo .nav-link.active {
+  color: var(--cl-branco);
+  background-color: var(--cl-marinho-700);
+}
+
+.cl-topo .form-select {
+  background-color: var(--cl-marinho-700);
+  color: var(--cl-branco);
+  border-color: var(--cl-marinho-100);
+}
+
+.cl-marca {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Faixa de estado do inventario e progresso: sempre visivel abaixo do topo */
+.cl-faixa-estado {
+  background-color: var(--cl-marinho-100);
+  border-bottom: 1px solid var(--cl-borda-suave);
+}
+
+/* Numeros: alinhados a direita, digitos de largura fixa */
+.cl-numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cl-unidade {
+  color: var(--cl-texto-suave);
+  font-weight: 400;
+  /* O cabecalho de tabela do Tabler e em maiusculas: tCO2e nao pode virar TCO2E. */
+  text-transform: none;
+}
+
+/* Campo numerico: a unidade fica ao lado do numero */
+.cl-campo-numero .form-control {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cl-campo-numero .input-group-text {
+  color: var(--cl-texto-suave);
+  background-color: var(--cl-fundo);
+  border-color: var(--cl-borda);
+}
+
+.form-control,
+.form-select {
+  border-color: var(--cl-borda);
+}
+
+/* Dica de glossario: termo sublinhado e botao de ajuda */
+.cl-termo {
+  text-decoration: underline dotted var(--cl-indigo-600);
+  text-underline-offset: 0.2em;
+}
+
+.cl-dica {
+  border: 0;
+  background: none;
+  padding: 0 0.15rem;
+  color: var(--cl-indigo-700);
+  line-height: 1;
+}
+
+/* Proximo passo: fim de toda tela */
+.cl-proximo-passo {
+  border-left: 4px solid var(--cl-indigo-700);
+  background-color: var(--cl-indigo-50);
+}
+
+/* Indicador do htmx (includeIndicatorStyles desligado por causa da CSP) */
+.htmx-indicator {
+  opacity: 0;
+  transition: opacity 150ms ease-in;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+}
+
+/* Graficos do ECharts: altura fixa no CSS, porque a CSP nao deixa estilo inline */
+.cl-grafico {
+  width: 100%;
+  height: 320px;
+}
+
+/* Tabela que substitui o grafico para leitores de tela */
+.cl-tabela-do-grafico caption {
+  caption-side: top;
+  color: var(--cl-texto-suave);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% block titulo %}Escolher cliente{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Escolha o cliente") }}
+{% if portal.acessos %}
+<div class="row row-cards">
+  {% for acesso in portal.acessos %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card">
+      <div class="card-body">
+        <h2 class="card-title h3">{{ acesso.nome }}</h2>
+        <p class="text-secondary">Perfil: {{ acesso.perfil_rotulo }}</p>
+        <button type="button" class="btn btn-primary" hx-post="/clientes/{{ acesso.tenant_id }}" hx-swap="none"
+                hx-indicator="#ind-cliente-{{ loop.index }}">
+          Abrir {{ acesso.nome }}
+          <span id="ind-cliente-{{ loop.index }}" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"><span class="visually-hidden">Carregando</span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{{ proximo_passo("Depois de abrir um cliente, você pode trocar a qualquer momento pelo menu com o seu nome.") }}
+{% else %}
+<p>Você não tem acesso ativo a nenhum cliente.</p>
+{{ proximo_passo("Peça um novo convite ao administrador da sua empresa.") }}
+{% endif %}
+{% endblock %}

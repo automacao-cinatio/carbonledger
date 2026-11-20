@@ -1,11 +1,13 @@
-"""Erros comuns da API. Acesso negado responde 404, nunca 403.
+"""Erros comuns. Acesso negado responde 404, nunca 403.
 
 Um 403 confirma que o recurso existe; o 404 nao entrega isso a quem nao tem acesso.
+Navegador pedindo tela (GET com Accept text/html, fora de /api e fora do HTMX) recebe a
+pagina de erro; o resto recebe JSON.
 """
 
 from fastapi import FastAPI, Request, status
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 CORPO_NAO_ENCONTRADO = {"detalhe": "Não encontrado."}
@@ -24,12 +26,33 @@ class ErroValidacao(Exception):
         self.mensagem = mensagem
 
 
-def _nao_encontrado() -> JSONResponse:
+def quer_pagina(request: Request) -> bool:
+    return (
+        request.method == "GET"
+        and "text/html" in request.headers.get("accept", "")
+        and not request.url.path.startswith("/api")
+        and "hx-request" not in request.headers
+    )
+
+
+async def _nao_encontrado(request: Request) -> Response:
+    if quer_pagina(request):
+        # Import tardio: o modulo web depende da configuracao, nao o contrario.
+        from app.web.portal import montar_portal, renderizar
+
+        return renderizar(
+            request,
+            "paginas/erro.html",
+            await montar_portal(request),
+            status_code=status.HTTP_404_NOT_FOUND,
+            titulo="Página não encontrada",
+            mensagem="O endereço não existe ou você não tem acesso a ele.",
+        )
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=CORPO_NAO_ENCONTRADO)
 
 
-async def _tratar_acesso_negado(_request: Request, _erro: Exception) -> JSONResponse:
-    return _nao_encontrado()
+async def _tratar_acesso_negado(request: Request, _erro: Exception) -> Response:
+    return await _nao_encontrado(request)
 
 
 async def _tratar_validacao(_request: Request, erro: Exception) -> JSONResponse:
@@ -40,15 +63,13 @@ async def _tratar_validacao(_request: Request, erro: Exception) -> JSONResponse:
     )
 
 
-async def _tratar_http(request: Request, erro: Exception) -> JSONResponse:
+async def _tratar_http(request: Request, erro: Exception) -> Response:
     if isinstance(erro, StarletteHTTPException) and erro.status_code in (
         status.HTTP_403_FORBIDDEN,
         status.HTTP_404_NOT_FOUND,
     ):
-        return _nao_encontrado()
-    resposta = await http_exception_handler(request, erro)  # type: ignore[arg-type]
-    assert isinstance(resposta, JSONResponse)  # noqa: S101  # nosec B101
-    return resposta
+        return await _nao_encontrado(request)
+    return await http_exception_handler(request, erro)  # type: ignore[arg-type]
 
 
 def registrar_tratadores(app: FastAPI) -> None:

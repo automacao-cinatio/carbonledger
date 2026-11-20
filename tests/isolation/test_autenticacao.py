@@ -161,13 +161,27 @@ def test_roteiro_completo_de_acesso(
     # 1. A administradora entra pelo convite criado na linha de comando.
     volta = entrar(cliente, f"/convite/{token}/dev", sujeito="dona", email="dona@e2e.example")
     assert volta.status_code == 303
-    assert volta.headers["location"] == "/sessao"
+    assert volta.headers["location"] == "/"
     sessao = cliente.get("/sessao").json()
     assert sessao["tenant_atual"] == str(tenant_id)
     assert sessao["perfil"] == "administrador"
     assert sessao["usuario"]["email"] == "dona@e2e.example"
     csrf = {"X-CSRF-Token": sessao["csrf"]}
     assert cliente.get("/teste-login/empresas").json() == ["E2E Norte", "E2E Sul"]
+
+    # Telas: inicio com seletor de empresa; a escolha exige CSRF e fica na sessao.
+    inicio = cliente.get("/", headers={"accept": "text/html"})
+    assert inicio.status_code == 200
+    assert "Olá, Dona" in inicio.text and "Cliente E2E" in inicio.text
+    assert inicio.text.index("E2E Norte") < inicio.text.index("E2E Sul")
+    assert f'<meta name="csrf-token" content="{sessao["csrf"]}">' in inicio.text
+    assert cliente.post("/sessao/empresa", data={"empresa_id": str(sul)}).status_code == 404
+    escolha = cliente.post("/sessao/empresa", data={"empresa_id": str(sul)}, headers=csrf)
+    assert escolha.status_code == 204
+    assert escolha.headers["hx-refresh"] == "true"
+    assert f'value="{sul}" selected' in cliente.get("/").text
+    alheia = cliente.post("/sessao/empresa", data={"empresa_id": str(uuid4())}, headers=csrf)
+    assert alheia.status_code == 404
 
     # 2. O mesmo convite nao serve de novo, nem para outra pessoa.
     reuso = entrar(cliente, f"/convite/{token}/dev", sujeito="outra", email="dona@e2e.example")
@@ -205,8 +219,11 @@ def test_roteiro_completo_de_acesso(
     assert alheia.status_code == 422
 
     # 4. Sair encerra a sessao.
-    assert cliente.post("/sair", headers=csrf).status_code == 204
+    saida = cliente.post("/sair", headers={**csrf, "HX-Request": "true"})
+    assert saida.status_code == 204
+    assert saida.headers["hx-redirect"] == "/entrar"
     assert cliente.get("/sessao").status_code == 404
+    assert cliente.get("/", follow_redirects=False).headers["location"] == "/entrar"
 
     # 5. A responsavel entra pelo link do e-mail e ve so a empresa dela.
     volta = entrar(cliente, link, sujeito="resp", email="resp@e2e.example")
@@ -316,3 +333,28 @@ def test_retorno_sem_o_cookie_do_inicio_e_recusado(app_cliente: TestClient) -> N
 def test_provedor_desconhecido_e_token_malformado(app_cliente: TestClient) -> None:
     assert app_cliente.get("/entrar/inexistente").status_code == 404
     assert app_cliente.get("/convite/nao-e-token/dev").status_code == 404
+
+
+def test_pessoa_com_dois_clientes_escolhe_na_tela(app_cliente: TestClient) -> None:
+    email = "consultora@dois.example"
+    tenant_1, token_1 = asyncio.run(criar_tenant(obter_configuracao(), "Cliente Um", email))
+    tenant_2, token_2 = asyncio.run(criar_tenant(obter_configuracao(), "Cliente Dois", email))
+    entrar(app_cliente, f"/convite/{token_1}/dev", sujeito="consultora", email=email)
+    entrar(app_cliente, f"/convite/{token_2}/dev", sujeito="consultora", email=email)
+
+    # Login sem convite: dois clientes, entao nenhum abre sozinho.
+    volta = entrar(app_cliente, "/entrar/dev", sujeito="consultora", email=email)
+    assert volta.status_code == 303
+    assert app_cliente.get("/", follow_redirects=False).headers["location"] == "/clientes"
+    tela = app_cliente.get("/clientes")
+    assert "Cliente Um" in tela.text and "Cliente Dois" in tela.text
+
+    csrf = {"X-CSRF-Token": app_cliente.get("/sessao").json()["csrf"]}
+    aberto = app_cliente.post(f"/clientes/{tenant_2}", headers=csrf)
+    assert aberto.status_code == 204
+    assert aberto.headers["hx-redirect"] == "/"
+    assert app_cliente.get("/sessao").json()["tenant_atual"] == str(tenant_2)
+    assert "Cliente Dois" in app_cliente.get("/").text
+    assert "Trocar de cliente" in app_cliente.get("/").text
+    assert app_cliente.post(f"/clientes/{uuid4()}", headers=csrf).status_code == 404
+    assert tenant_1 != tenant_2

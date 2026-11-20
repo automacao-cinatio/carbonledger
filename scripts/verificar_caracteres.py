@@ -1,6 +1,8 @@
 """Falha se algum arquivo versionado tiver os caracteres U+2013 ou U+2014.
 
 Os caracteres sao escritos por escape para que este arquivo nao se auto-reprove.
+Excecao: bibliotecas de terceiros copiadas byte a byte do pacote oficial (pastas vendor),
+cuja integridade o MANIFESTO.json trava. Editar esses arquivos quebraria a conferencia.
 """
 
 import subprocess
@@ -8,6 +10,17 @@ import sys
 from pathlib import Path
 
 PROIBIDOS = {"\u2013": "U+2013", "\u2014": "U+2014"}
+
+# Terceiros, intocaveis: so estas duas pastas, nada alem delas.
+PASTAS_DE_TERCEIROS = (("app", "web", "static", "vendor"), ("tests", "e2e", "vendor"))
+
+
+def de_terceiros(arquivo: Path, raiz: Path) -> bool:
+    try:
+        partes = arquivo.resolve().relative_to(raiz.resolve()).parts
+    except ValueError:
+        return False
+    return any(partes[: len(pasta)] == pasta for pasta in PASTAS_DE_TERCEIROS)
 
 
 def listar_arquivos(raiz: Path) -> list[Path]:
@@ -42,7 +55,8 @@ def encontrar_proibidos(arquivos: list[Path]) -> list[str]:
 
 def main() -> int:
     raiz = Path(__file__).resolve().parent.parent
-    problemas = encontrar_proibidos(listar_arquivos(raiz))
+    arquivos = [a for a in listar_arquivos(raiz) if not de_terceiros(a, raiz)]
+    problemas = encontrar_proibidos(arquivos)
     for problema in problemas:
         print(problema)
     if problemas:

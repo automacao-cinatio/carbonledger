@@ -83,6 +83,7 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "integration: usa Postgres real via testcontainers (exige Docker)",
+    "e2e: navegador de verdade (Playwright com Chromium)",
 ]
 
 [tool.bandit]

@@ -6,7 +6,7 @@
 - [x] P03 Contexto de tenant
 - [x] P04 Identidade
 - [x] P05 Trilha e chaves
-- [ ] P05A Base visual
+- [x] P05A Base visual
 - [ ] P06 Estrutura
 - [ ] P07 Fatores e GWP
 - [ ] P08 Coleta e evidências
@@ -82,3 +82,14 @@
 - app/core/keys.py: cifra envelope AES-256-GCM, contexto com tenant e finalidade como dado associado, rotação por id da chave mestra. Provedor local em dev; em produção a configuração exige KMS, que entra no P25. Ainda sem uso na aplicação: os consumidores chegam com o certificado do PDF (P19) e as integrações (P21 e P22).
 - Runbook docs/runbooks/trilha-de-auditoria.md.
 - Testes: cadeia íntegra e adulterações (conteúdo, remoção, elo trocado, recálculo), tentativa de forjar seq e hash, superusuário barrado pela trigger, adulteração com a trigger desligada detectada, RLS da trilha, 30 inserções concorrentes sem buraco na sequência, roteiro de ponta a ponta conferindo os eventos pela API.
+
+## P05A Base visual (concluído em 2026-11-20)
+
+- Bibliotecas em app/web/static/vendor com versão no nome da pasta: Tabler 1.7.5, Tabler Icons 3.52.0 (webfont), htmx 2.0.11 e ECharts 6.1.0. Baixadas do registro npm com a integridade sha512 conferida; MANIFESTO.json fixa o SHA-256 de cada arquivo (scripts/vendor_manifesto.py). axe-core 4.14.1 só nos testes.
+- Tema único em app/web/static/css/tema.css: azul-marinho e índigo, Arial ou Liberation Sans, cores do Tabler pelas variáveis previstas. Contraste AA conferido por teste a partir do próprio arquivo.
+- Macros em app/web/templates/componentes: campos (texto, número com unidade ao lado, seleção) com validação na hora, botão e formulário HTMX com indicador e rascunho, cabeçalho, próximo passo, estado do inventário, barra de progresso, seletor de empresa, alerta, confirmação irreversível por digitação, glossário, tabela numérica pt-BR e gráfico ECharts com tabela equivalente.
+- Telas: /ui (galeria, só fora de produção), /entrar, / (início com próximo passo) e /clientes. Layout com menu na ordem do trabalho, seletor de empresa e faixa de estado do inventário e de progresso. Erros viram página HTML para o navegador e JSON para a API e o HTMX. O login agora termina em /.
+- Segurança: CSP estrita (sem inline, sem eval, sem domínio externo) e demais cabeçalhos em toda resposta; HSTS em produção.
+- app.js único: CSRF no HTMX, aviso de resultado em região aria-live, marcação do campo inválido, rascunho no navegador, confirmação por digitação, glossário e gráficos com números em pt-BR e animação desligada para quem pede menos movimento.
+- Testes: regras de UI do CLAUDE.md checadas nos arquivos (toda macro na /ui, nada inline, nada externo, cor e fonte só no tema, menu na ordem, vendor íntegro); axe-core no Chromium sem violação WCAG 2.2 A e AA nem erro de console em /ui, /entrar e página de erro; interações exercitadas no navegador. CI instala o Chromium.
+- make check verde: 313 testes (vários parametrizados por arquivo e por par de cores).

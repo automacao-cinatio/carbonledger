@@ -66,3 +66,17 @@
 - Sem dado pessoal na trilha (trava por nome de campo), porque ela nunca é apagada; os eventos guardam identificadores.
 - convite.aceito é gravado na mesma transação do aceite; a entrada e a saída de sessão, numa transação curta com o contexto do próprio usuário.
 - Chaves: cifra envelope com chave de dados por valor e contexto (tenant_id e finalidade) como dado associado, para um segredo não abrir em outro cliente. Em produção, a configuração recusa o provedor local; o KMS entra no P25, junto com a infraestrutura AWS. A chave local de dev é de propósito 32 bytes zero.
+
+## 2026-11-20: base visual (P05A)
+
+- Bibliotecas de terceiros copiadas byte a byte do pacote npm (integridade sha512 conferida no download) e fixadas por SHA-256 num manifesto; o .gitattributes marca o vendor como binário para o Git não trocar finais de linha. Nenhum arquivo de terceiro é editado.
+- Ícones pela webfont do Tabler Icons, dividida por categoria com unicode-range: o navegador baixa só as fontes usadas.
+- O Tabler 1.7 expõe os componentes do Bootstrap em window.tabler, não em window.bootstrap. O teste no navegador pegou o glossário e o fechamento de modal quebrados por isso.
+- O cinza secundário do Tabler (gray-500) não alcança 4,5:1 sobre fundos tingidos (axe-core apontou). O tema aponta --tblr-secondary para o texto suave da paleta.
+- Barra de progresso com o elemento progress nativo (que o Tabler estiliza), porque a barra do Bootstrap define a largura com estilo inline, que a CSP bloqueia. Pelo mesmo motivo, a altura dos gráficos fica no CSS.
+- Gráficos: o Python manda os valores como texto (Decimal nunca vira float); o ECharts lê o número, e as cores vêm das variáveis do tema.css.
+- Erros por campo voltam como 422 com {campo, mensagem}; o aviso de sucesso vem no cabeçalho X-Aviso (codificado, porque cabeçalho HTTP não leva acento) e aparece numa região aria-live.
+- Rascunho de formulário no localStorage do navegador, apagado quando o envio dá certo: nada digitado se perde numa queda de sessão.
+- O teste de acessibilidade injeta o axe-core pelo protocolo do DevTools, porque a CSP do app bloqueia script injetado, o que confirma que ela está valendo.
+- Seleção de empresa no topo guardada na sessão: é foco de interface; o que cada pessoa pode ver continua definido pelo perfil, no banco.
+- Exceção à regra dos caracteres U+2013 e U+2014: as duas pastas vendor (app/web/static/vendor e tests/e2e/vendor) ficam fora da verificação, porque ECharts, Tabler e axe-core os contêm e esses arquivos precisam continuar idênticos aos pacotes oficiais, travados pelo manifesto de hashes. Todo arquivo nosso continua verificado. Para reverter, remova PASTAS_DE_TERCEIROS em scripts/verificar_caracteres.py.

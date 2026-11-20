@@ -8,7 +8,7 @@ import hashlib
 import json
 import secrets
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from uuid import UUID
 
@@ -36,6 +36,8 @@ class Sessao:
     tenant_id: UUID | None
     csrf: str
     criada_em: float
+    # Empresa em foco no seletor do topo (so interface; o acesso vem do perfil).
+    empresa_id: UUID | None = None
 
     def como_json(self) -> str:
         return json.dumps(
@@ -44,6 +46,7 @@ class Sessao:
                 "tenant_id": None if self.tenant_id is None else str(self.tenant_id),
                 "csrf": self.csrf,
                 "criada_em": self.criada_em,
+                "empresa_id": None if self.empresa_id is None else str(self.empresa_id),
             }
         )
 
@@ -85,6 +88,7 @@ class ArmazemSessoes:
             tenant_id=None if dados["tenant_id"] is None else UUID(dados["tenant_id"]),
             csrf=dados["csrf"],
             criada_em=float(dados["criada_em"]),
+            empresa_id=UUID(dados["empresa_id"]) if dados.get("empresa_id") else None,
         )
         ttl = self._ttl(sessao.criada_em)
         if ttl <= 0:
@@ -93,12 +97,18 @@ class ArmazemSessoes:
         await self.redis.expire(chave, ttl)
         return sessao
 
-    async def trocar_tenant(self, sessao: Sessao, tenant_id: UUID | None) -> Sessao:
-        nova = Sessao(sessao.chave, sessao.usuario_id, tenant_id, sessao.csrf, sessao.criada_em)
-        ttl = self._ttl(nova.criada_em)
+    async def _gravar(self, sessao: Sessao) -> Sessao:
+        ttl = self._ttl(sessao.criada_em)
         if ttl > 0:
-            await self.redis.set(nova.chave, nova.como_json(), ex=ttl)
-        return nova
+            await self.redis.set(sessao.chave, sessao.como_json(), ex=ttl)
+        return sessao
+
+    async def trocar_tenant(self, sessao: Sessao, tenant_id: UUID | None) -> Sessao:
+        """Trocar de cliente sempre limpa a empresa em foco."""
+        return await self._gravar(replace(sessao, tenant_id=tenant_id, empresa_id=None))
+
+    async def trocar_empresa(self, sessao: Sessao, empresa_id: UUID | None) -> Sessao:
+        return await self._gravar(replace(sessao, empresa_id=empresa_id))
 
     async def encerrar(self, sessao: Sessao) -> None:
         await self.redis.delete(sessao.chave)

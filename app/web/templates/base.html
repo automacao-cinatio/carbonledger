@@ -1,0 +1,39 @@
+{#
+  Layout de todas as telas. Sem script nem estilo inline (CSP); nada de dominio externo.
+  portal: usuario, cliente, empresas, inventario e token CSRF (ver app/web/portal.py).
+#}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="htmx-config" content="{{ config_htmx }}">
+  {% if portal.csrf %}<meta name="csrf-token" content="{{ portal.csrf }}">{% endif %}
+  <title>{% block titulo %}Início{% endblock %} | CarbonLedger</title>
+  {# Sem favicon por enquanto: evita o pedido automatico de /favicon.ico (404). #}
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="{{ estatico('vendor/tabler-1.7.5/css/tabler.min.css') }}">
+  <link rel="stylesheet" href="{{ estatico('vendor/tabler-icons-3.52.0/tabler-icons.min.css') }}">
+  <link rel="stylesheet" href="{{ estatico('css/tema.css') }}">
+  <script src="{{ estatico('vendor/htmx-2.0.11/htmx.min.js') }}" defer></script>
+  <script src="{{ estatico('vendor/tabler-1.7.5/js/tabler.min.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+  <script src="{{ estatico('js/app.js') }}" defer></script>
+</head>
+<body>
+  <a class="cl-pular" href="#conteudo">Pular para o conteúdo</a>
+  <div class="page">
+    {% include "partes/topo.html" %}
+    <div class="page-wrapper">
+      {% if portal.tenant_nome %}{% include "partes/faixa_estado.html" %}{% endif %}
+      <main id="conteudo" class="page-body" tabindex="-1">
+        <div class="container-xl">
+          {% block conteudo %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </div>
+  {# Avisos de resultado das acoes HTMX: lidos pelo leitor de tela (aria-live). #}
+  <div id="cl-aviso" class="toast-container position-fixed bottom-0 end-0 p-3" role="status" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>
