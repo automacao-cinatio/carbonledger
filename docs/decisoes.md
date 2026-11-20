@@ -17,3 +17,16 @@
 - Celery com o extra redis (celery[redis]): o transporte Redis do kombu importa packaging, que não vinha sem o extra, e o worker caía na partida.
 - uvicorn com --reload-dir app: sem isso o recarregador vigiava o /app inteiro, inclusive o .venv, e no bind mount do Windows consumia quase um núcleo parado.
 - gitleaks em modo git (histórico de commits) no make check: o modo dir varria o .venv pelo bind mount e passava de 10 minutos.
+
+## 2026-11-20: banco e RLS (P02)
+
+- Contexto em configurações locais da transação, lidas por funções contexto_*(); valor ausente ou vazio vira NULL e nada aparece (falha fechada). Escopos: tenant (todas as empresas) ou empresas (só as listadas; lista vazia não vê nenhuma). Escopo desconhecido não abre nada.
+- Políticas chamam as funções dentro de (SELECT ...), para o Postgres avaliar uma vez por consulta e não por linha.
+- Uma única política permissiva por tabela (a de tenant): outra permissiva somaria acesso por OR. Restrições adicionais entram como restritivas; o teste de cobertura garante isso.
+- A tabela tenant usa tenant_id como chave e a empresa usa chave (tenant_id, empresa_id): o RLS fica uniforme e chaves estrangeiras compostas impedem apontar para empresa de outro tenant.
+- tenant e empresa sem DELETE para o app_user (nada some).
+- app_user entra no app_verificador com INHERIT FALSE e SET TRUE: assume o papel só com SET LOCAL ROLE e não herda nada dele. O limite por concessão entra no P12 como política restritiva.
+- Funções de app/core/rls.py usadas por migração nunca mudam de comportamento; comportamento novo vira função nova.
+- Migrações recusam rodar com papel diferente de app_owner, para nenhuma tabela nascer com dono errado.
+- API e workers recebem variáveis explícitas no docker-compose.yml em vez do .env inteiro; o serviço migrar é o único com a credencial do app_owner.
+- Teste de isolamento com dados de dois tenants e duas empresas cada; o teste de cobertura exige que toda tabela registrada tenha linhas dos dois tenants, para a suíte não passar no vazio.

@@ -2,7 +2,7 @@
 
 - [x] P00 Contexto
 - [x] P01 Esqueleto
-- [ ] P02 Banco e RLS
+- [x] P02 Banco e RLS
 - [ ] P03 Contexto de tenant
 - [ ] P04 Identidade
 - [ ] P05 Trilha e chaves
@@ -38,3 +38,14 @@
 - Postgres sem porta publicada; as portas expostas ficam em 127.0.0.1.
 - make check verde: ruff, mypy, pytest (11 testes, com Postgres real via testcontainers), bandit, pip-audit, gitleaks e verificação de caracteres.
 - Pendência de ambiente: o make não está instalado no Windows nem no Ubuntu do WSL; os alvos foram executados um a um.
+
+## P02 Banco e RLS (concluído em 2026-11-20)
+
+- Papéis app_owner (dono, só migrações), app_user (API e workers, sem BYPASSRLS) e app_verificador (sem login, só SELECT, via SET LOCAL ROLE), criados por infra/sql/papeis.sql na primeira subida do Postgres.
+- Alembic com asyncpg, rodando só como app_owner (o env.py recusa outro papel); make migrate usa o serviço migrar.
+- Migração 0001: funções de contexto (app.tenant_id, app.escopo, app.empresas, app.usuario_id), tabelas tenant e empresa, RLS com ENABLE e FORCE, política permissiva de tenant e restritiva de empresa, sem DELETE para o app_user.
+- app/core/rls.py gera o SQL de RLS e de permissões; app/core/tenancy.py aplica o contexto com set_config local e recusa fora de transação.
+- tests/isolation: cobertura de RLS pelo catálogo (registro em tests/isolation/tabelas.py), suíte de vazamento e migração de ida e volta, com Postgres real. Teste de mutação manual confirmou que a suíte falha sem FORCE ou com a política de empresa aberta.
+- API e workers não recebem mais o .env inteiro: só as variáveis listadas no docker-compose.yml, sem a senha do superusuário nem a do app_owner.
+- make check verde: 67 testes.
+- Próximo: P03 (contexto de tenant na requisição e nas tarefas Celery).

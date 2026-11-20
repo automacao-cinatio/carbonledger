@@ -16,9 +16,8 @@ down:
 logs:
 	$(COMPOSE) logs -f --tail=100
 
-migrate:
-	@if [ -f alembic.ini ]; then $(COMPOSE) run --rm api alembic upgrade head; \
-	else echo "Sem migracoes ainda: o Alembic entra no P02."; fi
+migrate: .env
+	$(COMPOSE) run --rm migrar
 
 seed:
 	@echo "Sem dados de carga ainda: entram nos prompts P06 e P07."

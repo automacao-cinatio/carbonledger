@@ -18,6 +18,7 @@ RUN uv sync --no-dev
 
 COPY app ./app
 COPY migrations ./migrations
+COPY alembic.ini ./
 
 RUN useradd --system --uid 10001 --home-dir /app appuser \
     && chown -R appuser /app
