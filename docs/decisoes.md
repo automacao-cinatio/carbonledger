@@ -30,3 +30,13 @@
 - Migrações recusam rodar com papel diferente de app_owner, para nenhuma tabela nascer com dono errado.
 - API e workers recebem variáveis explícitas no docker-compose.yml em vez do .env inteiro; o serviço migrar é o único com a credencial do app_owner.
 - Teste de isolamento com dados de dois tenants e duas empresas cada; o teste de cobertura exige que toda tabela registrada tenha linhas dos dois tenants, para a suíte não passar no vazio.
+
+## 2026-11-20: contexto de tenant (P03)
+
+- Na API, o contexto mora em session.info e é aplicado pelo evento after_begin da SessaoTenant, não uma vez no início da requisição: um commit no meio da rota abre transação nova, e ela também precisa do contexto.
+- A sessão de tenant usa Depends com scope="function" (FastAPI 0.165): o commit acontece antes da resposta, então um erro no commit vira 500 em vez de um 200 de gravação perdida.
+- 404 também para HTTPException 403 levantada por qualquer código, com o mesmo corpo de rota inexistente, para não distinguir "não existe" de "não pode".
+- Tarefas Celery abrem uma conexão asyncpg por execução, sem pool: cada tarefa roda em asyncio.run() próprio, e um pool asyncpg fica preso ao event loop que o criou. Rever se o volume de tarefas pedir.
+- A checagem de tenant_id na publicação fica numa subclasse do Celery (send_task), não no sinal before_task_publish: o Celery engole exceções de sinais e a publicação seguiria.
+- Tarefa de tenant aceita só argumentos nomeados; tenant_id, empresas e usuario_id são reservados. Sem empresas, o escopo é o tenant; lista vazia de empresas não vê nenhuma (nunca vira o tenant inteiro).
+- O log da requisição lê o tenant de request.state: o BaseHTTPMiddleware roda o endpoint em outra task, e os contextvars ligados lá não voltam.

@@ -3,6 +3,7 @@
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import MetaData
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 # Nomes previsiveis para restricoes e indices: as migracoes escritas a mao dependem deles.
@@ -35,3 +36,12 @@ def url_sqlalchemy_asyncpg(database_url: str) -> str:
     """URL para o SQLAlchemy com o driver asyncpg (postgresql+asyncpg://...)."""
     dsn = dsn_asyncpg(database_url)
     return "postgresql+asyncpg" + dsn[dsn.index(":") :]
+
+
+def criar_motor(database_url: str) -> AsyncEngine:
+    """Motor async da API; o pool desfaz a transacao (e o contexto) ao devolver a conexao."""
+    return create_async_engine(
+        url_sqlalchemy_asyncpg(database_url),
+        pool_pre_ping=True,
+        pool_reset_on_return="rollback",
+    )

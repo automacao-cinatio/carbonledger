@@ -3,7 +3,7 @@
 - [x] P00 Contexto
 - [x] P01 Esqueleto
 - [x] P02 Banco e RLS
-- [ ] P03 Contexto de tenant
+- [x] P03 Contexto de tenant
 - [ ] P04 Identidade
 - [ ] P05 Trilha e chaves
 - [ ] P05A Base visual
@@ -48,4 +48,14 @@
 - tests/isolation: cobertura de RLS pelo catálogo (registro em tests/isolation/tabelas.py), suíte de vazamento e migração de ida e volta, com Postgres real. Teste de mutação manual confirmou que a suíte falha sem FORCE ou com a política de empresa aberta.
 - API e workers não recebem mais o .env inteiro: só as variáveis listadas no docker-compose.yml, sem a senha do superusuário nem a do app_owner.
 - make check verde: 67 testes.
-- Próximo: P03 (contexto de tenant na requisição e nas tarefas Celery).
+
+## P03 Contexto de tenant (concluído em 2026-11-20)
+
+- API: sessão SQLAlchemy por requisição (SessaoTenant) que aplica o contexto em toda transação que abre, pelo evento after_begin; commit no meio da rota não perde o contexto. Commit antes da resposta (Depends com scope="function"), rollback em erro.
+- O contexto vem de request.state.contexto_tenant, que a autenticação do P04 vai preencher. Até lá, toda rota de tenant responde 404.
+- Acesso negado (AcessoNegado) e qualquer 403 respondem 404 com corpo genérico, igual ao de rota inexistente.
+- Celery: tarefa_de_tenant exige tenant_id nomeado, abre conexão asyncpg com transação e contexto e fecha no fim. A publicação (send_task, por onde passam delay e apply_async) recusa tarefa sem tenant_id antes de tocar o broker. Tarefa global só com entrada em TAREFAS_GLOBAIS e justificativa; um teste confere o app inteiro.
+- Logs: tenant_id no log da requisição e no da tarefa; usuario_id fica fora. Worker com o mesmo formato JSON da API.
+- Testes com Postgres real: cada tenant vê só o seu pela API e pela tarefa, escopo de empresas, conexão volta ao pool sem contexto, commit no meio, rollback em erro.
+- make check verde: 106 testes.
+- Próximo: P04 (identidade), que preenche o contexto a partir do usuário autenticado.
