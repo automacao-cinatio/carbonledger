@@ -54,6 +54,10 @@ class Configuracao(BaseSettings):
     oidc_dev_client_id: str = "carbonledger-dev"
     oidc_dev_client_secret: SecretStr = SecretStr("dev")
 
+    # Chaves mestras: "local" (variavel de ambiente) em dev; "kms" em producao (P25).
+    provedor_chaves: str = "local"
+    chaves_locais: SecretStr | None = None
+
     @property
     def em_producao(self) -> bool:
         return self.ambiente == AMBIENTE_PRODUCAO
@@ -67,6 +71,8 @@ class Configuracao(BaseSettings):
                 raise ValueError("O provedor OIDC de desenvolvimento nao pode existir em producao.")
             if not self.app_url_base.startswith("https://"):
                 raise ValueError("Em producao APP_URL_BASE precisa usar https.")
+            if self.provedor_chaves == "local" or self.chaves_locais is not None:
+                raise ValueError("Em producao as chaves vem do KMS: PROVEDOR_CHAVES=kms.")
         return self
 
 

@@ -6,7 +6,7 @@ import redis.asyncio as redis_async
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.api import autenticacao, organizacao, saude
+from app.api import auditoria, autenticacao, organizacao, saude
 from app.core.config import obter_configuracao
 from app.core.db import criar_motor
 from app.core.erros import registrar_tratadores
@@ -55,6 +55,7 @@ def criar_app() -> FastAPI:
     app.include_router(saude.router)
     app.include_router(autenticacao.router)
     app.include_router(organizacao.router)
+    app.include_router(auditoria.router)
     return app
 
 

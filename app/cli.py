@@ -12,6 +12,7 @@ import sys
 from datetime import timedelta
 from uuid import UUID, uuid4
 
+from app.core import audit
 from app.core.config import Configuracao, obter_configuracao
 from app.core.security.convite import novo_token
 from app.core.security.oidc import provedores_habilitados
@@ -41,6 +42,21 @@ async def criar_tenant(configuracao: Configuracao, nome: str, email: str) -> tup
             email_limpo,
             token.segredo_hash,
             validade,
+        )
+        await audit.registrar_asyncpg(
+            conexao,
+            tenant_id=tenant_id,
+            acao="tenant.criado",
+            entidade="tenant",
+            entidade_id=tenant_id,
+        )
+        await audit.registrar_asyncpg(
+            conexao,
+            tenant_id=tenant_id,
+            acao="convite.criado",
+            entidade="convite",
+            entidade_id=token.convite_id,
+            dados={"perfil": "administrador", "empresas": [], "origem": "linha_de_comando"},
         )
     return tenant_id, token.codificar()
 

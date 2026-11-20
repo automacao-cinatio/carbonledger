@@ -56,3 +56,13 @@
 - Mensagens de erro de validação com 422 e texto que diz como corrigir; falhas de login respondem 404 sem motivo, e o motivo vai para o log (evento login_falhou, sem dado pessoal).
 - Provedor simulado de dev: mock-oauth2-server (navikt), com trava que o proíbe em produção.
 - Os testes não leem o .env local (tests/conftest.py desliga o env_file da Configuracao): o resultado não pode depender da máquina de quem roda.
+
+## 2026-11-20: trilha e chaves (P05)
+
+- O hash é calculado no banco (trigger), não na aplicação: nenhum caminho de escrita, nem a linha de comando nem um worker com defeito, grava evento fora da cadeia. O que a aplicação mandar em seq, hash, evento_id e ocorrido_em é descartado.
+- A verificação é feita em Python, refazendo o formato v1 a partir dos campos. Ela não usa a função do banco, para que um defeito ou uma troca da função não passe despercebido.
+- Serialização da cadeia por pg_advisory_xact_lock por tenant: tenants diferentes gravam em paralelo; o mesmo tenant grava em fila até o commit.
+- audit_log sem empresa_id próprio: com a política restritiva de empresa, um responsável não conseguiria gravar eventos do tenant (entrada e saída). Quando o evento é de uma empresa, o id vai em dados. A leitura é só para administrador e gestor.
+- Sem dado pessoal na trilha (trava por nome de campo), porque ela nunca é apagada; os eventos guardam identificadores.
+- convite.aceito é gravado na mesma transação do aceite; a entrada e a saída de sessão, numa transação curta com o contexto do próprio usuário.
+- Chaves: cifra envelope com chave de dados por valor e contexto (tenant_id e finalidade) como dado associado, para um segredo não abrir em outro cliente. Em produção, a configuração recusa o provedor local; o KMS entra no P25, junto com a infraestrutura AWS. A chave local de dev é de propósito 32 bytes zero.

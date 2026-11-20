@@ -11,6 +11,7 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "membro": False,
     "membro_empresa": True,
     "convite": False,
+    "audit_log": False,
 }
 
 # Tabelas sem tenant_id, de proposito. Cada entrada precisa de justificativa.

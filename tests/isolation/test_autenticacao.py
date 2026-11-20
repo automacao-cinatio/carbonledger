@@ -240,6 +240,33 @@ def test_roteiro_completo_de_acesso(
     cliente.cookies.set(COOKIE_SESSAO, cookie_responsavel)
     assert cliente.get("/teste-login/empresas").status_code == 404
     assert cliente.get("/sessao").json()["tenant_atual"] is None
+    assert cliente.get("/api/auditoria").status_code == 404
+
+    # 7. A trilha guardou cada passo, sem dado pessoal, e a cadeia esta integra.
+    entrar(cliente, "/entrar/dev", sujeito="dona", email="dona@e2e.example")
+    eventos = cliente.get("/api/auditoria").json()
+    acoes = [e["acao"] for e in eventos]
+    assert acoes[:3] == ["tenant.criado", "convite.criado", "convite.aceito"]
+    for acao in (
+        "sessao.entrou",
+        "sessao.saiu",
+        "membro.alterado",
+        "membro.desativado",
+    ):
+        assert acao in acoes, acao
+    assert acoes.count("convite.aceito") == 2
+    assert [e["seq"] for e in eventos] == list(range(1, len(eventos) + 1))
+    assert "e2e.example" not in str(eventos)
+    alteracao = next(e for e in eventos if e["acao"] == "membro.alterado")
+    assert alteracao["entidade_id"] == responsavel["usuario_id"]
+    assert alteracao["dados"] == {"perfil": "colaborador", "empresas": [str(sul)]}
+    assert cliente.get("/api/auditoria/verificacao").json() == {
+        "integra": True,
+        "eventos": len(eventos),
+        "quebra_em": None,
+        "motivo": None,
+    }
+    assert [e["seq"] for e in cliente.get("/api/auditoria?apos=3&limite=2").json()] == [4, 5]
 
 
 def test_convite_so_vale_para_o_email_convidado(

@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import audit
 from app.core.erros import AcessoNegado, ErroValidacao
 from app.core.security.acesso import Acesso, Perfil
 from app.core.security.convite import TokenConvite, novo_token
@@ -99,6 +100,15 @@ async def criar_convite(
             "validade": validade,
         },
     )
+    await audit.registrar(
+        sessao,
+        tenant_id=tenant_id,
+        usuario_id=criado_por,
+        acao="convite.criado",
+        entidade="convite",
+        entidade_id=token.convite_id,
+        dados={"perfil": perfil.value, "empresas": [str(e) for e in empresas_validas]},
+    )
     return token
 
 
@@ -127,7 +137,7 @@ async def listar_convites(sessao: AsyncSession) -> list[Convite]:
     ]
 
 
-async def revogar_convite(sessao: AsyncSession, convite_id: UUID) -> None:
+async def revogar_convite(sessao: AsyncSession, acesso: Acesso, convite_id: UUID) -> None:
     resultado = await sessao.execute(
         text(
             "UPDATE convite SET revogado_em = now()"
@@ -137,6 +147,14 @@ async def revogar_convite(sessao: AsyncSession, convite_id: UUID) -> None:
     )
     if resultado.rowcount != 1:  # type: ignore[attr-defined]
         raise AcessoNegado
+    await audit.registrar(
+        sessao,
+        tenant_id=acesso.tenant_id,
+        usuario_id=acesso.usuario_id,
+        acao="convite.revogado",
+        entidade="convite",
+        entidade_id=convite_id,
+    )
 
 
 def texto_do_convite(
@@ -233,6 +251,15 @@ async def alterar_membro(
             ),
             {"tenant": acesso.tenant_id, "usuario": usuario_id, "empresas": empresas_validas},
         )
+    await audit.registrar(
+        sessao,
+        tenant_id=acesso.tenant_id,
+        usuario_id=acesso.usuario_id,
+        acao="membro.alterado",
+        entidade="membro",
+        entidade_id=usuario_id,
+        dados={"perfil": perfil.value, "empresas": [str(e) for e in empresas_validas]},
+    )
 
 
 async def definir_ativo(
@@ -245,3 +272,11 @@ async def definir_ativo(
     )
     if resultado.rowcount != 1:  # type: ignore[attr-defined]
         raise AcessoNegado
+    await audit.registrar(
+        sessao,
+        tenant_id=acesso.tenant_id,
+        usuario_id=acesso.usuario_id,
+        acao="membro.reativado" if ativo else "membro.desativado",
+        entidade="membro",
+        entidade_id=usuario_id,
+    )

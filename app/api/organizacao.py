@@ -102,8 +102,8 @@ async def listar_convites(sessao: SessaoTenant, _acesso: Administrador) -> list[
 
 
 @router.post("/convites/{convite_id}/revogar", status_code=status.HTTP_204_NO_CONTENT)
-async def revogar_convite(convite_id: UUID, sessao: SessaoTenant, _acesso: Administrador) -> None:
-    await acessos.revogar_convite(sessao, convite_id)
+async def revogar_convite(convite_id: UUID, sessao: SessaoTenant, acesso: Administrador) -> None:
+    await acessos.revogar_convite(sessao, acesso, convite_id)
 
 
 @router.get("/membros")

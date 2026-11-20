@@ -5,7 +5,7 @@
 - [x] P02 Banco e RLS
 - [x] P03 Contexto de tenant
 - [x] P04 Identidade
-- [ ] P05 Trilha e chaves
+- [x] P05 Trilha e chaves
 - [ ] P05A Base visual
 - [ ] P06 Estrutura
 - [ ] P07 Fatores e GWP
@@ -72,3 +72,13 @@
 - Pendente para os próximos prompts: telas de login, escolha de cliente e gestão de usuários (P05A e P14); trilha de auditoria de login e convites (P05); limite de tentativas de login.
 - Até o portal existir, o login termina em /sessao (JSON).
 - make check verde: 180 testes. Teste manual no ambiente de dev: login pelo provedor simulado, convite com CSRF e e-mail no Mailpit.
+
+## P05 Trilha e chaves (concluído em 2026-11-20)
+
+- Migração 0003: audit_log por tenant, com RLS, só SELECT e INSERT para o app_user. A trigger audit_encadear calcula seq, hash anterior, horário e hash (SHA-256, formato v1) sob lock consultivo por tenant; a trigger audit_imutavel recusa UPDATE, DELETE e TRUNCATE, até do dono.
+- app/core/audit.py: registro na mesma transação da ação (SQLAlchemy e asyncpg), trava contra dado pessoal na trilha e verificador independente em Python.
+- Eventos ligados: tenant.criado, convite.criado, convite.revogado, convite.aceito (na mesma transação do aceite), membro.alterado, membro.desativado, membro.reativado, sessao.entrou e sessao.saiu.
+- API de leitura e verificação para administrador e gestor (/api/auditoria e /api/auditoria/verificacao).
+- app/core/keys.py: cifra envelope AES-256-GCM, contexto com tenant e finalidade como dado associado, rotação por id da chave mestra. Provedor local em dev; em produção a configuração exige KMS, que entra no P25. Ainda sem uso na aplicação: os consumidores chegam com o certificado do PDF (P19) e as integrações (P21 e P22).
+- Runbook docs/runbooks/trilha-de-auditoria.md.
+- Testes: cadeia íntegra e adulterações (conteúdo, remoção, elo trocado, recálculo), tentativa de forjar seq e hash, superusuário barrado pela trigger, adulteração com a trigger desligada detectada, RLS da trilha, 30 inserções concorrentes sem buraco na sequência, roteiro de ponta a ponta conferindo os eventos pela API.

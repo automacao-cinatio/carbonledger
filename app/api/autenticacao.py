@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core import audit
 from app.core.config import Configuracao, obter_configuracao
 from app.core.erros import AcessoNegado
 from app.core.security.acesso import nomes_dos_cookies, obter_sessao_usuario, resolver_acesso
@@ -28,6 +29,7 @@ from app.core.security.oidc import (
     novo_verificador_pkce,
 )
 from app.core.security.sessao import ArmazemSessoes, Sessao, tokens_iguais
+from app.core.tenancy import ContextoTenant, Escopo, sessao_de_tenant
 
 router = APIRouter(tags=["autenticacao"])
 log = structlog.get_logger()
@@ -105,40 +107,61 @@ async def aceitar_convite(
     return await _iniciar(request, configuracao, _provedor(request, provedor), token)
 
 
+async def _aceitar_convite(
+    fabrica: async_sessionmaker[AsyncSession], identificacao: Identificacao, convite: str
+) -> tuple[UUID, UUID]:
+    """Aceita o convite e grava o evento na mesma transacao, no tenant do convite."""
+    token = decodificar_token(convite)
+    if token is None or identificacao.email is None:
+        log.warning("login_falhou", provedor=identificacao.provedor, etapa="convite")
+        raise AcessoNegado
+    contexto = ContextoTenant(tenant_id=token.tenant_id, escopo=Escopo.TENANT)
+    try:
+        async with sessao_de_tenant(fabrica, contexto) as sessao:
+            usuario_id = UUID(
+                str(
+                    await sessao.scalar(
+                        text(
+                            "SELECT identidade_aceitar_convite(:tenant, :convite, :hash,"
+                            " :provedor, :sujeito, :email, :nome)"
+                        ),
+                        {
+                            "tenant": token.tenant_id,
+                            "convite": token.convite_id,
+                            "hash": token.segredo_hash,
+                            "provedor": identificacao.provedor,
+                            "sujeito": identificacao.sujeito,
+                            "email": identificacao.email,
+                            "nome": identificacao.nome,
+                        },
+                    )
+                )
+            )
+            await audit.registrar(
+                sessao,
+                tenant_id=token.tenant_id,
+                usuario_id=usuario_id,
+                acao="convite.aceito",
+                entidade="convite",
+                entidade_id=token.convite_id,
+                dados={"provedor": identificacao.provedor},
+            )
+    except DBAPIError as erro:
+        codigo = getattr(erro.orig, "sqlstate", None) or getattr(erro.orig, "pgcode", None)
+        if codigo in SQLSTATES_DE_CONVITE_RECUSADO:
+            log.warning("login_falhou", provedor=identificacao.provedor, etapa="convite")
+            raise AcessoNegado from erro
+        raise
+    return usuario_id, token.tenant_id
+
+
 async def _usuario_do_login(
     fabrica: async_sessionmaker[AsyncSession], identificacao: Identificacao, convite: str | None
 ) -> tuple[UUID, UUID | None]:
     """(usuario, tenant a abrir). Sem convite, so entra quem ja tem identidade vinculada."""
+    if convite is not None:
+        return await _aceitar_convite(fabrica, identificacao, convite)
     async with fabrica() as sessao:
-        if convite is not None:
-            token = decodificar_token(convite)
-            if token is None or identificacao.email is None:
-                raise AcessoNegado
-            try:
-                usuario_id = await sessao.scalar(
-                    text(
-                        "SELECT identidade_aceitar_convite(:tenant, :convite, :hash,"
-                        " :provedor, :sujeito, :email, :nome)"
-                    ),
-                    {
-                        "tenant": token.tenant_id,
-                        "convite": token.convite_id,
-                        "hash": token.segredo_hash,
-                        "provedor": identificacao.provedor,
-                        "sujeito": identificacao.sujeito,
-                        "email": identificacao.email,
-                        "nome": identificacao.nome,
-                    },
-                )
-                await sessao.commit()
-            except DBAPIError as erro:
-                codigo = getattr(erro.orig, "sqlstate", None) or getattr(erro.orig, "pgcode", None)
-                if codigo in SQLSTATES_DE_CONVITE_RECUSADO:
-                    log.warning("login_falhou", provedor=identificacao.provedor, etapa="convite")
-                    raise AcessoNegado from erro
-                raise
-            return UUID(str(usuario_id)), token.tenant_id
-
         usuario_id = await sessao.scalar(
             text("SELECT identidade_localizar(:provedor, :sujeito)"),
             {"provedor": identificacao.provedor, "sujeito": identificacao.sujeito},
@@ -153,6 +176,25 @@ async def _usuario_do_login(
         ).all()
     unico = tenants[0].tenant_id if len(tenants) == 1 else None
     return UUID(str(usuario_id)), unico
+
+
+async def _auditar_sessao(
+    request: Request, usuario_id: UUID, tenant_id: UUID, acao: str, dados: dict[str, str]
+) -> None:
+    """Entrada e saida ficam na trilha do tenant, com o contexto do proprio usuario."""
+    fabrica: async_sessionmaker[AsyncSession] = request.app.state.fabrica_sessoes
+    acesso = await resolver_acesso(fabrica, usuario_id, tenant_id)
+    if acesso is None:
+        return
+    async with sessao_de_tenant(fabrica, acesso.contexto()) as sessao:
+        await audit.registrar(
+            sessao,
+            tenant_id=tenant_id,
+            usuario_id=usuario_id,
+            acao=acao,
+            entidade="sessao",
+            dados=dados,
+        )
 
 
 @router.get("/entrar/{provedor}/retorno")
@@ -193,6 +235,8 @@ async def retorno(
     )
     token, _ = await armazem.criar(usuario_id, tenant_id)
     log.info("login", provedor=p.nome, tenant_id=None if tenant_id is None else str(tenant_id))
+    if tenant_id is not None:
+        await _auditar_sessao(request, usuario_id, tenant_id, "sessao.entrou", {"provedor": p.nome})
 
     resposta = RedirectResponse(DESTINO_APOS_LOGIN, status_code=status.HTTP_303_SEE_OTHER)
     _definir_cookie(
@@ -250,12 +294,21 @@ async def escolher_tenant(request: Request, sessao: SessaoAtual, escolha: Escolh
         raise AcessoNegado
     armazem: ArmazemSessoes = request.app.state.sessoes
     await armazem.trocar_tenant(sessao, escolha.tenant_id)
+    await _auditar_sessao(
+        request,
+        sessao.usuario_id,
+        escolha.tenant_id,
+        "sessao.entrou",
+        {"origem": "troca_de_cliente"},
+    )
 
 
 @router.post("/sair", status_code=status.HTTP_204_NO_CONTENT)
 async def sair(request: Request, sessao: SessaoAtual, configuracao: Config) -> Response:
     armazem: ArmazemSessoes = request.app.state.sessoes
     await armazem.encerrar(sessao)
+    if sessao.tenant_id is not None:
+        await _auditar_sessao(request, sessao.usuario_id, sessao.tenant_id, "sessao.saiu", {})
     resposta = Response(status_code=status.HTTP_204_NO_CONTENT)
     cookie_sessao, _ = nomes_dos_cookies(configuracao.cookie_seguro)
     resposta.delete_cookie(cookie_sessao, path="/", secure=configuracao.cookie_seguro)

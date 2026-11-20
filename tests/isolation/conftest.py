@@ -127,6 +127,17 @@ async def _semear(dsn_admin: str) -> None:
                 (DADOS.tenant_b, uuid4(), "gestor@b.example", bytes(32)),
             ],
         )
+        # seq e hash vem da trigger; os valores mandados aqui sao descartados.
+        await conexao.executemany(
+            "INSERT INTO audit_log (tenant_id, seq, evento_id, ocorrido_em, acao, entidade,"
+            " hash_anterior, hash) VALUES ($1, 0, gen_random_uuid(), now(), $2, 'tenant',"
+            " ''::bytea, ''::bytea)",
+            [
+                (DADOS.tenant_a, "tenant.criado"),
+                (DADOS.tenant_a, "convite.criado"),
+                (DADOS.tenant_b, "tenant.criado"),
+            ],
+        )
     finally:
         await conexao.close()
 

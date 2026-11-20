@@ -201,7 +201,9 @@ def test_provedor_de_dev_some_sem_emissor_e_e_proibido_em_producao() -> None:
 
 def test_travas_de_producao() -> None:
     with pytest.raises(ValueError, match="COOKIE_SEGURO"):
-        _configuracao(ambiente="producao", cookie_seguro=False)
+        _configuracao(ambiente="producao", provedor_chaves="kms", cookie_seguro=False)
     with pytest.raises(ValueError, match="https"):
-        _configuracao(ambiente="producao", app_url_base="http://carbonledger.example")
-    assert _configuracao(ambiente="producao").em_producao
+        _configuracao(
+            ambiente="producao", provedor_chaves="kms", app_url_base="http://carbonledger.example"
+        )
+    assert _configuracao(ambiente="producao", provedor_chaves="kms").em_producao
