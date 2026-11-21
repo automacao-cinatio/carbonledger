@@ -1,0 +1,7 @@
+# FICTICIO: valores inventados, so para testes
+codigo;descricao;categoria;gas;biogenico;valor;unidade;vigencia_inicio;vigencia_fim;fonte;referencia
+teste.combustivel_x;Combustivel X (teste);escopo1.combustao_estacionaria;CO2;nao;1,1111;kg/L;01/01/2020;31/12/2025;FICTICIO, so para testes;
+teste.combustivel_x;Combustivel X (teste);escopo1.combustao_estacionaria;CO2;nao;1,2222;kg/L;01/01/2026;;FICTICIO, so para testes;
+teste.combustivel_x;Combustivel X (teste);escopo1.combustao_estacionaria;CH4;nao;1,5E-04;kg/L;2020-01-01;;FICTICIO, so para testes;
+teste.combustivel_x;Combustivel X (teste);escopo1.combustao_estacionaria;CO2;sim;0,3333;kg/L;01/01/2020;;FICTICIO, so para testes;
+teste.energia_y;Energia Y (teste);escopo2.energia;CO2;nao;0,0444;t/MWh;01/01/2020;;FICTICIO, so para testes;doc-teste

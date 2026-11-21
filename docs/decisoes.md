@@ -91,3 +91,14 @@
 - Formulários devolvem todos os erros de uma vez (ColetorDeErros e ErrosDeValidacao), e o aviso diz quantos campos corrigir.
 - A trilha guarda só os nomes dos campos alterados, nunca os valores: razão social pode ser nome de pessoa (MEI).
 - Sem sessão, telas levam ao login: com a sessão expirada, a pessoa entende o que aconteceu.
+
+## 2026-11-20: fatores e GWP (P07)
+
+- Construído sem dados oficiais (decisão do usuário): formato definido, importação e consulta prontas; nenhum número em data/.
+- Fatores, GWP e misturas são referência global, não dado de cliente: tabelas sem tenant_id (justificadas no registro de cobertura), sem RLS, só leitura para o app_user.
+- Inserção só pelo papel app_curadoria, usado pela linha de comando: uma falha na API não consegue plantar fator.
+- Aprovação por lote (uma decisão por arquivo importado, gravada uma única vez), com o nome de quem conferiu. Rejeição exige justificativa.
+- Bitemporal com o tempo de conhecimento vindo da aprovação: o cálculo guarda o instante e refaz a mesma conta depois. Esse instante vem do relógio do banco (instante_do_banco), porque o relógio do host divergiu do do banco no WSL2 e escondeu um fator recém-aprovado no teste.
+- Linha idêntica (mesmo hash canônico, que ignora a escala decimal e inclui a fonte) a uma versão já aprovada não é gravada de novo; o mesmo arquivo não é importado duas vezes.
+- Entre versões que cobrem a mesma data, vale a aprovada por último. Na mistura, cada componente segue a mesma regra; por isso a vigência de uma mistura que muda de composição precisa ser fechada no arquivo.
+- Unidade do fator como "massa/atividade", conferida pelo registro pint único, com Decimal.

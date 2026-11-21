@@ -108,6 +108,28 @@ services:
       postgres:
         condition: service_healthy
 
+  # Curadoria de fatores, GWP e misturas (papel app_curadoria): docs/runbooks/curadoria-de-fatores.md.
+  #   docker compose run --rm curadoria fatores importar --tipo fatores --por "Nome" data/fatores/x.csv
+  curadoria:
+    image: carbonledger:dev
+    build: .
+    profiles: ["ferramentas"]
+    entrypoint: ["python", "-m", "app.cli"]
+    command: ["fatores", "lotes"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env}
+      REDIS_URL: ${REDIS_URL:?defina REDIS_URL no .env}
+      S3_ENDPOINT: ${S3_ENDPOINT:?defina S3_ENDPOINT no .env}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY no .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY no .env}
+      CURADORIA_DATABASE_URL: ${CURADORIA_DATABASE_URL:?defina CURADORIA_DATABASE_URL no .env}
+    volumes:
+      - ./app:/app/app:ro
+      - ./data:/app/data:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     restart: unless-stopped
@@ -117,6 +139,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
       APP_OWNER_SENHA: ${APP_OWNER_SENHA:?defina APP_OWNER_SENHA no .env}
       APP_USER_SENHA: ${APP_USER_SENHA:?defina APP_USER_SENHA no .env}
+      CURADORIA_SENHA: ${CURADORIA_SENHA:?defina CURADORIA_SENHA no .env}
     # Sem "ports": o Postgres fica so na rede privada do compose.
     volumes:
       - postgres_dados:/var/lib/postgresql/data

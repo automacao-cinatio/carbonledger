@@ -6,6 +6,7 @@
 -- app_user         API e workers; sem BYPASSRLS e sem ser dono de nada.
 -- app_verificador  sem login; o app_user entra nele com SET LOCAL ROLE e so le.
 -- app_identidade   sem login; dono das funcoes de login (ver abaixo).
+-- app_curadoria    linha de comando da CINATIO: importa fatores, GWP e misturas (so insere).
 
 DO $$
 BEGIN
@@ -21,6 +22,9 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_identidade') THEN
         CREATE ROLE app_identidade NOLOGIN;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_curadoria') THEN
+        CREATE ROLE app_curadoria LOGIN;
+    END IF;
 END
 $$;
 
@@ -28,6 +32,8 @@ $$;
 ALTER ROLE app_owner NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS LOGIN;
 ALTER ROLE app_user NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS LOGIN;
 ALTER ROLE app_verificador NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOLOGIN;
+-- app_curadoria: a API e os workers nunca usam; so o servico curadoria (linha de comando).
+ALTER ROLE app_curadoria NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS LOGIN;
 
 -- app_identidade: unica excecao ao RLS. Sem login e sem membros alem do app_owner; so e dono
 -- das funcoes SECURITY DEFINER do login (identidade_*), que leem acessos antes de haver
@@ -46,11 +52,12 @@ BEGIN
     EXECUTE format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database());
     EXECUTE format('GRANT CONNECT, TEMPORARY ON DATABASE %I TO app_owner', current_database());
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_user', current_database());
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO app_curadoria', current_database());
 END
 $$;
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO app_owner;
-GRANT USAGE ON SCHEMA public TO app_user, app_verificador;
+GRANT USAGE ON SCHEMA public TO app_user, app_verificador, app_curadoria;
 -- CREATE so porque o Postgres exige do novo dono ao passar a posse das funcoes de login.
 GRANT USAGE, CREATE ON SCHEMA public TO app_identidade;

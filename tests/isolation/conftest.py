@@ -20,6 +20,7 @@ PAPEIS_SQL = RAIZ / "infra" / "sql" / "papeis.sql"
 # Senhas so deste conteiner descartavel de teste.
 SENHA_OWNER = "owner-teste"
 SENHA_USER = "user-teste"
+SENHA_CURADORIA = "curadoria-teste"
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class Banco:
     dsn_admin: str
     dsn_owner: str
     dsn_app: str
+    dsn_curadoria: str
 
 
 @dataclass(frozen=True)
@@ -77,7 +79,11 @@ async def _preparar_papeis(dsn_admin: str) -> None:
     conexao = await asyncpg.connect(dsn_admin)
     try:
         await conexao.execute(PAPEIS_SQL.read_text(encoding="utf-8"))
-        for papel, senha in (("app_owner", SENHA_OWNER), ("app_user", SENHA_USER)):
+        for papel, senha in (
+            ("app_owner", SENHA_OWNER),
+            ("app_user", SENHA_USER),
+            ("app_curadoria", SENHA_CURADORIA),
+        ):
             comando = await conexao.fetchval(
                 "SELECT format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text)", papel, senha
             )
@@ -193,6 +199,7 @@ def banco() -> Iterator[Banco]:
             dsn_admin=dsn_admin,
             dsn_owner=dsn_owner,
             dsn_app=_dsn(conteiner, "app_user", SENHA_USER),
+            dsn_curadoria=_dsn(conteiner, "app_curadoria", SENHA_CURADORIA),
         )
 
 

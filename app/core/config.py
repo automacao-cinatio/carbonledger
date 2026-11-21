@@ -17,6 +17,8 @@ class Configuracao(BaseSettings):
 
     database_url: str
     redis_url: str
+    # So a linha de comando de curadoria usa (papel app_curadoria); a API nunca recebe.
+    curadoria_database_url: str | None = None
 
     s3_endpoint: str
     s3_access_key: SecretStr

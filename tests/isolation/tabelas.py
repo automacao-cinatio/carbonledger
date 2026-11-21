@@ -21,7 +21,21 @@ TABELAS_GLOBAIS: dict[str, str] = {
     "alembic_version": "controle de versao das migracoes",
     "usuario": "a pessoa existe antes de escolher um tenant; RLS proprio (si mesma e membros)",
     "identidade": "vinculo com o provedor OIDC; so as funcoes identidade_* leem",
+    "lote_importacao": "referencia global de fatores (nao e dado de cliente); so insercao",
+    "lote_decisao": "aprovacao da referencia global; so insercao",
+    "gwp_versao": "GWP de referencia, global; so insercao",
+    "fator_versao": "fatores de emissao de referencia, globais; so insercao",
+    "mistura_versao": "misturas de combustivel de referencia, globais; so insercao",
 }
+
+# Referencia global: o app_user so le; so o app_curadoria insere; ninguem altera.
+TABELAS_DE_REFERENCIA = (
+    "lote_importacao",
+    "lote_decisao",
+    "gwp_versao",
+    "fator_versao",
+    "mistura_versao",
+)
 
 # Globais que, mesmo sem tenant_id, tem RLS ligado com FORCE.
 GLOBAIS_COM_RLS = frozenset({"usuario", "identidade"})

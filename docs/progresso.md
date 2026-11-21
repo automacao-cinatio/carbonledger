@@ -8,7 +8,7 @@
 - [x] P05 Trilha e chaves
 - [x] P05A Base visual
 - [x] P06 Estrutura
-- [ ] P07 Fatores e GWP
+- [x] P07 Fatores e GWP (estrutura; os dados oficiais ainda faltam em data/)
 - [ ] P08 Coleta e evidências
 - [ ] P09 Escopo 1
 - [ ] P10 Escopo 2 e paridade
@@ -106,3 +106,14 @@
 - Sem sessão, qualquer tela leva ao login (antes, mostrava "Página não encontrada").
 - Testes: CNPJ, CNAE, participação e consolidação; roteiro de ponta a ponta com os três perfis; axe-core nas 10 telas com sessão, com login real no navegador.
 - make check verde: 385 testes. Uma rodada isolada teve os 11 testes de acessibilidade com sessão falhando na preparação, sob carga; duas rodadas seguintes passaram inteiras. A espera do login no navegador subiu para 60 s. Se voltar a acontecer, investigar antes de afrouxar mais.
+
+## P07 Fatores e GWP (concluído em 2026-11-20, sem dados oficiais)
+
+- Por decisão do usuário, construído sem números reais: data/ continua sem fatores, GWP e misturas. Os testes usam valores fictícios em tests/dados_ficticios, marcados como tal.
+- Formato dos insumos definido em data/README.md, com modelos só de cabeçalho em data/modelos/: CSV com ";", decimal com vírgula (e notação 1,5E-04), datas dd/mm/aaaa ou ISO, fonte obrigatória.
+- Leitura e validação em app/modules/fatores/arquivos.py: todos os erros de uma vez, com linha e coluna; unidade do fator conferida pelo registro pint (app/modules/calculo/unidades.py, com Decimal); vigências sobrepostas e misturas acima de 100% recusadas; hash do conteúdo canônico por linha.
+- Migração 0005: lote_importacao, lote_decisao, gwp_versao, fator_versao e mistura_versao, tabelas globais só de inserção (trigger recusa UPDATE, DELETE e TRUNCATE, até do superusuário).
+- Papel novo app_curadoria (só insere a referência); o app_user só lê. Serviço curadoria no compose e comandos python -m app.cli fatores importar, lotes, aprovar e rejeitar.
+- Bitemporal: vigência escolhe a validade; a aprovação do lote (decidido_em) escolhe o conhecimento. fatores_da_atividade, gwp_do_gas e mistura_na_data respondem "como era conhecido" num instante, com hash do conteúdo; instante_do_banco dá o instante a gravar no cálculo.
+- Runbook docs/runbooks/curadoria-de-fatores.md.
+- Pendente: os arquivos oficiais (GWP AR5, fatores do Programa, misturas CNPE/MME) e a curadoria deles. Sem isso, o P09 não calcula.
