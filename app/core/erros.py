@@ -7,7 +7,7 @@ pagina de erro; o resto recebe JSON.
 
 from fastapi import FastAPI, Request, status
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 CORPO_NAO_ENCONTRADO = {"detalhe": "Não encontrado."}
@@ -26,6 +26,31 @@ class ErroValidacao(Exception):
         self.mensagem = mensagem
 
 
+class ErrosDeValidacao(Exception):
+    """Varios campos recusados de uma vez: a pessoa ve todos os problemas no mesmo envio."""
+
+    def __init__(self, erros: list[ErroValidacao]) -> None:
+        super().__init__("; ".join(e.mensagem for e in erros))
+        self.erros = erros
+
+
+class ColetorDeErros:
+    """Junta os erros de um formulario e levanta todos no fim (se houver)."""
+
+    def __init__(self) -> None:
+        self.erros: list[ErroValidacao] = []
+
+    def adicionar(self, campo: str, mensagem: str) -> None:
+        self.erros.append(ErroValidacao(campo, mensagem))
+
+    def tem(self, campo: str) -> bool:
+        return any(e.campo == campo for e in self.erros)
+
+    def levantar_se_houver(self) -> None:
+        if self.erros:
+            raise ErrosDeValidacao(self.erros)
+
+
 def quer_pagina(request: Request) -> bool:
     return (
         request.method == "GET"
@@ -39,6 +64,10 @@ async def _nao_encontrado(request: Request) -> Response:
     if quer_pagina(request):
         # Import tardio: o modulo web depende da configuracao, nao o contrario.
         from app.web.portal import montar_portal, renderizar
+
+        if getattr(request.state, "sessao", None) is None:
+            # Sem sessao (ou sessao expirada), qualquer tela leva ao login: nada vaza.
+            return RedirectResponse("/entrar", status_code=status.HTTP_303_SEE_OTHER)
 
         return renderizar(
             request,
@@ -56,10 +85,16 @@ async def _tratar_acesso_negado(request: Request, _erro: Exception) -> Response:
 
 
 async def _tratar_validacao(_request: Request, erro: Exception) -> JSONResponse:
-    assert isinstance(erro, ErroValidacao)  # noqa: S101  # nosec B101
+    erros = erro.erros if isinstance(erro, ErrosDeValidacao) else [erro]
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        content={"erros": [{"campo": erro.campo, "mensagem": erro.mensagem}]},
+        content={
+            "erros": [
+                {"campo": e.campo, "mensagem": e.mensagem}
+                for e in erros
+                if isinstance(e, ErroValidacao)
+            ]
+        },
     )
 
 
@@ -75,4 +110,5 @@ async def _tratar_http(request: Request, erro: Exception) -> Response:
 def registrar_tratadores(app: FastAPI) -> None:
     app.add_exception_handler(AcessoNegado, _tratar_acesso_negado)
     app.add_exception_handler(ErroValidacao, _tratar_validacao)
+    app.add_exception_handler(ErrosDeValidacao, _tratar_validacao)
     app.add_exception_handler(StarletteHTTPException, _tratar_http)

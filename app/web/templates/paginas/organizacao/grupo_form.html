@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_texto, formulario, link_botao %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina(titulo, pretitulo="Organização") }}
+<div class="card">
+  <div class="card-body">
+    {% call formulario("form-grupo", acao, "Salvar grupo", rascunho=rascunho) %}
+      {{ campo_texto("nome", "Nome do grupo", valor=grupo.nome if grupo else "", obrigatorio=True, ajuda="Como o grupo econômico é conhecido, por exemplo, o nome da holding.") }}
+    {% endcall %}
+  </div>
+</div>
+<div class="mt-3">{{ link_botao("Voltar para a organização", "/organizacao", "link", "arrow-left") }}</div>
+{{ proximo_passo("Depois de salvar o grupo, cadastre as empresas dele.") }}
+{% endblock %}

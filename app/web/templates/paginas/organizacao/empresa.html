@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/formulario.html" import link_botao, botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}{{ empresa.nome }}{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina(empresa.nome, pretitulo=grupo.nome) %}
+  {% if pode_estrutura %}
+  {{ link_botao("Editar empresa", "/organizacao/empresas/" ~ empresa.empresa_id ~ "/editar", "outline-primary", "pencil") }}
+  {% if empresa.ativa %}
+  {{ botao("Desativar empresa", "outline-secondary", "player-pause", atributos={"hx-post": "/organizacao/empresas/" ~ empresa.empresa_id ~ "/desativar", "hx-swap": "none"}, indicador_id="ind-situacao-empresa") }}
+  {% else %}
+  {{ botao("Reativar empresa", "outline-primary", "player-play", atributos={"hx-post": "/organizacao/empresas/" ~ empresa.empresa_id ~ "/reativar", "hx-swap": "none"}, indicador_id="ind-situacao-empresa") }}
+  {% endif %}
+  {% endif %}
+{% endcall %}
+
+{% if not empresa.ativa %}
+{{ alerta("warning", "Empresa desativada", "Ela não aparece no seletor do topo e não entra em inventários novos. Os dados continuam guardados.") }}
+{% endif %}
+
+<section class="card mb-3" aria-labelledby="titulo-dados-empresa">
+  <div class="card-header"><h2 class="card-title" id="titulo-dados-empresa">Dados da empresa</h2></div>
+  <div class="card-body">
+    {{ ficha([("CNPJ", cnpj_formatado), ("Nome fantasia", empresa.nome_fantasia), ("CNAE principal", empresa.cnae), ("Sede", sede), ("Situação", "Ativa" if empresa.ativa else "Desativada")]) }}
+  </div>
+</section>
+
+<section class="card" aria-labelledby="titulo-unidades">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-unidades">Unidades</h2>
+    {% if pode_unidades and empresa.ativa %}
+    <div class="card-actions">{{ link_botao("Nova unidade", "/organizacao/empresas/" ~ empresa.empresa_id ~ "/unidades/nova", "primary", "plus") }}</div>
+    {% endif %}
+  </div>
+  <div class="card-body pb-0">
+    <p class="text-secondary mb-0">
+      {{ glossario("Participação societária", "Percentual do capital da unidade que pertence à empresa. Usado quando o inventário consolida por participação societária.") }},
+      {{ glossario("controle operacional", "A empresa define e aplica as políticas de operação da unidade. Com essa abordagem, a unidade entra com 100% ou 0%.") }}
+      e {{ glossario("controle financeiro", "A empresa dirige as políticas financeiras e operacionais da unidade para obter benefícios econômicos. Com essa abordagem, a unidade entra com 100% ou 0%.") }}
+      definem quanto de cada unidade entra no inventário.
+    </p>
+  </div>
+  {% if linhas_unidades %}
+  {{ tabela("Unidades de " ~ empresa.nome, colunas_unidades, linhas_unidades, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Nenhuma unidade cadastrada.</div>
+  {% endif %}
+</section>
+
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}

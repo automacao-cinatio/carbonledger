@@ -37,6 +37,9 @@
   function mensagemDeErro(xhr) {
     try {
       var corpo = JSON.parse(xhr.responseText);
+      if (corpo && corpo.erros && corpo.erros.length > 1) {
+        return "Corrija os " + corpo.erros.length + " campos destacados e envie de novo.";
+      }
       if (corpo && corpo.erros && corpo.erros.length) {
         return corpo.erros[0].mensagem;
       }

@@ -7,7 +7,7 @@
 - [x] P04 Identidade
 - [x] P05 Trilha e chaves
 - [x] P05A Base visual
-- [ ] P06 Estrutura
+- [x] P06 Estrutura
 - [ ] P07 Fatores e GWP
 - [ ] P08 Coleta e evidências
 - [ ] P09 Escopo 1
@@ -93,3 +93,16 @@
 - app.js único: CSRF no HTMX, aviso de resultado em região aria-live, marcação do campo inválido, rascunho no navegador, confirmação por digitação, glossário e gráficos com números em pt-BR e animação desligada para quem pede menos movimento.
 - Testes: regras de UI do CLAUDE.md checadas nos arquivos (toda macro na /ui, nada inline, nada externo, cor e fonte só no tema, menu na ordem, vendor íntegro); axe-core no Chromium sem violação WCAG 2.2 A e AA nem erro de console em /ui, /entrar e página de erro; interações exercitadas no navegador. CI instala o Chromium.
 - make check verde: 313 testes (vários parametrizados por arquivo e por par de cores).
+
+## P06 Estrutura (concluído em 2026-11-20)
+
+- Hierarquia dentro do tenant: grupo, empresa (CNPJ da matriz) e unidade (estabelecimento ou instalação), conforme decidido com o usuário.
+- Migração 0004: grupo (RLS por tenant), empresa completa (grupo obrigatório, CNPJ, nome fantasia, CNAE, UF, município, ativa) e unidade (RLS por tenant e empresa) com participação societária e controles operacional e financeiro. Empresas que já existiam vão para um "Grupo principal" do tenant na própria migração. Nada some: empresa e unidade se desativam.
+- Validação: CNPJ com dígito verificador, já no formato alfanumérico da Receita (desde julho de 2026), conferido com os exemplos oficiais; CNAE só no formato (a lista oficial entra quando estiver em data/); UF entre as 27; participação de 0 a 100 em Decimal, até 4 casas.
+- Limites organizacionais: a unidade guarda os fatos; percentual_consolidado(abordagem, unidade) já calcula quanto entra em cada abordagem do GHG Protocol, para o inventário usar.
+- Telas em Organização (item do menu liberado): árvore de grupos e empresas, ficha da empresa com as unidades, formulários com validação na hora, todos os erros do envio de uma vez e próximo passo em cada tela. Administrador e gestor editam tudo; responsável, só as unidades das suas empresas; colaborador só lê.
+- Trilha: grupo, empresa e unidade criados, alterados (só nomes dos campos), desativados e reativados.
+- Componentes novos na /ui: caixa de marcação, botão-link, etiqueta e ficha; tabela com colunas de link e de situação.
+- Sem sessão, qualquer tela leva ao login (antes, mostrava "Página não encontrada").
+- Testes: CNPJ, CNAE, participação e consolidação; roteiro de ponta a ponta com os três perfis; axe-core nas 10 telas com sessão, com login real no navegador.
+- make check verde: 385 testes. Uma rodada isolada teve os 11 testes de acessibilidade com sessão falhando na preparação, sob carga; duas rodadas seguintes passaram inteiras. A espera do login no navegador subiu para 60 s. Se voltar a acontecer, investigar antes de afrouxar mais.

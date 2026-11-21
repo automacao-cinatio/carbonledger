@@ -5,7 +5,10 @@
 #}
 
 {#
-  colunas: lista de dicts com chave, titulo e, para numeros, unidade e casas.
+  colunas: lista de dicts com chave e titulo, e mais:
+  - numero: unidade (vai no cabecalho) e casas;
+  - link: link = chave do endereco na linha;
+  - etiqueta: etiqueta = True; o valor e (texto, tipo).
   linhas: lista de dicts com as mesmas chaves.
 #}
 {% macro tabela(legenda, colunas, linhas, classe_legenda="") -%}
@@ -27,6 +30,10 @@
         {% for coluna in colunas %}
         {% if coluna.unidade is defined %}
         <td class="cl-numero">{{ linha[coluna.chave] | numero(coluna.casas if coluna.casas is defined else 2) }}</td>
+        {% elif coluna.link is defined %}
+        <td><a href="{{ linha[coluna.link] }}">{{ linha[coluna.chave] }}</a></td>
+        {% elif coluna.etiqueta is defined %}
+        <td><span class="badge bg-{{ linha[coluna.chave][1] }}-lt">{{ linha[coluna.chave][0] }}</span></td>
         {% else %}
         <td>{{ linha[coluna.chave] }}</td>
         {% endif %}

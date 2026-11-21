@@ -133,9 +133,11 @@ async def test_insert_sem_contexto_e_recusado(
     async with conexao_app.transaction():
         with pytest.raises(NEGADO):
             await conexao_app.execute(
-                "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, 'X')",
+                "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+                " VALUES ($1, $2, $3, 'X')",
                 dados.tenant_a,
                 uuid4(),
+                dados.grupo_a,
             )
 
 
@@ -146,9 +148,11 @@ async def test_insert_em_outro_tenant_e_recusado(
         await aplicar_contexto(conexao_app, _contexto_tenant(dados.tenant_a))
         with pytest.raises(NEGADO):
             await conexao_app.execute(
-                "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, 'X')",
+                "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+                " VALUES ($1, $2, $3, 'X')",
                 dados.tenant_b,
                 uuid4(),
+                dados.grupo_b,
             )
 
 
@@ -161,9 +165,11 @@ async def test_insert_no_proprio_tenant_funciona(
         await aplicar_contexto(conexao_app, _contexto_tenant(dados.tenant_a))
         nova = uuid4()
         await conexao_app.execute(
-            "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, 'Nova')",
+            "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+            " VALUES ($1, $2, $3, 'Nova')",
             dados.tenant_a,
             nova,
+            dados.grupo_a,
         )
         assert (
             await conexao_app.fetchval("SELECT count(*) FROM empresa WHERE empresa_id = $1", nova)
@@ -180,9 +186,11 @@ async def test_insert_fora_das_empresas_do_escopo_e_recusado(
         await aplicar_contexto(conexao_app, _contexto_empresas(dados.tenant_a, dados.empresa_a1))
         with pytest.raises(NEGADO):
             await conexao_app.execute(
-                "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, 'X')",
+                "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+                " VALUES ($1, $2, $3, 'X')",
                 dados.tenant_a,
                 uuid4(),
+                dados.grupo_a,
             )
 
 

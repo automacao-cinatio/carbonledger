@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_texto, campo_numero, campo_selecao, campo_marcacao, formulario, link_botao, botao %}
+{% from "componentes/feedback.html" import glossario %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina(titulo, pretitulo=empresa.nome) %}
+  {% if unidade and pode_unidades %}
+  {% if unidade.ativa %}
+  {{ botao("Desativar unidade", "outline-secondary", "player-pause", atributos={"hx-post": "/organizacao/unidades/" ~ unidade.unidade_id ~ "/desativar", "hx-swap": "none"}, indicador_id="ind-situacao-unidade") }}
+  {% else %}
+  {{ botao("Reativar unidade", "outline-primary", "player-play", atributos={"hx-post": "/organizacao/unidades/" ~ unidade.unidade_id ~ "/reativar", "hx-swap": "none"}, indicador_id="ind-situacao-unidade") }}
+  {% endif %}
+  {% endif %}
+{% endcall %}
+<div class="card">
+  <div class="card-body">
+    {% call formulario("form-unidade", acao, "Salvar unidade", rascunho=rascunho) %}
+    <div class="row">
+      <div class="col-md-6">
+        {{ campo_texto("nome", "Nome da unidade", valor=valores.nome, obrigatorio=True, ajuda="Como a unidade é chamada no dia a dia, por exemplo, Fábrica de Campinas.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_texto("cnpj", "CNPJ do estabelecimento", valor=valores.cnpj, validar_url="/organizacao/validar/cnpj", ajuda="Opcional. Deixe em branco se a unidade não tem CNPJ próprio.") }}
+      </div>
+      <div class="col-md-2">
+        {{ campo_selecao("uf", "UF", ufs, selecionado=valores.uf, obrigatorio=True, vazio="Escolha") }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_texto("municipio", "Município", valor=valores.municipio, obrigatorio=True) }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_numero("participacao_societaria", "Participação societária", "%", valor=valores.participacao_societaria, casas=2, obrigatorio=True, validar_url="/organizacao/validar/participacao_societaria", ajuda="Quanto do capital da unidade pertence à empresa. Se for toda dela, 100.") }}
+      </div>
+    </div>
+    <fieldset class="mb-2">
+      <legend class="form-label">Controle da unidade</legend>
+      <p class="form-hint mt-0">Marque os que se aplicam. Eles definem se a unidade entra no inventário quando a abordagem é por
+        {{ glossario("controle", "Controle operacional: a empresa define as políticas de operação. Controle financeiro: a empresa dirige as políticas financeiras e operacionais para obter benefícios econômicos.") }}.</p>
+      {{ campo_marcacao("controle_operacional", "A empresa tem o controle operacional desta unidade", marcado=valores.controle_operacional) }}
+      {{ campo_marcacao("controle_financeiro", "A empresa tem o controle financeiro desta unidade", marcado=valores.controle_financeiro) }}
+    </fieldset>
+    {% endcall %}
+  </div>
+</div>
+<div class="mt-3">{{ link_botao("Voltar para " ~ empresa.nome, "/organizacao/empresas/" ~ empresa.empresa_id, "link", "arrow-left") }}</div>
+{{ proximo_passo("Cadastre todas as unidades que emitem gases de efeito estufa, inclusive as que a empresa não controla: a abordagem escolhida no inventário decide quais entram.") }}
+{% endblock %}

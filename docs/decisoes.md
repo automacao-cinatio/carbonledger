@@ -80,3 +80,14 @@
 - O teste de acessibilidade injeta o axe-core pelo protocolo do DevTools, porque a CSP do app bloqueia script injetado, o que confirma que ela está valendo.
 - Seleção de empresa no topo guardada na sessão: é foco de interface; o que cada pessoa pode ver continua definido pelo perfil, no banco.
 - Exceção à regra dos caracteres U+2013 e U+2014: as duas pastas vendor (app/web/static/vendor e tests/e2e/vendor) ficam fora da verificação, porque ECharts, Tabler e axe-core os contêm e esses arquivos precisam continuar idênticos aos pacotes oficiais, travados pelo manifesto de hashes. Todo arquivo nosso continua verificado. Para reverter, remova PASTAS_DE_TERCEIROS em scripts/verificar_caracteres.py.
+
+## 2026-11-20: estrutura (P06)
+
+- Grupo, empresa e unidade (decisão do usuário). O grupo só tem RLS de tenant; o responsável vê só os grupos que têm empresa dele.
+- Limites organizacionais: a unidade guarda participação societária e os controles; a abordagem é escolhida em cada inventário (decisão do usuário). A regra fica numa função pura, testada, em app/modules/organizacao/limites.py.
+- CNAE em texto validado só no formato até a lista oficial entrar em data/ (decisão do usuário).
+- CNPJ alfanumérico: o banco confere o formato (12 posições 0-9 ou A-Z e 2 dígitos); o dígito verificador é conferido no app. CNPJ fica opcional no banco (registros antigos) e obrigatório no formulário da empresa.
+- Migração com dados: para mover empresas existentes para o grupo padrão, a migração tira o FORCE do RLS da empresa (o dono da tabela passa a enxergar tudo) e o devolve na mesma transação.
+- Formulários devolvem todos os erros de uma vez (ColetorDeErros e ErrosDeValidacao), e o aviso diz quantos campos corrigir.
+- A trilha guarda só os nomes dos campos alterados, nunca os valores: razão social pode ser nome de pessoa (MEI).
+- Sem sessão, telas levam ao login: com a sessão expirada, a pessoa entende o que aconteceu.

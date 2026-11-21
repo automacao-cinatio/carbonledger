@@ -25,6 +25,15 @@ COLUNAS_EXEMPLO = [
     {"chave": "emissoes", "titulo": "Emissões", "unidade": "tCO₂e", "casas": 2},
     {"chave": "participacao", "titulo": "Participação", "unidade": "%", "casas": 1},
 ]
+COLUNAS_CADASTRO = [
+    {"chave": "nome", "titulo": "Empresa", "link": "url"},
+    {"chave": "unidades", "titulo": "Unidades ativas", "unidade": "un.", "casas": 0},
+    {"chave": "situacao", "titulo": "Situação", "etiqueta": True},
+]
+LINHAS_CADASTRO = [
+    {"nome": "Empresa Exemplo Ltda", "url": "/ui", "unidades": 3, "situacao": ("Ativa", "success")},
+    {"nome": "Filial Norte", "url": "/ui", "unidades": 0, "situacao": ("Desativada", "secondary")},
+]
 LINHAS_EXEMPLO = [
     {"escopo": "Escopo 1", "emissoes": Decimal("1234.567"), "participacao": Decimal("61.4")},
     {"escopo": "Escopo 2", "emissoes": Decimal("512.3"), "participacao": Decimal("25.5")},
@@ -74,6 +83,8 @@ async def galeria(request: Request) -> Response:
         portal,
         pagina_atual="/ui",
         colunas_exemplo=COLUNAS_EXEMPLO,
+        colunas_cadastro=COLUNAS_CADASTRO,
+        linhas_cadastro=LINHAS_CADASTRO,
         linhas_exemplo=LINHAS_EXEMPLO,
         grafico_exemplo=_grafico_exemplo(),
         fator_exemplo=Decimal("2.6012"),

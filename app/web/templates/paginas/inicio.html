@@ -16,8 +16,8 @@
   </div>
 </div>
 {% if portal.empresas %}
-{{ proximo_passo("Revise as empresas e unidades antes de começar a coleta.") }}
+{{ proximo_passo("Revise as empresas e unidades antes de começar a coleta.", "/organizacao", "Ver a organização") }}
 {% else %}
-{{ proximo_passo("Cadastre a primeira empresa e as unidades dela. O cadastro chega na próxima etapa do portal.") }}
+{{ proximo_passo("Cadastre os grupos, as empresas e as unidades do cliente.", "/organizacao", "Ir para a organização") }}
 {% endif %}
 {% endblock %}

@@ -232,10 +232,11 @@ def test_estaticos_com_versao_pelo_conteudo(cliente: TestClient) -> None:
     assert cliente.get(tema.group(1)).status_code == 200
 
 
-def test_erro_vira_pagina_no_navegador_e_json_na_api(cliente: TestClient) -> None:
-    pagina = cliente.get("/nao-existe", headers={"accept": "text/html"})
-    assert pagina.status_code == 404
-    assert "Página não encontrada" in pagina.text
+def test_erro_vira_login_no_navegador_e_json_na_api(cliente: TestClient) -> None:
+    # Sem sessao (ou com ela expirada), o navegador vai para o login; nada vaza.
+    pagina = cliente.get("/nao-existe", headers={"accept": "text/html"}, follow_redirects=False)
+    assert pagina.status_code == 303
+    assert pagina.headers["location"] == "/entrar"
     api = cliente.get("/api/nao-existe", headers={"accept": "text/html"})
     assert api.json() == {"detalhe": "Não encontrado."}
     htmx = cliente.get("/nao-existe", headers={"accept": "text/html", "HX-Request": "true"})

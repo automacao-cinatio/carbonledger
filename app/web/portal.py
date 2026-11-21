@@ -91,7 +91,9 @@ async def montar_portal(request: Request) -> Portal:
     async with sessao_de_tenant(fabrica, acesso.contexto()) as db:
         empresas = [
             EmpresaVisivel(str(e.empresa_id), e.nome)
-            for e in await db.execute(text("SELECT empresa_id, nome FROM empresa ORDER BY nome"))
+            for e in await db.execute(
+                text("SELECT empresa_id, nome FROM empresa WHERE ativa ORDER BY nome")
+            )
         ]
     tenant_nome = next((a.nome for a in acessos if a.tenant_id == str(acesso.tenant_id)), None)
     ids = {e.id for e in empresas}

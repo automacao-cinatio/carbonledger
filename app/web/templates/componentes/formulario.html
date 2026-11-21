@@ -56,12 +56,13 @@
 </div>
 {%- endmacro %}
 
-{% macro campo_selecao(nome, rotulo, opcoes, selecionado=None, ajuda=None, erro=None, obrigatorio=False) -%}
+{% macro campo_selecao(nome, rotulo, opcoes, selecionado=None, ajuda=None, erro=None, obrigatorio=False, vazio=None) -%}
 <div class="mb-3">
   <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
   <select id="campo-{{ nome }}" name="{{ nome }}" class="form-select{{ ' is-invalid' if erro else "" }}"
           aria-describedby="{{ _descricao(nome, ajuda) }}"
           {{- ' required aria-required="true"' | safe if obrigatorio else "" }}>
+    {% if vazio %}<option value="">{{ vazio }}</option>{% endif %}
     {% for valor, texto in opcoes %}
     <option value="{{ valor }}"{{ ' selected' if valor == selecionado else "" }}>{{ texto }}</option>
     {% endfor %}
@@ -69,6 +70,25 @@
   {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
   {{ mensagem_campo(nome, erro) }}
 </div>
+{%- endmacro %}
+
+{# Caixa de marcacao: envia "sim" quando marcada (e nada quando nao). #}
+{% macro campo_marcacao(nome, rotulo, marcado=False, ajuda=None) -%}
+<div class="mb-3">
+  <label class="form-check">
+    <input id="campo-{{ nome }}" name="{{ nome }}" type="checkbox" value="sim" class="form-check-input"
+           {{- ' checked' if marcado else "" }}{{ (' aria-describedby="ajuda-' ~ nome ~ '"') | safe if ajuda else "" }}>
+    <span class="form-check-label">{{ rotulo }}</span>
+  </label>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Navegacao com cara de botao (link de verdade: abre em nova aba, tem endereco). #}
+{% macro link_botao(rotulo, url, variante="primary", icone=None) -%}
+<a href="{{ url }}" class="btn btn-{{ variante }}">
+  {% if icone %}<i class="ti ti-{{ icone }} me-1" aria-hidden="true"></i>{% endif %}{{ rotulo }}
+</a>
 {%- endmacro %}
 
 {#

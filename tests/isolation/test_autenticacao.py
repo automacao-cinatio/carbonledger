@@ -5,129 +5,22 @@ provedor (preenche o formulario de login do mock com o sujeito e as claims do te
 """
 
 import asyncio
-import json
 import re
-import time
-from collections.abc import Iterator
-from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import asyncpg
 import httpx
 import pytest
-from fastapi import APIRouter
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-from testcontainers.community.redis import RedisContainer
-from testcontainers.core.container import DockerContainer
 
-from app.api.dependencias import SessaoTenant
 from app.cli import criar_tenant
 from app.core.config import obter_configuracao
 from app.core.erros import CORPO_NAO_ENCONTRADO
-from app.main import criar_app
 from tests.isolation.conftest import Banco
+from tests.isolation.portal import COOKIE_SESSAO, entrar
 
 pytestmark = pytest.mark.integration
-
-IMAGEM_OIDC = "ghcr.io/navikt/mock-oauth2-server:latest"
-COOKIE_SESSAO = "cl_sessao"
-
-rotas_teste = APIRouter(prefix="/teste-login")
-
-
-@rotas_teste.get("/empresas")
-async def empresas_visiveis(sessao: SessaoTenant) -> list[str]:
-    linhas = await sessao.execute(text("SELECT nome FROM empresa ORDER BY nome"))
-    return list(linhas.scalars())
-
-
-@pytest.fixture(scope="module")
-def redis_url() -> Iterator[str]:
-    with RedisContainer("redis:7") as conteiner:
-        host = conteiner.get_container_host_ip()
-        yield f"redis://{host}:{conteiner.get_exposed_port(6379)}/0"
-
-
-@pytest.fixture(scope="module")
-def emissor_oidc() -> Iterator[str]:
-    conteiner = (
-        DockerContainer(IMAGEM_OIDC)
-        .with_exposed_ports(8080)
-        .with_env("JSON_CONFIG", '{"interactiveLogin": true}')
-    )
-    with conteiner:
-        emissor = (
-            f"http://{conteiner.get_container_host_ip()}:{conteiner.get_exposed_port(8080)}/dev"
-        )
-        limite = time.monotonic() + 90
-        while True:
-            try:
-                if httpx.get(f"{emissor}/.well-known/openid-configuration").status_code == 200:
-                    break
-            except httpx.HTTPError:
-                pass
-            if time.monotonic() > limite:
-                raise RuntimeError("provedor OIDC simulado nao subiu")
-            time.sleep(1)
-        yield emissor
-
-
-@pytest.fixture
-def emails(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, str]]:
-    enviados: list[dict[str, str]] = []
-
-    async def capturar(_configuracao: Any, para: str, assunto: str, corpo: str) -> None:
-        enviados.append({"para": para, "assunto": assunto, "corpo": corpo})
-
-    monkeypatch.setattr("app.core.email.enviar_email", capturar)
-    return enviados
-
-
-@pytest.fixture
-def app_cliente(
-    banco: Banco, redis_url: str, emissor_oidc: str, monkeypatch: pytest.MonkeyPatch
-) -> Iterator[TestClient]:
-    for nome, valor in {
-        "DATABASE_URL": banco.dsn_app,
-        "REDIS_URL": redis_url,
-        "OIDC_DEV_EMISSOR": emissor_oidc,
-        "COOKIE_SEGURO": "false",
-        "APP_URL_BASE": "http://testserver",
-    }.items():
-        monkeypatch.setenv(nome, valor)
-    obter_configuracao.cache_clear()
-    app = criar_app()
-    app.include_router(rotas_teste)
-    with TestClient(app, follow_redirects=False) as cliente:
-        yield cliente
-    obter_configuracao.cache_clear()
-
-
-def entrar(
-    cliente: TestClient,
-    inicio: str,
-    *,
-    sujeito: str,
-    email: str | None,
-    verificado: bool = True,
-) -> httpx.Response:
-    """Percorre o fluxo inteiro e devolve a resposta do retorno no app."""
-    cliente.cookies.clear()
-    ida = cliente.get(inicio)
-    assert ida.status_code == 303, ida.text
-    claims: dict[str, Any] = {"email_verified": verificado, "name": sujeito.title()}
-    if email is not None:
-        claims["email"] = email
-    no_provedor = httpx.post(
-        ida.headers["location"],
-        data={"username": sujeito, "claims": json.dumps(claims)},
-        follow_redirects=False,
-    )
-    assert no_provedor.status_code == 302, no_provedor.text
-    volta = urlsplit(no_provedor.headers["location"])
-    return cliente.get(f"{volta.path}?{volta.query}")
 
 
 def _link_do_email(corpo: str) -> str:
@@ -138,11 +31,17 @@ def _link_do_email(corpo: str) -> str:
 
 async def _criar_empresas(banco: Banco, tenant_id: UUID, *nomes: str) -> list[UUID]:
     ids = [uuid4() for _ in nomes]
+    grupo = uuid4()
     admin = await asyncpg.connect(banco.dsn_admin)
     try:
+        await admin.execute(
+            "INSERT INTO grupo (tenant_id, grupo_id, nome) VALUES ($1, $2, 'Grupo E2E')",
+            tenant_id,
+            grupo,
+        )
         await admin.executemany(
-            "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, $3)",
-            [(tenant_id, i, n) for i, n in zip(ids, nomes, strict=True)],
+            "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome) VALUES ($1, $2, $3, $4)",
+            [(tenant_id, i, grupo, n) for i, n in zip(ids, nomes, strict=True)],
         )
     finally:
         await admin.close()

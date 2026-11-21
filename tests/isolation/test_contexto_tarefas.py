@@ -35,7 +35,8 @@ async def criar_empresa(
     conexao: Any, contexto: ContextoTenant, *, empresa_id: str, falhar: bool = False
 ) -> None:
     await conexao.execute(
-        "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, 'Tarefa')",
+        "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+        " VALUES ($1, $2, (SELECT grupo_id FROM grupo LIMIT 1), 'Tarefa')",
         contexto.tenant_id,
         UUID(empresa_id),
     )

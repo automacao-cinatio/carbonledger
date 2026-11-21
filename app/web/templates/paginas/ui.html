@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, botao, formulario %}
-{% from "componentes/layout.html" import icone, cabecalho_pagina, proximo_passo, barra_progresso, estado_inventario, seletor_empresa %}
+{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, link_botao, botao, formulario %}
+{% from "componentes/layout.html" import icone, cabecalho_pagina, proximo_passo, barra_progresso, estado_inventario, seletor_empresa, etiqueta, ficha %}
 {% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
 {% from "componentes/dados.html" import tabela, grafico %}
 {% block titulo %}Componentes{% endblock %}
@@ -29,6 +29,12 @@
       <div class="col-md-6">
         {{ campo_numero("fator", "Fator de exemplo", "kgCO₂e/L", valor=fator_exemplo, casas=4, erro="Exemplo de erro: o fator vem da tabela oficial e não pode ser digitado.") }}
       </div>
+      <div class="col-md-6">
+        {{ campo_selecao("uf_exemplo", "UF", [("SP", "SP"), ("RJ", "RJ")], vazio="Escolha a UF") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_marcacao("controle_exemplo", "A empresa tem o controle operacional desta unidade", marcado=True, ajuda="Quem define as políticas de operação da unidade.") }}
+      </div>
     </div>
     {% endcall %}
     <p class="small text-secondary mt-3 mb-0">O que você digitar fica guardado neste navegador até o envio dar certo.
@@ -42,6 +48,9 @@
     {{ tabela("Emissões por escopo em 2026 (exemplo)", colunas_exemplo, linhas_exemplo) }}
   </div>
   <div class="card-body">
+    {{ tabela("Empresas do grupo (exemplo com link e situação)", colunas_cadastro, linhas_cadastro) }}
+  </div>
+  <div class="card-body">
     {{ grafico("grafico-exemplo", "Emissões por escopo em 2026 (exemplo)", grafico_exemplo, colunas_exemplo, linhas_exemplo) }}
   </div>
 </section>
@@ -53,6 +62,11 @@
     <div class="row align-items-center g-3 mb-3">{{ estado_inventario(none) }}</div>
     <div class="col-md-6">{{ barra_progresso("Unidades com dados", 7, 9) }}</div>
     <div class="cl-topo p-3 mt-3 rounded">{{ seletor_empresa(portal.empresas, portal.empresa_atual) }}</div>
+    <div class="mt-3">
+      Situação: {{ etiqueta("Ativa", "success") }} {{ etiqueta("Desativada", "secondary") }}
+    </div>
+    <div class="mt-3">{{ ficha([("CNPJ", "11.222.333/0001-81"), ("CNAE", "2512-8/00"), ("Nome fantasia", none)]) }}</div>
+    <div class="mt-3">{{ link_botao("Ver a empresa", "/ui", "outline-primary", "building") }}</div>
   </div>
 </section>
 

@@ -6,47 +6,22 @@ reprova a tela.
 """
 
 import os
-import socket
-import threading
-import time
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
-import uvicorn
 
 from app.main import criar_app
+from tests.acessibilidade import porta_livre, servir, vigiar_console, violacoes_axe
 
 pytestmark = pytest.mark.e2e
-
-AXE = Path(__file__).parent / "vendor" / "axe-core-4.14.1" / "axe.min.js"
-REGRAS_WCAG = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
 
 sync_api = pytest.importorskip("playwright.sync_api")
 
 
-def _porta_livre() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
-
-
 @pytest.fixture(scope="module")
 def servidor() -> Iterator[str]:
-    porta = _porta_livre()
-    config = uvicorn.Config(criar_app(), host="127.0.0.1", port=porta, log_level="warning")
-    servidor = uvicorn.Server(config)
-    linha = threading.Thread(target=servidor.run, daemon=True)
-    linha.start()
-    limite = time.monotonic() + 30
-    while not servidor.started:
-        if time.monotonic() > limite:
-            raise RuntimeError("servidor de teste nao subiu")
-        time.sleep(0.1)
-    yield f"http://127.0.0.1:{porta}"
-    servidor.should_exit = True
-    linha.join(timeout=10)
+    yield from servir(criar_app(), porta_livre())
 
 
 @pytest.fixture(scope="module")
@@ -68,27 +43,9 @@ def navegador() -> Iterator[Any]:
 def pagina(navegador: Any) -> Iterator[Any]:
     contexto = navegador.new_context(locale="pt-BR")
     pagina = contexto.new_page()
-    pagina.erros_console = []  # type: ignore[attr-defined]
-    pagina.on(
-        "console",
-        lambda m: m.type in ("error", "warning") and pagina.erros_console.append(m.text),  # type: ignore[attr-defined]
-    )
-    pagina.on("pageerror", lambda e: pagina.erros_console.append(str(e)))  # type: ignore[attr-defined]
+    pagina.erros_console = vigiar_console(pagina)  # type: ignore[attr-defined]
     yield pagina
     contexto.close()
-
-
-def _axe(pagina: Any) -> list[dict[str, Any]]:
-    # Pelo protocolo do DevTools: a CSP da pagina (corretamente) barra script injetado.
-    cdp = pagina.context.new_cdp_session(pagina)
-    cdp.send("Runtime.evaluate", {"expression": AXE.read_text(encoding="utf-8")})
-    resultado = pagina.evaluate(
-        "regras => axe.run(document, {runOnly: {type: 'tag', values: regras}})", REGRAS_WCAG
-    )
-    return [
-        {"id": v["id"], "alvos": [n["target"] for n in v["nodes"]][:3], "ajuda": v["help"]}
-        for v in resultado["violations"]
-    ]
 
 
 def _sem_erros(pagina: Any, *, documento_404: bool = False) -> None:
@@ -106,7 +63,7 @@ def test_telas_sem_violacao_wcag_nem_de_csp(servidor: str, pagina: Any, caminho:
     pagina.goto(servidor + caminho, wait_until="networkidle")
     _sem_erros(pagina, documento_404=caminho == "/nao-existe")
     assert pagina.locator("html").get_attribute("lang") == "pt-BR"
-    violacoes = _axe(pagina)
+    violacoes = violacoes_axe(pagina)
     assert not violacoes, violacoes
 
 

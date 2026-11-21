@@ -33,7 +33,7 @@ class ItemMenu:
 # Item entra no menu quando a tela existe (disponivel=True); a ordem nao muda.
 MENU: tuple[ItemMenu, ...] = (
     ItemMenu("Início", "/", "home", True),
-    ItemMenu("Organização", "/organizacao", "building", False),
+    ItemMenu("Organização", "/organizacao", "building", True),
     ItemMenu("Coleta", "/coleta", "clipboard-data", False),
     ItemMenu("Resultados", "/resultados", "chart-bar", False),
     ItemMenu("Fechamento", "/fechamento", "lock", False),

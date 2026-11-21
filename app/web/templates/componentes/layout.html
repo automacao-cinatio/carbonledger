@@ -84,3 +84,21 @@
 <span class="cl-topo-texto small">Nenhuma empresa cadastrada</span>
 {% endif %}
 {%- endmacro %}
+
+
+{# Etiqueta de situacao: o texto diz o estado (a cor nunca vem sozinha). #}
+{% macro etiqueta(texto, tipo="secondary") -%}
+<span class="badge bg-{{ tipo }}-lt">{{ texto }}</span>
+{%- endmacro %}
+
+{# Ficha de dados: pares rotulo e valor, para detalhes de um registro. #}
+{% macro ficha(itens) -%}
+<dl class="datagrid">
+  {% for rotulo, valor in itens %}
+  <div class="datagrid-item">
+    <dt class="datagrid-title">{{ rotulo }}</dt>
+    <dd class="datagrid-content mb-0">{{ valor if valor else "Não informado" }}</dd>
+  </div>
+  {% endfor %}
+</dl>
+{%- endmacro %}

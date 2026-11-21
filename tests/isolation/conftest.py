@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 import asyncpg
 import pytest
+from fastapi.testclient import TestClient
 from testcontainers.community.postgres import PostgresContainer
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -38,6 +39,10 @@ class Dados:
     empresa_a2: UUID
     empresa_b1: UUID
     empresa_b2: UUID
+    grupo_a: UUID
+    grupo_b: UUID
+    unidade_a1: UUID
+    unidade_b1: UUID
     admin_a: UUID
     responsavel_a1: UUID
     admin_b: UUID
@@ -51,6 +56,10 @@ DADOS = Dados(
     empresa_a2=UUID("aaaaaaaa-0000-4000-8000-000000000002"),
     empresa_b1=UUID("bbbbbbbb-0000-4000-8000-000000000001"),
     empresa_b2=UUID("bbbbbbbb-0000-4000-8000-000000000002"),
+    grupo_a=UUID("aaaaaaaa-2222-4000-8000-000000000001"),
+    grupo_b=UUID("bbbbbbbb-2222-4000-8000-000000000001"),
+    unidade_a1=UUID("aaaaaaaa-3333-4000-8000-000000000001"),
+    unidade_b1=UUID("bbbbbbbb-3333-4000-8000-000000000001"),
     admin_a=UUID("aaaaaaaa-1111-4000-8000-000000000001"),
     responsavel_a1=UUID("aaaaaaaa-1111-4000-8000-000000000002"),
     admin_b=UUID("bbbbbbbb-1111-4000-8000-000000000001"),
@@ -86,12 +95,28 @@ async def _semear(dsn_admin: str) -> None:
             [(DADOS.tenant_a, "Tenant A"), (DADOS.tenant_b, "Tenant B")],
         )
         await conexao.executemany(
-            "INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES ($1, $2, $3)",
+            "INSERT INTO grupo (tenant_id, grupo_id, nome) VALUES ($1, $2, $3)",
             [
-                (DADOS.tenant_a, DADOS.empresa_a1, "Empresa A1"),
-                (DADOS.tenant_a, DADOS.empresa_a2, "Empresa A2"),
-                (DADOS.tenant_b, DADOS.empresa_b1, "Empresa B1"),
-                (DADOS.tenant_b, DADOS.empresa_b2, "Empresa B2"),
+                (DADOS.tenant_a, DADOS.grupo_a, "Grupo A"),
+                (DADOS.tenant_b, DADOS.grupo_b, "Grupo B"),
+            ],
+        )
+        await conexao.executemany(
+            "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome) VALUES ($1, $2, $3, $4)",
+            [
+                (DADOS.tenant_a, DADOS.empresa_a1, DADOS.grupo_a, "Empresa A1"),
+                (DADOS.tenant_a, DADOS.empresa_a2, DADOS.grupo_a, "Empresa A2"),
+                (DADOS.tenant_b, DADOS.empresa_b1, DADOS.grupo_b, "Empresa B1"),
+                (DADOS.tenant_b, DADOS.empresa_b2, DADOS.grupo_b, "Empresa B2"),
+            ],
+        )
+        await conexao.executemany(
+            "INSERT INTO unidade (tenant_id, unidade_id, empresa_id, nome, uf, municipio,"
+            " controle_operacional, controle_financeiro) VALUES ($1, $2, $3, $4, 'SP', 'Campinas',"
+            " true, true)",
+            [
+                (DADOS.tenant_a, DADOS.unidade_a1, DADOS.empresa_a1, "Fabrica A1"),
+                (DADOS.tenant_b, DADOS.unidade_b1, DADOS.empresa_b1, "Fabrica B1"),
             ],
         )
         await conexao.executemany(
@@ -192,3 +217,55 @@ async def conexao_admin(banco: Banco) -> AsyncIterator[asyncpg.Connection]:
         yield conexao
     finally:
         await conexao.close()
+
+
+# ---------------------------------------------------------------- portal de ponta a ponta
+
+
+@pytest.fixture(scope="session")
+def redis_url() -> Iterator[str]:
+    from tests.isolation.portal import subir_redis
+
+    yield from subir_redis()
+
+
+@pytest.fixture(scope="session")
+def emissor_oidc() -> Iterator[str]:
+    from tests.isolation.portal import subir_oidc
+
+    yield from subir_oidc()
+
+
+@pytest.fixture
+def emails(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, str]]:
+    enviados: list[dict[str, str]] = []
+
+    async def capturar(_configuracao: object, para: str, assunto: str, corpo: str) -> None:
+        enviados.append({"para": para, "assunto": assunto, "corpo": corpo})
+
+    monkeypatch.setattr("app.core.email.enviar_email", capturar)
+    return enviados
+
+
+@pytest.fixture
+def app_cliente(
+    banco: Banco, redis_url: str, emissor_oidc: str, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[TestClient]:
+    from app.core.config import obter_configuracao
+    from app.main import criar_app
+    from tests.isolation.portal import rotas_teste
+
+    for nome, valor in {
+        "DATABASE_URL": banco.dsn_app,
+        "REDIS_URL": redis_url,
+        "OIDC_DEV_EMISSOR": emissor_oidc,
+        "COOKIE_SEGURO": "false",
+        "APP_URL_BASE": "http://testserver",
+    }.items():
+        monkeypatch.setenv(nome, valor)
+    obter_configuracao.cache_clear()
+    app = criar_app()
+    app.include_router(rotas_teste)
+    with TestClient(app, follow_redirects=False) as cliente:
+        yield cliente
+    obter_configuracao.cache_clear()

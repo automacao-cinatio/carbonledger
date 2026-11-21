@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_texto, campo_selecao, formulario, link_botao %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina(titulo, pretitulo="Organização") }}
+<div class="card">
+  <div class="card-body">
+    {% call formulario("form-empresa", acao, "Salvar empresa", rascunho=rascunho) %}
+    <div class="row">
+      <div class="col-md-6">
+        {{ campo_selecao("grupo_id", "Grupo", grupos, selecionado=valores.grupo_id, obrigatorio=True, vazio="Escolha o grupo") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_texto("cnpj", "CNPJ da matriz", valor=valores.cnpj, obrigatorio=True, validar_url="/organizacao/validar/cnpj", ajuda="Com ou sem pontuação. Aceita o CNPJ alfanumérico.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_texto("nome", "Razão social", valor=valores.nome, obrigatorio=True) }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_texto("nome_fantasia", "Nome fantasia", valor=valores.nome_fantasia) }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_texto("cnae", "CNAE principal", valor=valores.cnae, validar_url="/organizacao/validar/cnae", ajuda="Subclasse, como 2512-8/00.") }}
+      </div>
+      <div class="col-md-2">
+        {{ campo_selecao("uf", "UF da sede", ufs, selecionado=valores.uf, obrigatorio=True, vazio="Escolha") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_texto("municipio", "Município da sede", valor=valores.municipio, obrigatorio=True) }}
+      </div>
+    </div>
+    {% endcall %}
+  </div>
+</div>
+<div class="mt-3">{{ link_botao("Voltar", voltar, "link", "arrow-left") }}</div>
+{{ proximo_passo("Depois de salvar a empresa, cadastre as unidades dela.") }}
+{% endblock %}

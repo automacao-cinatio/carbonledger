@@ -36,7 +36,10 @@ async def listar(sessao: SessaoTenant) -> list[str]:
 async def criar(sessao: SessaoTenant, contexto: Contexto) -> dict[str, object]:
     nova = uuid4()
     await sessao.execute(
-        text("INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES (:t, :e, 'Teste API')"),
+        text(
+            "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+            " VALUES (:t, :e, (SELECT grupo_id FROM grupo LIMIT 1), 'Teste API')"
+        ),
         {"t": contexto.tenant_id, "e": nova},
     )
     # Commit no meio: a transacao seguinte precisa continuar com o contexto.
@@ -51,7 +54,10 @@ async def criar(sessao: SessaoTenant, contexto: Contexto) -> dict[str, object]:
 async def criar_e_falhar(sessao: SessaoTenant, contexto: Contexto, request: Request) -> None:
     nova = UUID(request.headers["x-teste-nova"])
     await sessao.execute(
-        text("INSERT INTO empresa (tenant_id, empresa_id, nome) VALUES (:t, :e, 'Falha')"),
+        text(
+            "INSERT INTO empresa (tenant_id, empresa_id, grupo_id, nome)"
+            " VALUES (:t, :e, (SELECT grupo_id FROM grupo LIMIT 1), 'Falha')"
+        ),
         {"t": contexto.tenant_id, "e": nova},
     )
     raise FalhaProposital
