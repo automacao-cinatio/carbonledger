@@ -25,8 +25,15 @@ class Configuracao(BaseSettings):
     s3_secret_key: SecretStr
     s3_bucket_evidencias: str = "evidencias"
 
+    # Evidencias: Object Lock no bucket. Em producao, so COMPLIANCE (nem o dono apaga).
+    s3_regiao: str = "us-east-1"
+    evidencias_modo_retencao: str = "GOVERNANCE"
+    evidencias_retencao_dias: int = 1825
+    upload_limite_mb: int = 20
+
     clamav_host: str = "clamav"
     clamav_port: int = 3310
+    clamav_tempo_limite_s: float = 60.0
 
     smtp_host: str = "mailpit"
     smtp_port: int = 1025
@@ -75,6 +82,12 @@ class Configuracao(BaseSettings):
                 raise ValueError("Em producao APP_URL_BASE precisa usar https.")
             if self.provedor_chaves == "local" or self.chaves_locais is not None:
                 raise ValueError("Em producao as chaves vem do KMS: PROVEDOR_CHAVES=kms.")
+            if self.evidencias_modo_retencao != "COMPLIANCE":
+                raise ValueError("Em producao EVIDENCIAS_MODO_RETENCAO precisa ser COMPLIANCE.")
+        if self.evidencias_modo_retencao not in ("GOVERNANCE", "COMPLIANCE"):
+            raise ValueError("EVIDENCIAS_MODO_RETENCAO aceita GOVERNANCE ou COMPLIANCE.")
+        if self.evidencias_retencao_dias < 1 or not 1 <= self.upload_limite_mb <= 100:
+            raise ValueError("Retencao minima de 1 dia; limite de upload entre 1 e 100 MB.")
         return self
 
 

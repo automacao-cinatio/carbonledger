@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 from jinja2 import StrictUndefined
 
-from app.web.formatos import formatar_data, formatar_numero
+from app.web.formatos import formatar_data, formatar_numero, formatar_numero_exato
 
 PASTA_WEB = Path(__file__).resolve().parent
 PASTA_TEMPLATES = PASTA_WEB / "templates"
@@ -34,7 +34,7 @@ class ItemMenu:
 MENU: tuple[ItemMenu, ...] = (
     ItemMenu("Início", "/", "home", True),
     ItemMenu("Organização", "/organizacao", "building", True),
-    ItemMenu("Coleta", "/coleta", "clipboard-data", False),
+    ItemMenu("Coleta", "/coleta", "clipboard-data", True),
     ItemMenu("Resultados", "/resultados", "chart-bar", False),
     ItemMenu("Fechamento", "/fechamento", "lock", False),
     ItemMenu("Verificação", "/verificacao", "shield-check", False),
@@ -60,6 +60,7 @@ def criar_templates() -> Jinja2Templates:
     ambiente.trim_blocks = True
     ambiente.lstrip_blocks = True
     ambiente.filters["numero"] = formatar_numero
+    ambiente.filters["numero_exato"] = formatar_numero_exato
     ambiente.filters["data"] = formatar_data
     ambiente.globals["estatico"] = estatico
     ambiente.globals["config_htmx"] = CONFIG_HTMX

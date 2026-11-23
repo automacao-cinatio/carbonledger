@@ -9,7 +9,7 @@
 - [x] P05A Base visual
 - [x] P06 Estrutura
 - [x] P07 Fatores e GWP (estrutura; os dados oficiais ainda faltam em data/)
-- [ ] P08 Coleta e evidências
+- [x] P08 Coleta e evidências (sem as planilhas oficiais nem a regra de materialidade)
 - [ ] P09 Escopo 1
 - [ ] P10 Escopo 2 e paridade
 - [ ] P11 Fechamento
@@ -117,3 +117,18 @@
 - Bitemporal: vigência escolhe a validade; a aprovação do lote (decidido_em) escolhe o conhecimento. fatores_da_atividade, gwp_do_gas e mistura_na_data respondem "como era conhecido" num instante, com hash do conteúdo; instante_do_banco dá o instante a gravar no cálculo.
 - Runbook docs/runbooks/curadoria-de-fatores.md.
 - Pendente: os arquivos oficiais (GWP AR5, fatores do Programa, misturas CNPE/MME) e a curadoria deles. Sem isso, o P09 não calcula.
+
+## P08 Coleta e evidências (concluído em 2026-11-23, sem dados oficiais)
+
+- Por decisão do usuário, construído sem as planilhas oficiais e sem a regra de materialidade (data/templates/coleta/ continua vazia): a planilha é gerada pelo sistema e a materialidade é decidida fonte a fonte, com justificativa.
+- Migração 0006: inventario (um por empresa e ano, abordagem de consolidação, GWP AR5_100, estado em coleta), fonte_emissao, lancamento e lancamento_decisao (só inserção, em versões), evidencia e planilha_importacao (só inserção). RLS de tenant e de empresa em todas; chaves compostas com empresa_id.
+- Triggers: lancamento_checar (periodicidade, fonte ativa, inventário em coleta) e lancamento_decisao_checar (quem lançou não decide; só a versão mais recente é decidida). somente_insercao da 0005 nas tabelas imutáveis.
+- Categorias dos escopos 1 e 2 (só estrutura, sem números); energia elétrica sempre mensal. Unidade de medida pelo registro pint, com conferência de grandeza.
+- Evidências: limite de tamanho, tipo pelo conteúdo, recusa de macro (.xlsm e vbaProject.bin), ClamAV (INSTREAM, falha fechada), S3 com Object Lock e checksum SHA-256, download com nova conferência do hash. Nome do arquivo só no banco.
+- Planilha de coleta em CSV: modelo por inventário com células neutralizadas contra fórmula; importação tudo ou nada, com linha e coluna de cada erro; aceita UTF-8 e Windows-1252; linha igual ao dado atual não cria versão.
+- Portal: menu Coleta liberado; telas de inventários, inventário (progresso, fontes, planilha), fonte (períodos, evidências), formulário de fonte e período (lançar, corrigir, aprovar, devolver, histórico). Faixa de estado com o inventário da empresa em foco e o progresso real. Componentes novos na /ui: campo de arquivo, formulário multipart e coluna numérica com casas exatas.
+- Trilha: inventario.criado, fonte.criada/alterada/desativada/reativada, lancamento.enviado/aprovado/devolvido, evidencia.enviada, planilha.importada (sem texto livre).
+- Configuração nova: EVIDENCIAS_MODO_RETENCAO (COMPLIANCE obrigatório em produção), EVIDENCIAS_RETENCAO_DIAS (1825, provisório), UPLOAD_LIMITE_MB (20). Runbook docs/runbooks/coleta-e-evidencias.md.
+- Testes: banco (imutabilidade até do superusuário, triggers, chaves, RLS de escrita), vazamento e cobertura com as 6 tabelas novas, roteiro de ponta a ponta com dois perfis, MinIO real com Object Lock, clamd falso por TCP, arquivos, CSV seguro e validações (com hypothesis), axe-core nas 7 telas novas.
+- Verificação: ruff, mypy, 585 testes, bandit, pip-audit e caracteres verdes. O gitleaks rodou em modo diretório nas pastas alteradas (o modo git do Makefile só vê o que já foi commitado). O make continua ausente; os alvos rodaram um a um.
+- Pendente: planilhas e regra de materialidade oficiais; confirmar o prazo de retenção das evidências; fatores, GWP e misturas oficiais (P07) para o P09 calcular.

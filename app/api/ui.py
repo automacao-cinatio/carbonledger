@@ -34,6 +34,14 @@ LINHAS_CADASTRO = [
     {"nome": "Empresa Exemplo Ltda", "url": "/ui", "unidades": 3, "situacao": ("Ativa", "success")},
     {"nome": "Filial Norte", "url": "/ui", "unidades": 0, "situacao": ("Desativada", "secondary")},
 ]
+COLUNAS_EXATAS = [
+    {"chave": "fonte", "titulo": "Fonte"},
+    {"chave": "quantidade", "titulo": "Quantidade", "unidade": "t", "exato": True},
+]
+LINHAS_EXATAS = [
+    {"fonte": "Recarga de extintores", "quantidade": Decimal("0.0015")},
+    {"fonte": "Caldeira 1", "quantidade": Decimal("1234.5")},
+]
 LINHAS_EXEMPLO = [
     {"escopo": "Escopo 1", "emissoes": Decimal("1234.567"), "participacao": Decimal("61.4")},
     {"escopo": "Escopo 2", "emissoes": Decimal("512.3"), "participacao": Decimal("25.5")},
@@ -86,6 +94,8 @@ async def galeria(request: Request) -> Response:
         colunas_cadastro=COLUNAS_CADASTRO,
         linhas_cadastro=LINHAS_CADASTRO,
         linhas_exemplo=LINHAS_EXEMPLO,
+        colunas_exatas=COLUNAS_EXATAS,
+        linhas_exatas=LINHAS_EXATAS,
         grafico_exemplo=_grafico_exemplo(),
         fator_exemplo=Decimal("2.6012"),
     )
@@ -140,6 +150,13 @@ async def enviar(
         if erro:
             raise ErroValidacao(campo, erro)
     return resposta_com_aviso("Consumo de exemplo salvo (nada foi gravado).")
+
+
+@router.post("/arquivo")
+async def arquivo_de_exemplo() -> Response:
+    _so_fora_de_producao()
+    # A galeria nao recebe arquivo: o envio de verdade (com antivirus) mora na coleta.
+    raise ErroValidacao("arquivo", "Exemplo: na galeria nenhum arquivo é guardado.")
 
 
 @router.post("/acao")

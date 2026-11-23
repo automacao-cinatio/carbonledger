@@ -264,6 +264,7 @@ def test_ui_some_em_producao(monkeypatch: pytest.MonkeyPatch) -> None:
     for nome, valor in {
         "AMBIENTE": "producao",
         "PROVEDOR_CHAVES": "kms",
+        "EVIDENCIAS_MODO_RETENCAO": "COMPLIANCE",
         "APP_URL_BASE": "https://carbonledger.example",
     }.items():
         monkeypatch.setenv(nome, valor)

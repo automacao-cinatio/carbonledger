@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, link_botao, botao, formulario %}
+{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, campo_arquivo, link_botao, botao, formulario %}
 {% from "componentes/layout.html" import icone, cabecalho_pagina, proximo_passo, barra_progresso, estado_inventario, seletor_empresa, etiqueta, ficha %}
 {% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
 {% from "componentes/dados.html" import tabela, grafico %}
@@ -42,6 +42,15 @@
   </div>
 </section>
 
+<section class="card mb-4" aria-labelledby="sec-arquivo">
+  <div class="card-header"><h2 id="sec-arquivo" class="card-title">Envio de arquivo</h2></div>
+  <div class="card-body">
+    {% call formulario("form-arquivo-exemplo", "/ui/arquivo", "Enviar evidência", multipart=True, variante="outline-primary") %}
+    {{ campo_arquivo("arquivo", "Evidência", ".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.csv,.txt,.xml", ajuda="PDF, imagem, planilha .xlsx ou documento .docx, até 20 MB. Arquivos com macro são recusados.", obrigatorio=True) }}
+    {% endcall %}
+  </div>
+</section>
+
 <section class="card mb-4" aria-labelledby="sec-dados">
   <div class="card-header"><h2 id="sec-dados" class="card-title">Números, tabela e gráfico</h2></div>
   <div class="card-body">
@@ -49,6 +58,9 @@
   </div>
   <div class="card-body">
     {{ tabela("Empresas do grupo (exemplo com link e situação)", colunas_cadastro, linhas_cadastro) }}
+  </div>
+  <div class="card-body">
+    {{ tabela("Lançamentos com as casas que o número tem (exemplo)", colunas_exatas, linhas_exatas) }}
   </div>
   <div class="card-body">
     {{ grafico("grafico-exemplo", "Emissões por escopo em 2026 (exemplo)", grafico_exemplo, colunas_exemplo, linhas_exemplo) }}

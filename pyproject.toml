@@ -26,6 +26,7 @@ dependencies = [
     "pyhanko>=0.25",
     "anthropic>=0.40",
     "joserfc>=1.0",
+    "boto3>=1.35",
 ]
 
 [dependency-groups]

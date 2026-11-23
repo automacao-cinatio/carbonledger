@@ -120,7 +120,9 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
     else:
         proximo = ProximoPasso(
             "A estrutura está completa. O próximo passo é abrir o inventário do ano,"
-            " na etapa de coleta."
+            " na etapa de coleta.",
+            "/coleta",
+            "Ir para a coleta",
         )
     return await _tela(
         request,

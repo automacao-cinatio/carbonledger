@@ -199,11 +199,23 @@ def test_provedor_de_dev_some_sem_emissor_e_e_proibido_em_producao() -> None:
         _configuracao(ambiente="producao", oidc_dev_emissor=EMISSOR)
 
 
+PRODUCAO = {
+    "ambiente": "producao",
+    "provedor_chaves": "kms",
+    "evidencias_modo_retencao": "COMPLIANCE",
+}
+
+
 def test_travas_de_producao() -> None:
     with pytest.raises(ValueError, match="COOKIE_SEGURO"):
-        _configuracao(ambiente="producao", provedor_chaves="kms", cookie_seguro=False)
+        _configuracao(**PRODUCAO, cookie_seguro=False)
     with pytest.raises(ValueError, match="https"):
-        _configuracao(
-            ambiente="producao", provedor_chaves="kms", app_url_base="http://carbonledger.example"
-        )
-    assert _configuracao(ambiente="producao", provedor_chaves="kms").em_producao
+        _configuracao(**PRODUCAO, app_url_base="http://carbonledger.example")
+    # Em producao, a evidencia fica retida em COMPLIANCE: nem o dono do bucket apaga.
+    with pytest.raises(ValueError, match="COMPLIANCE"):
+        _configuracao(**{**PRODUCAO, "evidencias_modo_retencao": "GOVERNANCE"})
+    with pytest.raises(ValueError, match="GOVERNANCE ou COMPLIANCE"):
+        _configuracao(evidencias_modo_retencao="NENHUM")
+    with pytest.raises(ValueError, match="limite de upload"):
+        _configuracao(upload_limite_mb=0)
+    assert _configuracao(**PRODUCAO).em_producao

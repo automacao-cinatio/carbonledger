@@ -11,7 +11,7 @@ Insumos que os prompts leem; nenhum número é inventado, e sem eles o Claude Co
 | data/gwp/ar5.csv | GWP AR5 de 100 anos (IPCC) | P07 |
 | data/misturas.csv | Misturas de combustível com vigência (CNPE e MME) | P07, P09 |
 | data/xsd/ | XSD da NF-e 4.00 e do CT-e 4.00 | P15 |
-| data/templates/coleta/ | Planilhas de coleta e regra de materialidade | P08 |
+| data/templates/coleta/ | Planilhas de coleta e regra de materialidade (oficiais da CINATIO, quando houver) | P08 |
 
 ## Formato dos arquivos de referência (GWP, fatores e misturas)
 
@@ -70,3 +70,12 @@ A soma dos componentes de um combustível com a mesma vigência não passa de 10
 ## Como entra no sistema
 
 Nada em data/ vale sozinho. A curadoria importa cada arquivo como um lote, confere e aprova; só então o cálculo usa. O passo a passo está em docs/runbooks/curadoria-de-fatores.md.
+
+## Coleta (data/templates/coleta/)
+
+A pasta continua vazia. Enquanto as planilhas oficiais e a regra de materialidade não chegam:
+
+- a planilha de coleta é gerada pelo próprio sistema, por inventário (CSV com `;`, uma linha por fonte e período); o formato está em docs/runbooks/coleta-e-evidencias.md;
+- a materialidade é decidida fonte a fonte: cada fonte entra ou fica de fora com justificativa registrada. Nenhum limite percentual foi definido.
+
+Quando os arquivos oficiais chegarem, a planilha e a regra passam a segui-los.

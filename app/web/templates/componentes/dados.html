@@ -6,7 +6,7 @@
 
 {#
   colunas: lista de dicts com chave e titulo, e mais:
-  - numero: unidade (vai no cabecalho) e casas;
+  - numero: unidade (vai no cabecalho) e casas; com exato, as casas que o numero tem (2 a 6);
   - link: link = chave do endereco na linha;
   - etiqueta: etiqueta = True; o valor e (texto, tipo).
   linhas: lista de dicts com as mesmas chaves.
@@ -28,7 +28,9 @@
       {% for linha in linhas %}
       <tr>
         {% for coluna in colunas %}
-        {% if coluna.unidade is defined %}
+        {% if coluna.unidade is defined and coluna.exato is defined %}
+        <td class="cl-numero">{{ linha[coluna.chave] | numero_exato }}</td>
+        {% elif coluna.unidade is defined %}
         <td class="cl-numero">{{ linha[coluna.chave] | numero(coluna.casas if coluna.casas is defined else 2) }}</td>
         {% elif coluna.link is defined %}
         <td><a href="{{ linha[coluna.link] }}">{{ linha[coluna.chave] }}</a></td>

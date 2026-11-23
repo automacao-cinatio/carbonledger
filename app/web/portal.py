@@ -58,6 +58,23 @@ class Portal:
 PORTAL_ANONIMO = Portal()
 
 
+async def _inventario_da_empresa(db: AsyncSession, empresa_id: UUID) -> Inventario | None:
+    """Inventario mais recente da empresa em foco, com o progresso de coleta e de evidencia."""
+    # Import tardio: o modulo de coleta usa os formatos da web, e o portal usa a coleta.
+    from app.modules.coleta import servico
+
+    inventario = await servico.inventario_em_foco(db, empresa_id)
+    if inventario is None:
+        return None
+    total = servico.progresso_total(await servico.situacao_das_fontes(db, inventario.inventario_id))
+    return Inventario(
+        ano=inventario.ano,
+        estado=inventario.estado_rotulo,
+        coleta=(total.aprovados, total.esperados),
+        evidencia=(total.com_evidencia, total.esperados),
+    )
+
+
 async def montar_portal(request: Request) -> Portal:
     sessao = getattr(request.state, "sessao", None)
     if not isinstance(sessao, Sessao):
@@ -95,16 +112,19 @@ async def montar_portal(request: Request) -> Portal:
                 text("SELECT empresa_id, nome FROM empresa WHERE ativa ORDER BY nome")
             )
         ]
+        ids = {e.id for e in empresas}
+        escolhida = str(sessao.empresa_id) if sessao.empresa_id else None
+        atual = escolhida if escolhida in ids else (empresas[0].id if empresas else None)
+        inventario = None if atual is None else await _inventario_da_empresa(db, UUID(atual))
     tenant_nome = next((a.nome for a in acessos if a.tenant_id == str(acesso.tenant_id)), None)
-    ids = {e.id for e in empresas}
-    atual = str(sessao.empresa_id) if sessao.empresa_id and str(sessao.empresa_id) in ids else None
     return Portal(
         usuario_nome=None if usuario is None else usuario.nome,
         tenant_nome=tenant_nome,
         perfil=acesso.perfil,
         acessos=acessos,
         empresas=empresas,
-        empresa_atual=atual or (empresas[0].id if empresas else None),
+        empresa_atual=atual,
+        inventario=inventario,
         csrf=sessao.csrf,
     )
 

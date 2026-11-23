@@ -102,3 +102,20 @@
 - Linha idêntica (mesmo hash canônico, que ignora a escala decimal e inclui a fonte) a uma versão já aprovada não é gravada de novo; o mesmo arquivo não é importado duas vezes.
 - Entre versões que cobrem a mesma data, vale a aprovada por último. Na mistura, cada componente segue a mesma regra; por isso a vigência de uma mistura que muda de composição precisa ser fechada no arquivo.
 - Unidade do fator como "massa/atividade", conferida pelo registro pint único, com Decimal.
+
+## 2026-11-23: coleta e evidências (P08)
+
+- Construído sem as planilhas oficiais nem a regra de materialidade (data/templates/coleta/ vazia), como no P07, por decisão do usuário: o formato da planilha foi definido aqui e a materialidade é decidida fonte a fonte, com justificativa obrigatória para deixar uma fonte de fora. Nenhum limite percentual de materialidade foi inventado.
+- O inventário nasce no P08 (antes do fechamento), porque a coleta precisa de ano, abordagem e GWP: um por empresa e ano, só no estado "em coleta". Fechar e reapresentar ficam para o P11, que amplia o CHECK de estado. A abordagem é fixada na abertura.
+- Categorias só dos escopos 1 e 2, como estrutura (códigos no formato da coluna categoria de data/fatores). O escopo 3 entra no P17. Energia elétrica é sempre mensal, porque o fator do SIN é mensal (P10).
+- Lançamento só de inserção, em versões por fonte e período; decisão (aprovado ou devolvido) gravada uma única vez por versão. Corrigir um dado aprovado cria versão nova, que volta a pedir aprovação.
+- Segregação de funções no banco: quem lançou não decide, e só a versão mais recente é decidida (trigger lancamento_decisao_checar). Pode travar um cliente de uma pessoa só; nesse caso, a saída é convidar um segundo usuário. A trigger lancamento_checar recusa dado fora da periodicidade, em fonte desativada ou em inventário fora da coleta.
+- Chaves compostas com empresa_id (inventário, unidade e fonte) impedem uma fonte de misturar unidade de uma empresa com inventário de outra. Para isso a unidade ganhou UNIQUE (tenant_id, unidade_id, empresa_id).
+- Progresso: "Coleta" conta períodos com dado aprovado; "Evidências" conta períodos com evidência do período ou de todos os períodos da fonte. Só fontes ativas e materiais contam.
+- Evidência: tipo pelo conteúdo (nunca pelo nome nem pelo Content-Type do navegador), extensão coerente com o conteúdo, macro recusada pela extensão e pelo vbaProject.bin no pacote. ClamAV síncrono no envio, com falha fechada: sem veredito, nada é guardado. Cliente INSTREAM próprio (asyncio), sem biblioteca extra.
+- S3 pelo boto3 (em thread, para não travar o event loop), com Object Lock por objeto e ChecksumSHA256: o próprio S3 recusa conteúdo que não bate com o hash. Em produção a configuração exige COMPLIANCE; em dev, GOVERNANCE, para o bucket local poder ser limpo. A retenção padrão de 1825 dias (5 anos) é configuração provisória: o prazo real depende de exigência do Programa e da LGPD e precisa ser confirmado.
+- A chave do objeto leva só identificadores; o nome do arquivo fica no banco. Ordem de gravação: S3 antes do banco, para sobrar no máximo objeto sem registro (retido), nunca registro sem objeto.
+- Planilha de coleta em CSV (não XLSX) até os modelos oficiais existirem: lê UTF-8 e Windows-1252 (o Excel em pt-BR salva assim), importação tudo ou nada, células do modelo neutralizadas contra fórmula. O CSV importado também fica guardado no S3, com hash.
+- Texto livre (observação, motivo, justificativa, nome de arquivo) não vai para a trilha de auditoria: pode ter dado pessoal. A trilha guarda identificadores, período, versão, hash e tamanho.
+- Os testes do portal usam S3 e ClamAV substitutos em memória; o S3 de verdade é testado contra um MinIO com Object Lock (tests/integration/test_armazenamento_minio.py) e o protocolo do ClamAV contra um clamd falso por TCP.
+- Tabela numérica ganhou a opção exato (casas que o número tem, de 2 a 6): 0,0015 t não pode aparecer como 0,00.

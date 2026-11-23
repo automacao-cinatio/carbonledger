@@ -50,8 +50,9 @@ def portal(banco: Banco, redis_url: str, emissor_oidc: str) -> Iterator[str]:
         obter_configuracao.cache_clear()
 
 
-async def _estrutura(banco: Banco, tenant_id: UUID) -> tuple[UUID, UUID]:
+async def _estrutura(banco: Banco, tenant_id: UUID) -> dict[str, UUID]:
     grupo, empresa, unidade = uuid4(), uuid4(), uuid4()
+    inventario, fonte = uuid4(), uuid4()
     admin = await asyncpg.connect(banco.dsn_admin)
     try:
         await admin.execute(
@@ -75,17 +76,44 @@ async def _estrutura(banco: Banco, tenant_id: UUID) -> tuple[UUID, UUID]:
             unidade,
             empresa,
         )
+        await admin.execute(
+            "INSERT INTO inventario (tenant_id, inventario_id, empresa_id, ano, abordagem)"
+            " VALUES ($1, $2, $3, 2025, 'controle_operacional')",
+            tenant_id,
+            inventario,
+            empresa,
+        )
+        await admin.execute(
+            "INSERT INTO fonte_emissao (tenant_id, fonte_id, empresa_id, inventario_id, unidade_id,"
+            " categoria, descricao, unidade_medida, periodicidade)"
+            " VALUES ($1, $2, $3, $4, $5, 'escopo1.combustao_movel', 'Frota de entregas', 'L',"
+            " 'mensal')",
+            tenant_id,
+            fonte,
+            empresa,
+            inventario,
+            unidade,
+        )
+        # Dado lancado por outra pessoa (sem autor): a tela mostra aprovar e devolver.
+        await admin.execute(
+            "INSERT INTO lancamento (tenant_id, lancamento_id, empresa_id, fonte_id, periodo,"
+            " versao, quantidade, unidade, origem) VALUES ($1, gen_random_uuid(), $2, $3, 1, 1,"
+            " 1234.5, 'L', 'manual')",
+            tenant_id,
+            empresa,
+            fonte,
+        )
     finally:
         await admin.close()
-    return empresa, unidade
+    return {"empresa": empresa, "unidade": unidade, "inventario": inventario, "fonte": fonte}
 
 
 @pytest.fixture(scope="module")
-def pagina_logada(portal: str, banco: Banco) -> Iterator[tuple[Any, UUID, UUID]]:
+def pagina_logada(portal: str, banco: Banco) -> Iterator[tuple[Any, dict[str, UUID]]]:
     tenant_id, token = asyncio.run(
         criar_tenant(obter_configuracao(), "Cliente Acessivel", "pessoa@acessivel.example")
     )
-    empresa, unidade = asyncio.run(_estrutura(banco, tenant_id))
+    ids = asyncio.run(_estrutura(banco, tenant_id))
     with sync_api.sync_playwright() as playwright:
         try:
             navegador = playwright.chromium.launch()
@@ -109,7 +137,7 @@ def pagina_logada(portal: str, banco: Banco) -> Iterator[tuple[Any, UUID, UUID]]
         pagina.click("input[type=submit]")
         # Folga maior: o login passa por dois servidores e a maquina pode estar carregada.
         pagina.wait_for_url(f"{portal}/", timeout=60_000)
-        yield pagina, empresa, unidade
+        yield pagina, ids
         navegador.close()
 
 
@@ -124,16 +152,23 @@ TELAS = [
     "/organizacao/empresas/{empresa}/unidades/nova",
     "/organizacao/unidades/{unidade}/editar",
     "/organizacao/empresas/00000000-0000-4000-8000-000000000000",
+    "/coleta",
+    "/coleta/inventarios/{inventario}",
+    "/coleta/inventarios/{inventario}/fontes/nova",
+    "/coleta/fontes/{fonte}",
+    "/coleta/fontes/{fonte}/editar",
+    "/coleta/fontes/{fonte}/periodos/1",
+    "/coleta/fontes/{fonte}/periodos/2",
 ]
 
 
 @pytest.mark.parametrize("modelo", TELAS)
 def test_telas_logadas_sem_violacao(
-    portal: str, pagina_logada: tuple[Any, UUID, UUID], modelo: str
+    portal: str, pagina_logada: tuple[Any, dict[str, UUID]], modelo: str
 ) -> None:
-    pagina, empresa, unidade = pagina_logada
+    pagina, ids = pagina_logada
     erros = vigiar_console(pagina)
-    caminho = modelo.format(empresa=empresa, unidade=unidade)
+    caminho = modelo.format(**ids)
     pagina.goto(portal + caminho, wait_until="networkidle")
     if caminho.endswith("000000000000"):
         assert pagina.get_by_text("Página não encontrada").is_visible()
@@ -144,9 +179,9 @@ def test_telas_logadas_sem_violacao(
 
 
 def test_formulario_mostra_todos_os_erros(
-    portal: str, pagina_logada: tuple[Any, UUID, UUID]
+    portal: str, pagina_logada: tuple[Any, dict[str, UUID]]
 ) -> None:
-    pagina, _empresa, _unidade = pagina_logada
+    pagina, _ids = pagina_logada
     pagina.goto(portal + "/organizacao/empresas/nova", wait_until="networkidle")
     pagina.fill("#campo-cnpj", "11.222.333/0001-82")
     pagina.get_by_role("button", name="Salvar empresa").click()

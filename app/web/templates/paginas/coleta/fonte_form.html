@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import campo_texto, campo_selecao, campo_marcacao, formulario, link_botao %}
+{% from "componentes/feedback.html" import glossario %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina(titulo, pretitulo=empresa.nome ~ ", inventário " ~ inventario.ano) }}
+<div class="card">
+  <div class="card-body">
+    {% call formulario("form-fonte", acao, "Salvar fonte", rascunho=rascunho) %}
+    {% if fonte is none %}
+    <div class="row">
+      <div class="col-md-6">
+        {{ campo_selecao("unidade_id", "Unidade", unidades, selecionado=valores.unidade_id, obrigatorio=True, vazio="Escolha a unidade", ajuda="Onde a fonte fica. As unidades vêm da Organização.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_selecao("categoria", "Categoria", categorias, selecionado=valores.categoria, obrigatorio=True, vazio="Escolha a categoria", ajuda="Escopo 1: emissões da própria empresa. Escopo 2: energia comprada.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_texto("unidade_medida", "Unidade de medida do dado", valor=valores.unidade_medida, obrigatorio=True, validar_url="/coleta/validar/unidade_medida", ajuda="Como o dado aparece na nota ou na conta: L, m**3, kg, t, kWh, MWh ou GJ.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_selecao("periodicidade", "Periodicidade", periodicidades, selecionado=valores.periodicidade, obrigatorio=True, ajuda="Energia elétrica é sempre mensal.") }}
+      </div>
+    </div>
+    {% else %}
+    {{ ficha([("Unidade", fonte.unidade_nome), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual")]) }}
+    <p class="form-hint">Unidade, categoria, unidade de medida e periodicidade não mudam depois do cadastro, porque os dados lançados dependem delas. Para trocar, desative esta fonte e cadastre outra.</p>
+    {% endif %}
+    {{ campo_texto("descricao", "Descrição da fonte", valor=valores.descricao, obrigatorio=True, ajuda="Como a fonte é conhecida, por exemplo, Caldeira 1 (óleo diesel) ou Frota de entregas.") }}
+    <fieldset class="mb-2">
+      <legend class="form-label">{{ glossario("Materialidade", "Fontes materiais entram no inventário. Uma fonte pode ficar de fora quando é irrelevante, mas o motivo fica registrado para o verificador.") }}</legend>
+      {{ campo_marcacao("material", "A fonte entra no inventário (é material)", marcado=valores.material) }}
+      {{ campo_texto("justificativa", "Justificativa para deixar a fonte de fora", valor=valores.justificativa, ajuda="Obrigatória só quando a fonte não entra. Explique por que ela é irrelevante.") }}
+    </fieldset>
+    {% endcall %}
+  </div>
+</div>
+<div class="mt-3">
+  {% if fonte %}
+  {{ link_botao("Voltar para a fonte", "/coleta/fontes/" ~ fonte.fonte_id, "link", "arrow-left") }}
+  {% else %}
+  {{ link_botao("Voltar para o inventário", "/coleta/inventarios/" ~ inventario.inventario_id, "link", "arrow-left") }}
+  {% endif %}
+</div>
+{{ proximo_passo("Depois de salvar, lance os dados de cada período ou use a planilha de coleta do inventário.") }}
+{% endblock %}

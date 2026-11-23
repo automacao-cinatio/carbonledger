@@ -49,6 +49,12 @@ class Dados:
     responsavel_a1: UUID
     admin_b: UUID
     responsavel_b1: UUID
+    inventario_a1: UUID
+    inventario_b1: UUID
+    fonte_a1: UUID
+    fonte_b1: UUID
+    lancamento_a1: UUID
+    lancamento_b1: UUID
 
 
 DADOS = Dados(
@@ -66,6 +72,12 @@ DADOS = Dados(
     responsavel_a1=UUID("aaaaaaaa-1111-4000-8000-000000000002"),
     admin_b=UUID("bbbbbbbb-1111-4000-8000-000000000001"),
     responsavel_b1=UUID("bbbbbbbb-1111-4000-8000-000000000002"),
+    inventario_a1=UUID("aaaaaaaa-4444-4000-8000-000000000001"),
+    inventario_b1=UUID("bbbbbbbb-4444-4000-8000-000000000001"),
+    fonte_a1=UUID("aaaaaaaa-5555-4000-8000-000000000001"),
+    fonte_b1=UUID("bbbbbbbb-5555-4000-8000-000000000001"),
+    lancamento_a1=UUID("aaaaaaaa-6666-4000-8000-000000000001"),
+    lancamento_b1=UUID("bbbbbbbb-6666-4000-8000-000000000001"),
 )
 
 
@@ -90,6 +102,72 @@ async def _preparar_papeis(dsn_admin: str) -> None:
             await conexao.execute(comando)
     finally:
         await conexao.close()
+
+
+async def _semear_coleta(conexao: asyncpg.Connection) -> None:
+    """Um inventario, uma fonte, um lancamento aprovado, uma planilha e uma evidencia por tenant."""
+    por_tenant = (
+        (DADOS.tenant_a, DADOS.empresa_a1, DADOS.unidade_a1, DADOS.inventario_a1, DADOS.fonte_a1,
+         DADOS.lancamento_a1, DADOS.responsavel_a1, DADOS.admin_a),
+        (DADOS.tenant_b, DADOS.empresa_b1, DADOS.unidade_b1, DADOS.inventario_b1, DADOS.fonte_b1,
+         DADOS.lancamento_b1, DADOS.responsavel_b1, DADOS.admin_b),
+    )  # fmt: skip
+    for tenant, empresa, unidade, inventario, fonte, lancamento, autor, revisor in por_tenant:
+        await conexao.execute(
+            "INSERT INTO inventario (tenant_id, inventario_id, empresa_id, ano, abordagem)"
+            " VALUES ($1, $2, $3, 2025, 'controle_operacional')",
+            tenant,
+            inventario,
+            empresa,
+        )
+        await conexao.execute(
+            "INSERT INTO fonte_emissao (tenant_id, fonte_id, empresa_id, inventario_id, unidade_id,"
+            " categoria, descricao, unidade_medida, periodicidade)"
+            " VALUES ($1, $2, $3, $4, $5, 'escopo1.combustao_estacionaria', 'Caldeira', 'L',"
+            " 'mensal')",
+            tenant,
+            fonte,
+            empresa,
+            inventario,
+            unidade,
+        )
+        await conexao.execute(
+            "INSERT INTO planilha_importacao (tenant_id, planilha_id, empresa_id, inventario_id,"
+            " nome_arquivo, sha256, chave_objeto, linhas_gravadas)"
+            " VALUES ($1, gen_random_uuid(), $2, $3, 'coleta.csv', $4, 'x', 0)",
+            tenant,
+            empresa,
+            inventario,
+            bytes(32),
+        )
+        await conexao.execute(
+            "INSERT INTO lancamento (tenant_id, lancamento_id, empresa_id, fonte_id, periodo,"
+            " versao, quantidade, unidade, origem, criado_por)"
+            " VALUES ($1, $2, $3, $4, 1, 1, 100, 'L', 'manual', $5)",
+            tenant,
+            lancamento,
+            empresa,
+            fonte,
+            autor,
+        )
+        await conexao.execute(
+            "INSERT INTO lancamento_decisao (tenant_id, lancamento_id, empresa_id, decisao,"
+            " decidido_por) VALUES ($1, $2, $3, 'aprovado', $4)",
+            tenant,
+            lancamento,
+            empresa,
+            revisor,
+        )
+        await conexao.execute(
+            "INSERT INTO evidencia (tenant_id, evidencia_id, empresa_id, fonte_id, periodo,"
+            " nome_arquivo, tipo_conteudo, tamanho, sha256, chave_objeto)"
+            " VALUES ($1, gen_random_uuid(), $2, $3, 1, 'nota.pdf', 'application/pdf', 10, $4,"
+            " 'x')",
+            tenant,
+            empresa,
+            fonte,
+            bytes(32),
+        )
 
 
 async def _semear(dsn_admin: str) -> None:
@@ -158,6 +236,7 @@ async def _semear(dsn_admin: str) -> None:
                 (DADOS.tenant_b, uuid4(), "gestor@b.example", bytes(32)),
             ],
         )
+        await _semear_coleta(conexao)
         # seq e hash vem da trigger; os valores mandados aqui sao descartados.
         await conexao.executemany(
             "INSERT INTO audit_log (tenant_id, seq, evento_id, ocorrido_em, acao, entidade,"
@@ -260,7 +339,7 @@ def app_cliente(
 ) -> Iterator[TestClient]:
     from app.core.config import obter_configuracao
     from app.main import criar_app
-    from tests.isolation.portal import rotas_teste
+    from tests.isolation.portal import AntivirusFalso, ArmazemMemoria, rotas_teste
 
     for nome, valor in {
         "DATABASE_URL": banco.dsn_app,
@@ -273,6 +352,8 @@ def app_cliente(
     obter_configuracao.cache_clear()
     app = criar_app()
     app.include_router(rotas_teste)
+    app.state.armazem = ArmazemMemoria()
+    app.state.antivirus = AntivirusFalso()
     with TestClient(app, follow_redirects=False) as cliente:
         yield cliente
     obter_configuracao.cache_clear()

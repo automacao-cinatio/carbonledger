@@ -103,15 +103,34 @@
 {%- endmacro %}
 
 {#
-  formulario: envio por HTMX com indicador. rascunho guarda o que foi digitado no navegador
-  ate o envio dar certo (nada digitado se perde).
+  Arquivo: aceitar lista as extensoes (so ajuda o seletor; o servidor confere o conteudo).
+  O formulario que o contem precisa de multipart=True.
 #}
-{% macro formulario(id, acao, rotulo_envio, rascunho=None) -%}
+{% macro campo_arquivo(nome, rotulo, aceitar, ajuda=None, erro=None, obrigatorio=False) -%}
+<div class="mb-3">
+  <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <input id="campo-{{ nome }}" name="{{ nome }}" type="file" accept="{{ aceitar }}"
+         class="form-control{{ ' is-invalid' if erro else "" }}"
+         aria-describedby="{{ _descricao(nome, ajuda) }}"
+         {{- ' required aria-required="true"' | safe if obrigatorio else "" }}
+         {{- ' aria-invalid="true"' | safe if erro else "" }}>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+  {{ mensagem_campo(nome, erro) }}
+</div>
+{%- endmacro %}
+
+{#
+  formulario: envio por HTMX com indicador. rascunho guarda o que foi digitado no navegador
+  ate o envio dar certo (nada digitado se perde). multipart: para enviar arquivo (sem
+  rascunho: o navegador nao guarda arquivo). variante: cor do botao de envio.
+#}
+{% macro formulario(id, acao, rotulo_envio, rascunho=None, multipart=False, variante="primary") -%}
 <form id="{{ id }}" hx-post="{{ acao }}" hx-indicator="#ind-{{ id }}" hx-swap="none" novalidate
-      {%- if rascunho %} data-rascunho="{{ rascunho }}"{% endif %}>
+      {%- if multipart %} hx-encoding="multipart/form-data"{% endif %}
+      {%- if rascunho and not multipart %} data-rascunho="{{ rascunho }}"{% endif %}>
   {{ caller() }}
   <div class="d-flex align-items-center">
-    <button type="submit" class="btn btn-primary">{{ rotulo_envio }}</button>
+    <button type="submit" class="btn btn-{{ variante }}">{{ rotulo_envio }}</button>
     {{ indicador("ind-" ~ id) }}
   </div>
 </form>

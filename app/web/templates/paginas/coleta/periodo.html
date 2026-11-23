@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/formulario.html" import campo_texto, campo_numero, formulario, link_botao, botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}{{ fonte.descricao }}: {{ rotulo_periodo }}{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina(rotulo_periodo ~ " de " ~ inventario.ano, pretitulo=fonte.descricao) }}
+
+<section class="card mb-3" aria-labelledby="titulo-situacao">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-situacao">Situação do dado</h2>
+    <div class="card-actions">{{ etiqueta(situacao[0], situacao[1]) }}</div>
+  </div>
+  <div class="card-body">
+    {% if atual is none %}
+    <p class="mb-0 text-secondary">Nenhum dado lançado neste período.</p>
+    {% else %}
+    {{ ficha([("Quantidade", (atual.quantidade | numero_exato) ~ " " ~ atual.unidade), ("Data da compra", atual.data_compra | data), ("Observação", atual.observacao), ("Versão", atual.versao | string)]) }}
+    {% if atual.decisao == "devolvido" %}
+    {{ alerta("danger", "Dado devolvido para correção", "Motivo: " ~ atual.motivo) }}
+    {% elif atual.decisao is none and autor_e_voce %}
+    {{ alerta("info", "Aguardando a aprovação de outra pessoa", "Quem lança o dado não pode aprová-lo: outra pessoa com perfil de responsável, gestor ou administrador confere.") }}
+    {% endif %}
+    {% if pode_decidir %}
+    <div class="d-flex flex-wrap gap-3 align-items-start mt-3">
+      {{ botao("Aprovar o dado", "success", "check", atributos={"hx-post": "/coleta/lancamentos/" ~ atual.lancamento_id ~ "/aprovar", "hx-swap": "none"}, indicador_id="ind-aprovar") }}
+    </div>
+    <div class="mt-3">
+      {% call formulario("form-devolver", "/coleta/lancamentos/" ~ atual.lancamento_id ~ "/devolver", "Devolver para correção", variante="outline-danger") %}
+      {{ campo_texto("motivo", "O que precisa ser corrigido", ajuda="Quem lançou vê esta mensagem. Por exemplo: a quantidade não bate com a nota fiscal anexada.") }}
+      {% endcall %}
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+</section>
+
+{% if pode_lancar %}
+<section class="card mb-3" aria-labelledby="titulo-lancar">
+  <div class="card-header"><h2 class="card-title" id="titulo-lancar">{{ "Corrigir o dado" if atual else "Lançar o dado" }}</h2></div>
+  <div class="card-body">
+    {% if atual %}<p class="text-secondary">A correção vira uma {{ glossario("versão nova", "Nada é apagado: cada correção fica guardada com quem lançou e quando, e precisa de nova aprovação.") }}.</p>{% endif %}
+    {% call formulario("form-lancamento", "/coleta/fontes/" ~ fonte.fonte_id ~ "/periodos/" ~ periodo ~ "/lancamentos", "Salvar dado", rascunho="lancamento-" ~ fonte.fonte_id ~ "-" ~ periodo) %}
+    <div class="row">
+      <div class="col-md-4">
+        {{ campo_numero("quantidade", "Quantidade", fonte.unidade_medida, valor=valores.quantidade, casas=valores.casas, obrigatorio=True, validar_url="/coleta/validar/quantidade", ajuda="Como está na nota ou na conta. Se não houve consumo, digite 0.") }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_texto("data_compra", "Data da compra", valor=valores.data_compra, tipo="date", ajuda="Para combustíveis: a mistura com biocombustível vale pela data da compra.") }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_texto("observacao", "Observação", valor=valores.observacao, ajuda="Opcional. Por exemplo, o número da nota fiscal.") }}
+      </div>
+    </div>
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+
+{% if linhas %}
+<section class="card" aria-labelledby="titulo-historico">
+  <div class="card-header"><h2 class="card-title" id="titulo-historico">Histórico</h2></div>
+  {{ tabela("Histórico de " ~ fonte.descricao ~ " em " ~ rotulo_periodo, colunas, linhas, "visually-hidden") }}
+</section>
+{% endif %}
+
+<div class="mt-3">{{ link_botao("Voltar para " ~ fonte.descricao, "/coleta/fontes/" ~ fonte.fonte_id, "link", "arrow-left") }}</div>
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}

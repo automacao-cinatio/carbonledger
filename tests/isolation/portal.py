@@ -18,6 +18,8 @@ from testcontainers.community.redis import RedisContainer
 from testcontainers.core.container import DockerContainer
 
 from app.api.dependencias import SessaoTenant
+from app.core.antivirus import AntivirusIndisponivel, ArquivoInfectado
+from app.core.armazenamento import ObjetoGuardado
 
 IMAGEM_OIDC = "ghcr.io/navikt/mock-oauth2-server:latest"
 COOKIE_SESSAO = "cl_sessao"
@@ -29,6 +31,41 @@ rotas_teste = APIRouter(prefix="/teste-login")
 async def empresas_visiveis(sessao: SessaoTenant) -> list[str]:
     linhas = await sessao.execute(text("SELECT nome FROM empresa ORDER BY nome"))
     return list(linhas.scalars())
+
+
+class ArmazemMemoria:
+    """S3 de mentira para o portal de teste: guarda em memoria e nunca deixa sobrescrever.
+
+    O S3 de verdade (MinIO com Object Lock) e exercitado em test_armazenamento_minio.py.
+    """
+
+    def __init__(self) -> None:
+        self.objetos: dict[str, tuple[bytes, str]] = {}
+
+    async def guardar(
+        self, chave: str, conteudo: bytes, sha256: bytes, tipo_conteudo: str
+    ) -> ObjetoGuardado:
+        assert chave not in self.objetos, "objeto sobrescrito"
+        self.objetos[chave] = (conteudo, tipo_conteudo)
+        return ObjetoGuardado(chave, "v1")
+
+    async def ler(self, chave: str, versao: str | None) -> bytes:
+        return self.objetos[chave][0]
+
+
+class AntivirusFalso:
+    """ClamAV de mentira: acusa a assinatura EICAR; fora_do_ar simula o ClamAV parado."""
+
+    def __init__(self) -> None:
+        self.fora_do_ar = False
+        self.verificados = 0
+
+    async def verificar(self, conteudo: bytes) -> None:
+        if self.fora_do_ar:
+            raise AntivirusIndisponivel("simulado")
+        self.verificados += 1
+        if b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE" in conteudo:
+            raise ArquivoInfectado
 
 
 def subir_redis() -> Iterator[str]:

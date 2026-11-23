@@ -10,12 +10,15 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.api import (
     auditoria,
     autenticacao,
+    coleta_telas,
     organizacao,
     organizacao_telas,
     paginas,
     saude,
     ui,
 )
+from app.core.antivirus import ClienteClamav
+from app.core.armazenamento import ArmazemS3
 from app.core.config import obter_configuracao
 from app.core.db import criar_motor
 from app.core.erros import registrar_tratadores
@@ -48,6 +51,13 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
     app.state.provedores = provedores_habilitados(configuracao)
     http = httpx.AsyncClient(timeout=TEMPO_LIMITE_OIDC_S, follow_redirects=False)
     app.state.oidc = ClienteOidc(http)
+    # Os testes podem trocar os dois antes de subir o app (fakes de S3 e ClamAV).
+    if not hasattr(app.state, "armazem"):
+        app.state.armazem = ArmazemS3(configuracao)
+    if not hasattr(app.state, "antivirus"):
+        app.state.antivirus = ClienteClamav(
+            configuracao.clamav_host, configuracao.clamav_port, configuracao.clamav_tempo_limite_s
+        )
     try:
         yield
     finally:
@@ -73,6 +83,7 @@ def criar_app() -> FastAPI:
     app.include_router(ui.router)
     app.include_router(organizacao_telas.router)
     app.include_router(organizacao.router)
+    app.include_router(coleta_telas.router)
     app.include_router(auditoria.router)
     return app
 

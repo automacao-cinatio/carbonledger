@@ -46,3 +46,22 @@ def validar_unidade_de_fator(texto: str) -> tuple[pint.Unit, pint.Unit]:
     if atividade.dimensionless:
         raise UnidadeInvalida(f"o denominador precisa ser uma unidade de atividade: {texto!r}")
     return gas, atividade
+
+
+TAMANHO_MAXIMO_UNIDADE = 40
+
+
+def validar_unidade_de_atividade(texto: str) -> pint.Unit:
+    """Unidade do dado de atividade (L, m**3, kg, t, kWh, MWh, GJ, km): nunca adimensional."""
+    limpo = texto.strip()
+    if not limpo or len(limpo) > TAMANHO_MAXIMO_UNIDADE:
+        raise UnidadeInvalida(f"unidade vazia ou longa demais: {texto!r}")
+    resultado = unidade(limpo)
+    if resultado.dimensionless:
+        raise UnidadeInvalida(f"a unidade precisa medir algo (volume, massa, energia): {texto!r}")
+    return resultado
+
+
+def mesma_dimensao(a: str, b: str) -> bool:
+    """True quando as duas unidades medem a mesma grandeza (L e m**3; kWh e MWh)."""
+    return bool(unidade(a).dimensionality == unidade(b).dimensionality)

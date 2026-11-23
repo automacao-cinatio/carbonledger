@@ -14,7 +14,16 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "audit_log": False,
     "grupo": False,
     "unidade": True,
+    "inventario": True,
+    "fonte_emissao": True,
+    "planilha_importacao": True,
+    "lancamento": True,
+    "lancamento_decisao": True,
+    "evidencia": True,
 }
+
+# Dado de cliente so de insercao (trigger somente_insercao): o app_user so le e insere.
+TABELAS_SO_INSERCAO = ("planilha_importacao", "lancamento", "lancamento_decisao", "evidencia")
 
 # Tabelas sem tenant_id, de proposito. Cada entrada precisa de justificativa.
 TABELAS_GLOBAIS: dict[str, str] = {
