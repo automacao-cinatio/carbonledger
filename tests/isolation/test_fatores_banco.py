@@ -58,7 +58,8 @@ async def test_privilegios_da_referencia(conexao_admin: asyncpg.Connection, tabe
     esperado = {
         "app_user": {"SELECT"},
         "app_curadoria": {"SELECT", "INSERT"},
-        "app_verificador": set(),
+        # Desde o P12 o verificador le a referencia, para conferir a memoria de calculo.
+        "app_verificador": {"SELECT"},
     }
     for papel, privilegios in esperado.items():
         tem = {

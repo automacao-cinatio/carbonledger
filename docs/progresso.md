@@ -10,22 +10,22 @@
 - [x] P06 Estrutura
 - [x] P07 Fatores e GWP (estrutura; os dados oficiais ainda faltam em data/)
 - [x] P08 Coleta e evidências (sem as planilhas oficiais nem a regra de materialidade)
-- [ ] P09 Escopo 1
-- [ ] P10 Escopo 2 e paridade
-- [ ] P11 Fechamento
-- [ ] P12 Verificador
-- [ ] P13 Ferramenta oficial
-- [ ] P14 Portal 1a
-- [ ] P15 NF-e e CT-e
-- [ ] P16 IA
-- [ ] P17 Escopo 3
-- [ ] P18 Metas
+- [x] P09 Escopo 1 (com dados fictícios; os oficiais ainda faltam em data/)
+- [x] P10 Escopo 2 e paridade (com dados fictícios; sem caso oficial de paridade ainda)
+- [x] P11 Fechamento
+- [x] P12 Verificador
+- [ ] P13 Ferramenta oficial (bloqueado: falta a planilha oficial em data/templates)
+- [x] P14 Portal 1a (parte sem paridade oficial)
+- [ ] P15 NF-e e CT-e (bloqueado: faltam os XSD em data/xsd)
+- [x] P16 IA
+- [x] P17 Escopo 3 (com dados fictícios)
+- [x] P18 Metas
 - [ ] P19 PDF assinado
-- [ ] P20 Integridade
-- [ ] P21 Campanhas
+- [x] P20 Integridade
+- [x] P21 Campanhas
 - [ ] P22 Cobrança
 - [ ] P23 LGPD
-- [ ] P24 Painel
+- [x] P24 Painel
 - [ ] P25 Infra AWS
 - [ ] P26 CI/CD
 - [ ] P27 Backup e go-live
@@ -132,3 +132,119 @@
 - Testes: banco (imutabilidade até do superusuário, triggers, chaves, RLS de escrita), vazamento e cobertura com as 6 tabelas novas, roteiro de ponta a ponta com dois perfis, MinIO real com Object Lock, clamd falso por TCP, arquivos, CSV seguro e validações (com hypothesis), axe-core nas 7 telas novas.
 - Verificação: ruff, mypy, 585 testes, bandit, pip-audit e caracteres verdes. O gitleaks rodou em modo diretório nas pastas alteradas (o modo git do Makefile só vê o que já foi commitado). O make continua ausente; os alvos rodaram um a um.
 - Pendente: planilhas e regra de materialidade oficiais; confirmar o prazo de retenção das evidências; fatores, GWP e misturas oficiais (P07) para o P09 calcular.
+
+## P09 Escopo 1 (concluído em 2026-11-23, com dados fictícios)
+
+- Por decisão do usuário: motor completo testado com valores fictícios (tests/dados_ficticios/calculo_*.csv), e método fator_direto 1.0.0 (quantidade × fator por gás × GWP × consolidação, mistura pela data da compra, sem densidade nem poder calorífico).
+- Motor puro em app/modules/calculo/fator_direto.py: Decimal com 50 dígitos, unidades pelo registro pint, CO2 biogênico fora do escopo, hash canônico da entrada e do resultado, entrada serializável para refazer a conta.
+- Migração 0007: fonte_emissao.atividade; chave única de fator_versao com a categoria; calculo (com a entrada em jsonb e os dois hashes), calculo_linha (memória de cálculo) e calculo_pendencia, só de inserção, com RLS de tenant e de empresa.
+- Camada de banco em app/modules/calculo/servico.py (asyncpg): só dado aprovado entra; pendências explícitas (falta_dado, sem_atividade, sem_fator, unidade_incompativel, sem_gwp), nunca zero; referência "como conhecida" pelo relógio do banco; consolidação da unidade gravada em cada linha; trilha calculo.executado. Conferência refaz a conta a partir da entrada guardada e compara os hashes.
+- P07 ajustado: a validação dos arquivos de fatores considera a categoria na sobreposição de vigência, e há consulta de fatores por categoria e lista de atividades conhecidas.
+- Coleta: a fonte ganhou "Combustível ou atividade", escolhido entre os fatores e misturas aprovados.
+- Portal: menu Resultados liberado; totais, CO2 biogênico, método, instante de conhecimento, hashes, pendências com como resolver, gráfico por categoria com tabela, tabela por gás, histórico de cálculos, memória de cálculo em CSV (sem arredondar) e botão Conferir. Tarefa Celery calculo.calcular_inventario com a mesma função.
+- Runbook docs/runbooks/calculo-de-emissoes.md (antes calculo-do-escopo-1.md); data/README.md explica como o cálculo procura fatores e misturas.
+- Testes: caso feito à mão (mistura 85/15, consolidação 50%, biogênico), conversão de unidade, pendências, hash estável em qualquer ordem e sensível a qualquer mudança, refazer pela entrada guardada, proporcionalidade com hypothesis; no banco, o caso da semente com valor exato, bitemporalidade, consolidação por participação e isolamento entre tenants; roteiro do portal até a memória e a conferência; axe-core em /resultados.
+- Verificação: ruff, mypy, 641 testes, bandit, pip-audit, gitleaks (modo diretório nas pastas alteradas) e caracteres verdes.
+- Pendente: fatores, GWP e misturas oficiais em data/ e a curadoria deles; escopo 2 (P10); cadeia da ferramenta oficial com densidade e poder calorífico (P13).
+
+## P10 Escopo 2 e paridade (concluído em 2026-11-23, com dados fictícios)
+
+- Escopo 2 pela abordagem de localização: consumo × fator do SIN do mês, com o mesmo método. O fator do SIN entra como fator comum, mês a mês, na categoria escopo2.energia_eletrica (formato em data/README.md). Energia térmica e perdas na transmissão seguem a mesma conta.
+- Método fator_direto 1.1.0, com total do escopo 2 separado (migração 0008: calculo.escopo2_tco2e). As execuções 1.0.0 continuam conferíveis com o hash antigo.
+- Montagem da entrada separada em app/modules/calculo/montagem.py, com a referência por interface: o banco (ReferenciaDoBanco) e os casos de paridade (ReferenciaDoCaso) passam pelo mesmo código.
+- Paridade em app/modules/calculo/paridade.py e tests/parity: formato do caso em data/paridade/<caso>/, comparação por indicador (escopos, biogênico, categoria e gás) com tolerância em configuração (PARIDADE_TOLERANCIA_TCO2E, 0,001 tCO2e). Caso fictício feito à mão prova que o comparador acerta e sabe falhar; o teste dos casos oficiais fica pulado, com o motivo, até haver caso em data/paridade.
+- Resultados: total do escopo 2 na ficha, no aviso e no histórico; gráfico e tabelas por categoria e gás cobrem os dois escopos.
+- Runbook renomeado para docs/runbooks/calculo-de-emissoes.md, com a seção de paridade.
+- Verificação: ruff, mypy, 648 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+- Pendente: fator mensal do SIN (MCTI) em data/fatores/sin/; 3 a 5 casos calculados na ferramenta oficial em data/paridade/; confirmar a tolerância com esses casos.
+
+## P11 Fechamento (concluído em 2026-11-23)
+
+- Decisões de produto tomadas por mim e registradas em docs/decisoes.md (o usuário seguiu sem responder): fecha só sem pendências; fecham administrador e gestor; reapresentação reabre o mesmo inventário com motivo, e o próximo fechamento é a versão seguinte.
+- Migração 0009: estado fechado; inventario_evento (fechamento e reabertura, só inserção) com versão, cálculo, hash do fechamento e motivo; trigger que só deixa o estado mudar com o evento na mesma transação (CL021); triggers que barram qualquer escrita em fonte, decisão, evidência, planilha e cálculo de inventário fechado (CL020).
+- app/modules/fechamento/servico.py: condições conferidas com o inventário travado (cálculo feito, cálculo atualizado pelo hash da entrada, sem pendências, conferência), aviso de período sem evidência, hash do fechamento reproduzível, fechar (nome da empresa conferido no servidor) e reabrir com motivo. Trilha inventario.fechado e inventario.reaberto.
+- Portal: menu Fechamento liberado; condições com situação e detalhe, confirmação irreversível digitando o nome da empresa (a macro agora envia o texto para o servidor conferir), ficha do fechamento com o hash, formulário de reapresentação e histórico de fechamentos. A faixa de estado mostra "Fechado".
+- Runbook docs/runbooks/fechamento-e-reapresentacao.md.
+- Testes: condições e fechamento com hash reproduzível, cálculo desatualizado não fecha, inventário fechado congela tudo (até o cálculo), estado não muda sem evento, reapresentação gera versão 2 com trilha; roteiro do portal recusando fechar com pendência; axe-core em /fechamento.
+- Verificação: ruff, mypy, 668 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P12 Verificador (concluído em 2026-11-23)
+
+- Decisões tomadas por mim e registradas em docs/decisoes.md: só o administrador concede; um inventário fechado por concessão; prazo padrão de 90 dias (até 365), revogável.
+- Migração 0010: concessao_verificacao (RLS de tenant e empresa); contexto app.concessao_id; funções verificacao_inventario e verificacao_empresa; política restritiva TO app_verificador em todas as tabelas de tenant (só o recorte da concessão, ou nada); leitura da referência global pelo verificador; funções identidade_aceitar_concessao e identidade_concessoes do app_identidade, revisadas.
+- Contexto: ContextoTenant com concessao_id aplica app.concessao_id e SET LOCAL ROLE app_verificador na mesma transação, na API (after_begin) e no asyncpg; exige uma empresa e o usuário.
+- Sessão e middleware: a sessão guarda a concessão aberta; o acesso do verificador é relido no banco a cada requisição (revogou, perdeu).
+- Login: link de uso único /verificacao/convite/<token>/<provedor>, com aceite no banco (e-mail, prazo, revogação, hash do segredo) e trilha concessao.aceita; depois, a verificação aparece na escolha de cliente.
+- Portal: menu Verificação liberado (concessões da empresa em foco, conceder com e-mail e prazo, revogar com confirmação); painel do verificador só de leitura (fechamento, cálculo do fechamento, memória em CSV, fontes, fontes fora da materialidade, evidências com SHA-256). Para o verificador, toda tela do cliente responde 404.
+- Runbook docs/runbooks/verificacao.md.
+- Testes: suíte de vazamento com o recorte do verificador em cada tabela, concessão inválida, de outra pessoa, revogada ou vencida não abre nada, outro inventário da mesma empresa invisível; cobertura exige a política do verificador em toda tabela; contexto do verificador; roteiro de ponta a ponta (conceder, aceitar, painel, 404 fora dele, link de uso único, reabrir, revogar); axe-core na tela de concessões, na escolha de cliente, no painel e na fonte do verificador, com login real no navegador.
+- Verificação: ruff, mypy, 732 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P13 Ferramenta oficial (pulado por enquanto)
+
+- Bloqueado: precisa da ferramenta oficial do Programa (Ciclo 2027) em data/templates/. Sem ela, não há como importar ou exportar no formato oficial sem inventar células.
+
+## P14 Portal 1a (concluído em 2026-11-23, sem a parte de paridade oficial)
+
+- Usuários e acessos (/usuarios, só administrador, link no menu do usuário): pessoas com perfil, empresas e situação; convidar com perfil e empresas (e-mail com o link); revogar convite; ficha da pessoa com troca de perfil e empresas, desativar e reativar; o próprio acesso não muda.
+- Início com a jornada da empresa em foco (organização, coleta, resultados, fechamento, verificação), totais do último cálculo e o próximo passo.
+- Limite de tentativas de login por IP no Redis (LOGIN_LIMITE_TENTATIVAS e LOGIN_JANELA_MIN), com 429 e o tempo de espera; vale para entrar, convite e concessão.
+- Componente novo campo_opcoes na /ui.
+- Testes: roteiro de usuários (convite com validação, colaborador sem acesso à tela, troca de perfil, desativação que corta o acesso, reativação, revogação de convite), jornada do início, limite com IP próprio, contador com Redis falso, axe-core em /usuarios.
+- Verificação: ruff, mypy, 740 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P15 a P17 (ainda não feitos)
+
+- P15 NF-e e CT-e: bloqueado, precisa dos XSD oficiais em data/xsd/.
+- P16 e P17 feitos depois do P18.
+
+## P18 Metas (concluído em 2026-11-23)
+
+- Migração 0011: meta (escopos 1, 2 ou 1+2; ano-base de inventário fechado com o valor copiado do cálculo do fechamento; ano-alvo; redução percentual informada pelo cliente; arquivável) e acao_reducao (redução estimada pelo cliente, ano de início, situação). RLS de tenant e empresa; o verificador não vê nada.
+- Acompanhamento com trajetória linear e realizado de cada ano (fechamento ou último cálculo, marcado preliminar); gráfico ECharts com a tabela equivalente; comparação do plano de ações com a redução da meta.
+- Portal: menu Metas liberado; lista e criação (administrador e gestor), ficha da meta, plano de ação com cadastro e situação (também o responsável), arquivar e reativar. Trilha meta.criada, meta.arquivada, acao.criada, acao.alterada.
+- Testes: trajetória e situação (unitários), roteiro no portal (validações, valores da meta, cobertura do plano, situação da ação, arquivar), isolamento e cobertura das duas tabelas, axe-core em /metas e na ficha da meta.
+- Verificação: ruff, mypy, 773 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P17 Escopo 3 (concluído em 2026-11-23, com dados fictícios)
+
+- As 15 categorias do escopo 3 do GHG Protocol no catálogo da coleta (só estrutura).
+- Método fator_direto 1.2.0 com total do escopo 3 separado (migração 0012: calculo.escopo3_tco2e); versões 1.0.0 e 1.1.0 continuam conferíveis.
+- Moeda (BRL) no registro do pint, para fatores por valor gasto; t·km para frete.
+- Resultados, histórico, aviso e painel do verificador com o escopo 3; paridade com o indicador escopo3_tco2e.
+- Testes: total do escopo 3 com fator por valor gasto, compatibilidade da 1.1.0, moeda como grandeza própria, segundo caso fictício de paridade (km, BRL e t·km, com consolidação de 50%) feito à mão, cálculo no banco com uma fonte de viagens.
+- Verificação: ruff, mypy, 778 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P16 IA (concluído em 2026-11-23)
+
+- Cliente da Anthropic (app/modules/ia/cliente.py): modelo só por ANTHROPIC_MODELO; saída em JSON Schema; esforço baixo; limite de tempo e novas tentativas; reserva do servidor em caso de recusa (IA_FALLBACKS); recusa, resposta cortada, JSON inválido e erros de API ou de rede viram aviso. Sem chave ou modelo, a IA fica desligada.
+- Sugestões (app/modules/ia/sugestoes.py): categoria e atividade de uma fonte nova, restritas às opções que existem; opinião sobre um valor fora do padrão para quem decide o dado. Nada é preenchido, gravado, calculado ou aprovado pela IA.
+- Telas: botão "Sugerir categoria com IA" na fonte nova e "Pedir a opinião da IA" no período, só para quem decide e só com IA configurada, com aviso do que é enviado. Trilha ia.consultada sem o conteúdo.
+- Testes: cliente com a API simulada (pedido, modelo, esquema, reserva, recusa e erros), sugestões restritas às opções, opinião, roteiro no portal com IA falsa (sem IA não há botão nem rota; IA fora do ar vira aviso; trilha sem texto).
+- Verificação: ruff, mypy, 797 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes. Sem chamada real à API: falta a chave no ambiente.
+
+## P20 Integridade (concluído em 2026-11-23)
+
+- app/modules/integridade/servico.py: verificação por tenant da trilha (cadeia v1), dos cálculos (refeitos pela entrada guardada), do hash do fechamento atual de cada inventário fechado e do SHA-256 de cada evidência e planilha relida do S3. Resultado só por inserção e evento integridade.verificada; falha vira log de erro sem dado pessoal.
+- Migração 0013: integridade_verificacao (RLS de tenant, verificador sem acesso, "íntegra" amarrada à lista de falhas) e identidade_tenants() (só ids, revisada) para o disparo.
+- Worker: integridade.verificar_tenant (de tenant) e integridade.disparar (global, justificada), agendado no beat todo dia às 3h.
+- Portal: tela Integridade (administrador e gestor, menu do usuário) com a última verificação, o que foi conferido, as falhas, o histórico e "Verificar agora".
+- Runbook docs/runbooks/integridade.md.
+- Testes: detecção de cálculo sem entrada e de arquivos com hash diferente ou sumidos, resultado inconsistente recusado, disparo só com ids, disparo enfileirando um por tenant, roteiro do portal (tudo confere; evidência adulterada vira falha na tela), axe-core em /integridade.
+- Verificação: ruff, mypy, 818 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P24 Painel (concluído em 2026-11-23)
+
+- app/modules/relatorios/painel.py: para cada empresa visível, o inventário mais recente, a situação, o progresso da coleta e as emissões dos escopos 1, 2 e 3 (do fechamento atual ou, sem ele, do último cálculo, preliminar); série anual somando os inventários com cálculo.
+- Tela /painel (menu Painel, depois de Metas) com filtro por grupo, tabela de empresas, gráfico de barras empilhadas por empresa e por ano, cada um com a tabela equivalente; próximo passo aponta a primeira empresa sem inventário fechado.
+- Testes: roteiro com empresa fechada, empresa sem inventário, inventário em coleta sem cálculo fora da série, filtro por grupo e grupo desconhecido; axe-core em /painel; ordem do menu atualizada.
+- Verificação: ruff, mypy, 822 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P21 Campanhas (concluído em 2026-11-23)
+
+- Migração 0014: campanha (prazo, recado, encerramento com motivo; uma aberta por inventário) e campanha_envio (só inserção, um por tipo), com RLS de tenant e empresa e verificador sem acesso.
+- app/modules/coleta/campanhas.py: abrir (aviso à equipe com o que falta), encerrar, rodada diária com lembretes de 7, 3 e 1 dia e vencimento, encerramento automático quando a coleta acaba ou o inventário fecha. Trilha campanha.aberta, campanha.aviso_enviado, campanha.encerrada.
+- Worker: campanhas.lembrar_tenant e campanhas.disparar (global, justificada), no beat às 8h.
+- Tela do inventário: card da campanha (abrir com prazo e recado; prazo, avisos enviados e encerrar).
+- Testes: regra do lembrete do dia, abertura com e-mail ao responsável e lista do que falta, campanha repetida recusada, lembrete uma vez só e vencimento, encerramento automático, prazo no passado recusado, disparo, roteiro no portal.
+- Verificação: ruff, mypy, 862 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.

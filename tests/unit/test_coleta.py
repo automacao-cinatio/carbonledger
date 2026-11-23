@@ -236,7 +236,7 @@ def test_validar_ano(texto: str, erro: str | None) -> None:
 
 
 def test_categorias_no_formato_dos_fatores() -> None:
-    codigo = re.compile(r"^escopo[12]\.[a-z0-9_]+$")
+    codigo = re.compile(r"^escopo[123]\.[a-z0-9_]+$")
     assert all(codigo.fullmatch(c.codigo) for c in CATEGORIAS)
     assert len({c.codigo for c in CATEGORIAS}) == len(CATEGORIAS)
     eletrica = next(c for c in CATEGORIAS if c.codigo == "escopo2.energia_eletrica")
@@ -276,3 +276,49 @@ def test_quantidade_da_planilha_volta_igual(valor: Decimal) -> None:
 )
 def test_formatar_numero_exato(valor: Decimal | None, esperado: str) -> None:
     assert formatar_numero_exato(valor) == esperado
+
+
+# ---------------------------------------------------------------- limite de login (P14)
+
+
+class _RedisFalso:
+    def __init__(self) -> None:
+        self.valores: dict[str, int] = {}
+        self.expiracoes: dict[str, int] = {}
+
+    async def incr(self, chave: str) -> int:
+        self.valores[chave] = self.valores.get(chave, 0) + 1
+        return self.valores[chave]
+
+    async def expire(self, chave: str, segundos: int) -> None:
+        self.expiracoes[chave] = segundos
+
+
+async def test_limite_de_login_por_ip() -> None:
+    from app.core.security.limite import contar_tentativa
+
+    redis = _RedisFalso()
+    resultados = [
+        await contar_tentativa(redis, "10.0.0.1", limite=3, janela_s=600) for _ in range(4)
+    ]
+    assert resultados == [True, True, True, False]
+    assert await contar_tentativa(redis, "10.0.0.2", limite=3, janela_s=600)
+    # A janela comeca na primeira tentativa, e o IP nao fica em claro no Redis.
+    assert set(redis.expiracoes.values()) == {600}
+    assert not any("10.0.0" in chave for chave in redis.valores)
+
+
+# ---------------------------------------------------------------- campanhas (P21)
+
+
+@pytest.mark.parametrize(
+    ("dias_ate_o_prazo", "esperado"),
+    [(10, None), (8, None), (7, "lembrete_7"), (5, "lembrete_7"), (3, "lembrete_3"),
+     (2, "lembrete_3"), (1, "lembrete_1"), (0, "lembrete_1"), (-1, "vencida")],
+)  # fmt: skip
+def test_tipo_do_lembrete(dias_ate_o_prazo: int, esperado: str | None) -> None:
+    from datetime import timedelta
+
+    from app.modules.coleta.campanhas import tipo_do_lembrete
+
+    assert tipo_do_lembrete(HOJE + timedelta(days=dias_ate_o_prazo), HOJE) == esperado

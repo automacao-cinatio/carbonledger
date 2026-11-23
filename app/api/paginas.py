@@ -14,9 +14,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.api.autenticacao import auditar_sessao
 from app.core.erros import AcessoNegado
-from app.core.security.acesso import resolver_acesso
+from app.core.security.acesso import concessoes_ativas, resolver_acesso
 from app.core.security.oidc import Provedor
 from app.core.security.sessao import ArmazemSessoes, Sessao
+from app.core.tenancy import sessao_de_tenant
+from app.web.jornada import montar_jornada
 from app.web.portal import empresa_visivel, montar_portal, renderizar
 
 router = APIRouter(tags=["paginas"], include_in_schema=False)
@@ -26,6 +28,13 @@ APRESENTACAO_PROVEDORES = {
     "microsoft": ("Microsoft", "brand-windows"),
     "dev": ("o provedor de desenvolvimento", "code"),
 }
+
+
+COLUNAS_JORNADA = [
+    {"chave": "nome", "titulo": "Etapa", "link": "url"},
+    {"chave": "situacao", "titulo": "Situação", "etiqueta": True},
+    {"chave": "detalhe", "titulo": "Detalhe"},
+]
 
 
 def resposta_com_aviso(aviso: str, **cabecalhos: str) -> Response:
@@ -64,18 +73,49 @@ async def tela_entrar(request: Request) -> Response:
 async def tela_inicio(request: Request) -> Response:
     if _sessao(request) is None:
         return RedirectResponse("/entrar", status_code=status.HTTP_303_SEE_OTHER)
-    if getattr(request.state, "acesso", None) is None:
+    if getattr(request.state, "verificacao", None) is not None:
+        return RedirectResponse("/verificacao/painel", status_code=status.HTTP_303_SEE_OTHER)
+    acesso = getattr(request.state, "acesso", None)
+    if acesso is None:
         return RedirectResponse("/clientes", status_code=status.HTTP_303_SEE_OTHER)
+    portal = await montar_portal(request)
+    jornada = None
+    if portal.empresa_atual is not None:
+        async with sessao_de_tenant(request.app.state.fabrica_sessoes, acesso.contexto()) as db:
+            jornada = await montar_jornada(db, UUID(portal.empresa_atual))
+    empresa = next((e for e in portal.empresas if e.id == portal.empresa_atual), None)
     return renderizar(
-        request, "paginas/inicio.html", await montar_portal(request), pagina_atual="/"
+        request,
+        "paginas/inicio.html",
+        portal,
+        pagina_atual="/",
+        jornada=jornada,
+        empresa_nome=None if empresa is None else empresa.nome,
+        colunas_jornada=COLUNAS_JORNADA,
+        linhas_jornada=[]
+        if jornada is None
+        else [
+            {
+                "nome": e.nome,
+                "url": e.url,
+                "situacao": ("Feita", "success") if e.feita else ("A fazer", "secondary"),
+                "detalhe": e.detalhe,
+            }
+            for e in jornada.etapas
+        ],
     )
 
 
 @router.get("/clientes", response_class=HTMLResponse)
 async def tela_clientes(request: Request) -> Response:
-    if _sessao(request) is None:
+    sessao = _sessao(request)
+    if sessao is None:
         return RedirectResponse("/entrar", status_code=status.HTTP_303_SEE_OTHER)
-    return renderizar(request, "paginas/clientes.html", await montar_portal(request))
+    # Verificacoes ativas da pessoa (concessoes aceitas), alem dos clientes de que e membro.
+    verificacoes = await concessoes_ativas(request.app.state.fabrica_sessoes, sessao.usuario_id)
+    return renderizar(
+        request, "paginas/clientes.html", await montar_portal(request), verificacoes=verificacoes
+    )
 
 
 @router.post("/clientes/{tenant_id}")

@@ -119,3 +119,121 @@
 - Texto livre (observação, motivo, justificativa, nome de arquivo) não vai para a trilha de auditoria: pode ter dado pessoal. A trilha guarda identificadores, período, versão, hash e tamanho.
 - Os testes do portal usam S3 e ClamAV substitutos em memória; o S3 de verdade é testado contra um MinIO com Object Lock (tests/integration/test_armazenamento_minio.py) e o protocolo do ClamAV contra um clamd falso por TCP.
 - Tabela numérica ganhou a opção exato (casas que o número tem, de 2 a 6): 0,0015 t não pode aparecer como 0,00.
+
+## 2026-11-23: escopo 1 (P09)
+
+- Construído com dados fictícios (decisão do usuário): data/ continua sem GWP, fatores e misturas oficiais. Os testes usam tests/dados_ficticios/calculo_*.csv, com o conjunto de GWP TESTE_CALC_100, para não se misturar com os lotes de teste do P07.
+- Método fator_direto 1.0.0 (decisão do usuário): quantidade × fator por gás × GWP × consolidação, com a mistura pela data da compra. Sem densidade nem poder calorífico: grandezas diferentes viram pendência. A cadeia da ferramenta oficial (massa, energia, fator por energia) entra quando a planilha estiver em data/templates (P13), como método novo.
+- A fonte de emissão ganhou "atividade", o código do combustível ou da atividade, escolhido entre os fatores e misturas aprovados. Pode ficar para depois; vira pendência no cálculo.
+- O fator é procurado pela categoria da fonte e pelo código. A validação dos arquivos e a chave única de fator_versao passaram a incluir a categoria, porque o mesmo componente tem fatores diferentes em combustão móvel e estacionária.
+- Só entra dado aprovado (a versão mais recente com decisão aprovada). Todo o resto vira pendência explícita (falta_dado, sem_atividade, sem_fator, unidade_incompativel, sem_gwp): nada é contado como zero. Se um componente da mistura não tem fator, o lançamento inteiro fica pendente, para não subestimar.
+- Data de referência sem data da compra: o último dia do período.
+- O percentual de consolidação é lido da unidade no momento do cálculo e gravado em cada linha, porque a unidade pode mudar depois.
+- Execução só de inserção (calculo, calculo_linha, calculo_pendencia), com a entrada canônica em jsonb, o hash da entrada e o do resultado. Conferir refaz a conta a partir da entrada guardada: prova que o resultado é reproduzível e que a entrada não foi trocada. Reconstruir a entrada do zero não seria possível, porque fonte e unidade mudam.
+- Precisão Decimal de 50 dígitos, sem arredondar no caminho; a tela mostra 3 casas; a memória em CSV sai sem arredondar e sem separador de milhar.
+- O cálculo roda na requisição, com a conexão asyncpg da própria sessão (contexto de tenant já aplicado), pela mesma função da tarefa Celery calculo.calcular_inventario. Um volume que torne o cálculo lento muda isso para fila.
+- Só o escopo 1. Fontes do escopo 2 ficam fora do cálculo até o P10 (fator do SIN mensal), sem pendência.
+
+## 2026-11-23: escopo 2 e paridade (P10)
+
+- Construído com dados fictícios (decisão do usuário, "continue" depois da pergunta): data/fatores/sin/ e data/paridade/ continuam vazias.
+- Escopo 2 pela abordagem de localização, com o mesmo método: consumo × fator do SIN do mês. O fator do SIN entra como fator comum, com vigência mensal, sem tabela própria. A abordagem por escolha de compra (instrumentos contratuais) não entra: é opcional no Programa e pede um insumo que ainda não existe.
+- No escopo 2, a data de referência é sempre o último dia do mês do consumo, nunca a data da compra.
+- Método fator_direto 1.1.0: inclui o escopo 2 e grava o total dele separado (calculo.escopo2_tco2e, migração 0008). A conta pura não mudou; por isso as execuções 1.0.0 continuam conferíveis (VERSOES_COMPATIVEIS), com o hash calculado do jeito antigo.
+- A montagem da entrada saiu do serviço de banco para app/modules/calculo/montagem.py, com a referência por interface (ReferenciaDoBanco e ReferenciaDoCaso). A paridade passa pela mesma montagem e pelo mesmo método que a produção, não por uma cópia.
+- Formato do caso de paridade definido aqui (data/README.md). Tolerância de 0,001 tCO2e por total, em configuração (PARIDADE_TOLERANCIA_TCO2E): é o arredondamento de 3 casas da tela. O valor é provisório até os casos oficiais mostrarem com quantas casas a ferramenta trabalha; mudar exige decisão registrada aqui.
+- Sem caso oficial, o teste de paridade oficial fica pulado com o motivo, e um caso fictício prova que o comparador funciona e sabe falhar.
+- O leitor de CSV do P07 virou público (ler_tabela), para os casos de paridade usarem o mesmo formato e as mesmas mensagens de erro.
+
+## 2026-11-23: fechamento (P11)
+
+- Decisões tomadas por mim, com o usuário seguindo ("continue") sem responder às três perguntas; todas podem ser revistas:
+  - fecha só sem nenhuma pendência; a saída para uma fonte sem dado é tirá-la da materialidade, com justificativa. Período sem evidência é aviso, não bloqueio;
+  - fecham administrador e gestor (os perfis que veem o tenant inteiro);
+  - reapresentação reabre o mesmo inventário, com motivo obrigatório; o fechamento anterior fica guardado e o próximo é a versão seguinte. Não há cópia do inventário: como tudo é só inserção, a história completa já fica no mesmo registro.
+- "Cálculo atualizado" é verificado pelo hash: a entrada montada agora, no mesmo instante de conhecimento do cálculo, precisa ter o mesmo hash da entrada gravada. Não depende de datas de atualização, que podem não cobrir toda mudança.
+- O fechamento exige também a conferência (refazer o cálculo pela entrada guardada).
+- Hash do fechamento: hash do resultado do cálculo, lançamentos usados e evidências (id e SHA-256), com a versão do fechamento.
+- No banco: o estado só muda com o evento correspondente gravado na mesma transação (comparando txid_current()), e um inventário fechado não recebe nada (triggers em fonte, decisão, evidência, planilha e cálculo; o lançamento já era barrado desde a 0006). Assim nem um caminho fora da API fecha, reabre ou altera um inventário fechado sem deixar o evento.
+- A confirmação por digitação passou a enviar o texto (campo confirmacao), e o servidor confere. Antes, só o navegador conferia.
+- registrado_em dos eventos usa clock_timestamp(), para a ordem valer até dentro da mesma transação.
+- A conferência trata uma entrada guardada ilegível como "não confere", em vez de derrubar a tela.
+
+## 2026-11-23: verificador (P12)
+
+- Decisões tomadas por mim (o usuário seguiu com "continue"), revisáveis: só o administrador concede e revoga; a concessão cobre um inventário fechado; prazo padrão de 90 dias, até 365, revogável a qualquer momento.
+- O verificador não é membro do cliente: é uma pessoa (usuario global) com uma concessão aceita. Ele entra por um link de uso único, com o mesmo formato e as mesmas garantias do convite (segredo de 32 bytes, só o SHA-256 no banco, um único erro CL001 para todo motivo de recusa, e-mail conferido pelo provedor).
+- Duas funções novas do app_identidade (SECURITY DEFINER), revisadas na migração 0010: identidade_aceitar_concessao e identidade_concessoes. A lista fechada de funções do papel foi atualizada no teste.
+- O limite mora no banco, como pedido no P02: contexto app.concessao_id, SET LOCAL ROLE app_verificador na mesma transação e uma política restritiva TO app_verificador em toda tabela de tenant (o verificador vê o inventário da concessão e o que pende dele, a empresa, as unidades e o grupo; nada de membros, convites, trilha ou outras concessões). Concessão inválida, vencida, revogada ou de outra pessoa não abre nada.
+- O contexto do verificador exige escopo de empresas com exatamente a empresa da concessão e o usuário; o ContextoTenant recusa outro formato.
+- O acesso do verificador é relido no banco a cada requisição (como o dos membros): revogar corta na hora.
+- O teste genérico do verificador na suíte de vazamento mudou: antes ele lia o tenant inteiro (o P02 deixou o limite por concessão para o P12); agora cada tabela é visível só no recorte da concessão, ou invisível. O teste de cobertura exige a política do verificador em toda tabela nova.
+- O verificador lê a referência global (fatores, GWP, misturas) para conferir a memória de cálculo.
+- O acesso do verificador às telas não vai para a trilha: o papel dele só lê. A trilha registra concessão criada, aceita e revogada.
+
+## 2026-11-23: portal 1a (P14)
+
+- O P13 (ferramenta oficial) foi pulado: depende da planilha oficial em data/templates, que não existe, e o CLAUDE.md proíbe inventar células dela. O usuário seguiu com "continue"; escolhi o P14 pelo que o progresso do P04 já marcava como pendente para ele (gestão de usuários e limite de tentativas de login). A parte do P14 que usa os casos de paridade fica para quando eles existirem.
+- Usuários e acessos em tela própria, só do administrador, com link no menu do usuário (topo) em vez do menu principal, que segue a ordem do trabalho. As regras são as mesmas da API do P04 (mesmas funções).
+- Componente novo campo_opcoes (várias caixas com o mesmo nome) para escolher empresas, primeiro na /ui.
+- Início com a jornada da empresa em foco (organização, coleta, resultados, fechamento, verificação): a primeira etapa não feita é o próximo passo.
+- Limite de tentativas de login por IP, com janela fixa no Redis (LOGIN_LIMITE_TENTATIVAS, padrão 20, e LOGIN_JANELA_MIN, padrão 10). Conta o início de cada login (entrar, convite, concessão); passou do limite, 429 com o tempo de espera, que não revela nada sobre contas. A chave guarda só o hash do IP. Atrás de proxy (P25), o IP real precisará vir do cabeçalho confiável do balanceador.
+
+## 2026-11-23: metas (P18)
+
+- Escolhido depois do P14 por não depender de arquivo oficial (P15 precisa dos XSD da NF-e e do CT-e; P16 e P17 ficaram como alternativas). O usuário seguiu com "continue".
+- Meta de redução percentual, por empresa, de um ou dois escopos (1, 2 ou 1+2), do ano-base ao ano-alvo. Só metas absolutas; intensidade (por produção ou receita) fica para quando houver o indicador de atividade.
+- O ano-base é um inventário fechado. O valor-base é copiado do cálculo daquele fechamento e guardado na meta, com o id do cálculo: uma reapresentação posterior não muda a meta em silêncio.
+- Nenhum percentual, ano ou referência é sugerido pelo sistema (CLAUDE.md: nada de inventar números). A meta é a que o cliente assume.
+- Trajetória linear do ano-base ao ano-alvo. Realizado de cada ano: o cálculo do fechamento quando fechado; senão, o último cálculo, marcado como preliminar.
+- Ações do plano com redução estimada informada pelo cliente: estimativa, nunca cálculo, nunca entra no inventário. A tela compara a soma das ações não canceladas com a redução da meta.
+- Meta não se apaga: arquiva. O verificador não vê metas nem ações (política restritiva com false).
+- Criar e arquivar metas: administrador e gestor. Ações: também o responsável.
+
+## 2026-11-23: escopo 3 (P17)
+
+- Construído com dados fictícios, pelo mesmo motivo dos P07 a P10 (data/ sem fatores oficiais). O usuário seguiu com "continue".
+- As 15 categorias do escopo 3 do GHG Protocol entram no catálogo como estrutura (códigos escopo3.cat01_bens_servicos a escopo3.cat15_investimentos); nenhum fator mora no código.
+- Mesmo método (fator direto): quantidade × fator × GWP × consolidação. Cobre fatores por atividade (km, t·km, kg de resíduo) e por valor gasto (kg/BRL). Métodos específicos de categoria (híbrido, por fornecedor, por média de uso de produto) ficam para quando houver insumo oficial e pedido.
+- O registro do pint ganhou a moeda (BRL) como grandeza própria, sem conversão entre moedas: câmbio não é unidade.
+- No escopo 3, a data de referência segue a do escopo 1 (data da compra; sem ela, o fim do período).
+- Método fator_direto 1.2.0 com total do escopo 3 separado (calculo.escopo3_tco2e, migração 0012). As versões 1.0.0 e 1.1.0 continuam conferíveis, cada uma com o hash do jeito dela.
+- Metas continuam com os escopos 1 e 2 (1, 2 ou 1+2). Meta de escopo 3 entra se for pedida.
+
+## 2026-11-23: IA (P16)
+
+- A IA só sugere, em dois lugares: categoria e atividade de uma fonte nova (a partir da descrição e da unidade) e opinião sobre um valor fora do padrão para quem vai decidir o dado. Ela não preenche campo, não grava dado, não calcula e não aprova: a pessoa lê e decide.
+- Saída estruturada (output_config.format com JSON Schema): a categoria e a atividade só podem ser uma das opções que existem (catálogo e fatores aprovados), e o servidor confere de novo antes de mostrar.
+- Modelo só por ANTHROPIC_MODELO (CLAUDE.md); sem ele ou sem ANTHROPIC_API_KEY, a IA fica desligada e as telas nem mostram os botões.
+- Esforço baixo (classificação curta), raciocínio adaptativo no padrão do modelo, até 4.096 tokens, 30 s de limite (IA_TEMPO_LIMITE_S) e 2 novas tentativas do SDK.
+- Recusa por política: o servidor repete o pedido num modelo de reserva (fallbacks "default"), sem nome de modelo no código. IA_FALLBACKS vazio desliga, para modelos que não aceitam o parâmetro. Recusa final, resposta cortada, JSON inválido e erro de API ou de rede viram aviso na tela; nada quebra.
+- Sem cache de prompt: o prompt de sistema é curto demais para o mínimo cacheável.
+- Vai para a Anthropic só o necessário: descrição e unidade da fonte, e os números dos períodos. Nenhum nome, e-mail ou documento. Nem o texto enviado nem o recebido vão para log ou trilha; a trilha registra só que a IA foi consultada (ia.consultada, com o uso e a empresa).
+- Pendente para o P23 (LGPD): decidir se cada cliente precisa ligar a IA explicitamente (opt-in por tenant), já que os dados saem para um operador externo.
+
+## 2026-11-23: integridade (P20)
+
+- Escolhido por não depender de conta ou arquivo externo (o usuário seguiu com "continue").
+- Verificação por tenant que não confia em quem gravou: cadeia da trilha (formato v1, em Python), cálculos refeitos pela entrada guardada, hash do fechamento atual de cada inventário fechado, e SHA-256 de cada evidência e planilha relida do S3.
+- Só o fechamento atual de cada inventário é conferido: fechamentos anteriores a uma reapresentação foram feitos sobre dados que a reapresentação mudou de propósito; eles continuam guardados, com o hash da época.
+- Resultado só por inserção (integridade_verificacao), com CHECK que amarra "íntegra" à lista de falhas vazia. RLS só de tenant; o verificador externo não vê.
+- Agendamento diário às 3h (America/Sao_Paulo) no beat. O disparo é a única tarefa global: lista os tenants pela função identidade_tenants (do app_identidade, só ids, revisada na migração 0013) e enfileira uma verificação por tenant com tenant_id explícito.
+- A verificação pedida na tela roda na requisição, pela mesma função do worker.
+- Falha não é corrigida automaticamente: é incidente, com runbook (docs/runbooks/integridade.md), log de erro sem dado pessoal e destaque na tela.
+
+## 2026-11-23: painel (P24)
+
+- Escolhido por não depender de conta ou arquivo externo (o usuário seguiu com "continue").
+- Uma tela com todas as empresas visíveis (o RLS limita o responsável e o colaborador às empresas deles), com filtro por grupo; grupo desconhecido cai em "todos".
+- O número de cada empresa vem do inventário mais recente: do cálculo do fechamento atual, quando fechado; senão, do último cálculo, marcado como preliminar. Empresa sem cálculo aparece sem número, nunca com zero; na série anual só entram inventários com cálculo, e o ano com algum número preliminar é marcado.
+- Gráficos de barras empilhadas por escopo (ECharts), sempre com a tabela equivalente.
+- O menu ganhou "Painel" no fim, depois de Metas: acompanhar o consolidado vem depois do trabalho de cada empresa. O teste da ordem do menu foi atualizado.
+
+## 2026-11-23: campanhas de coleta (P21)
+
+- Escolhido por não depender de conta ou arquivo externo (o usuário seguiu com "continue"). Escopo definido por mim: campanha é o prazo de coleta de um inventário, com aviso à equipe e lembretes por e-mail.
+- Uma campanha aberta por inventário de cada vez (índice único parcial); administrador e gestor abrem e encerram. Prazo depois de hoje; recado opcional.
+- Destinatários: responsáveis e colaboradores ativos atribuídos à empresa; sem ninguém atribuído, a gestão. O e-mail leva só a lista do que falta (fonte, período e situação), sem números.
+- Lembretes a 7, 3 e 1 dia do prazo e no vencimento, cada tipo uma vez só: o registro do envio (só inserção, chave por campanha e tipo) é gravado antes do e-mail, e a chave única impede aviso repetido mesmo com duas rodadas ao mesmo tempo. Se o envio falhar, a transação desfaz o registro e a próxima rodada tenta de novo.
+- A rodada diária (beat, 8h) encerra sozinha a campanha cuja coleta ficou completa ou cujo inventário foi fechado.
+- O disparo diário reusa identidade_tenants (só ids), como o da integridade; é a segunda tarefa global justificada.

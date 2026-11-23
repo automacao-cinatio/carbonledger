@@ -1,5 +1,6 @@
 """Configuracao da aplicacao: tudo vem de variaveis de ambiente."""
 
+from decimal import Decimal
 from functools import lru_cache
 from typing import Self
 
@@ -31,6 +32,10 @@ class Configuracao(BaseSettings):
     evidencias_retencao_dias: int = 1825
     upload_limite_mb: int = 20
 
+    # Paridade com a ferramenta oficial: diferenca maxima por total, em tCO2e. Nunca se
+    # afrouxa para um caso passar; mudar exige decisao registrada em docs/decisoes.md.
+    paridade_tolerancia_tco2e: Decimal = Decimal("0.001")
+
     clamav_host: str = "clamav"
     clamav_port: int = 3310
     clamav_tempo_limite_s: float = 60.0
@@ -45,6 +50,10 @@ class Configuracao(BaseSettings):
     # O nome do modelo da Anthropic nunca fica fixo no codigo.
     anthropic_api_key: SecretStr | None = None
     anthropic_modelo: str | None = None
+    # Recusa por politica: o servidor repete num modelo de reserva ("default"). Vazio desliga,
+    # para modelos que nao aceitam o parametro.
+    ia_fallbacks: str = "default"
+    ia_tempo_limite_s: float = 30.0
 
     # Endereco publico do app: base dos links de convite e do retorno do OIDC.
     app_url_base: str = "http://localhost:8000"
@@ -52,6 +61,9 @@ class Configuracao(BaseSettings):
     sessao_inatividade_min: int = 120
     sessao_maxima_h: int = 12
     convite_validade_dias: int = 7
+    # Limite de inicios de login por IP numa janela (protege contra tentativa em massa).
+    login_limite_tentativas: int = 20
+    login_janela_min: int = 10
 
     oidc_google_client_id: str | None = None
     oidc_google_client_secret: SecretStr | None = None

@@ -7,6 +7,7 @@ pecas que os modulos de teste importam.
 import json
 import time
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -66,6 +67,37 @@ class AntivirusFalso:
         self.verificados += 1
         if b"EICAR-STANDARD-ANTIVIRUS-TEST-FILE" in conteudo:
             raise ArquivoInfectado
+
+
+PASTA_FICTICIOS = Path(__file__).resolve().parents[1] / "dados_ficticios"
+CONJUNTO_GWP_DE_TESTE = "TESTE_CALC_100"
+
+
+async def carregar_referencia_de_calculo(dsn_curadoria: str) -> None:
+    """Importa e aprova os fatores, misturas e GWP ficticios do calculo (uma vez por banco)."""
+    import asyncpg
+
+    from app.modules.fatores import repositorio
+
+    conexao = await asyncpg.connect(dsn_curadoria)
+    try:
+        for tipo, arquivo in (
+            ("fatores", "calculo_fatores.csv"),
+            ("misturas", "calculo_misturas.csv"),
+            ("gwp", "calculo_gwp.csv"),
+        ):
+            caminho = PASTA_FICTICIOS / arquivo
+            try:
+                lote = await repositorio.importar(
+                    conexao, tipo, arquivo, caminho.read_bytes(), "Teste do calculo"
+                )
+            except repositorio.LoteRepetido:
+                continue  # outro teste da sessao ja carregou e aprovou
+            await repositorio.decidir(
+                conexao, lote.lote_id, aprovar=True, responsavel="Teste do calculo"
+            )
+    finally:
+        await conexao.close()
 
 
 def subir_redis() -> Iterator[str]:

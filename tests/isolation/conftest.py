@@ -55,6 +55,10 @@ class Dados:
     fonte_b1: UUID
     lancamento_a1: UUID
     lancamento_b1: UUID
+    verificador_a: UUID
+    verificador_b: UUID
+    concessao_a1: UUID
+    concessao_b1: UUID
 
 
 DADOS = Dados(
@@ -78,6 +82,10 @@ DADOS = Dados(
     fonte_b1=UUID("bbbbbbbb-5555-4000-8000-000000000001"),
     lancamento_a1=UUID("aaaaaaaa-6666-4000-8000-000000000001"),
     lancamento_b1=UUID("bbbbbbbb-6666-4000-8000-000000000001"),
+    verificador_a=UUID("aaaaaaaa-7777-4000-8000-000000000001"),
+    verificador_b=UUID("bbbbbbbb-7777-4000-8000-000000000001"),
+    concessao_a1=UUID("aaaaaaaa-8888-4000-8000-000000000001"),
+    concessao_b1=UUID("bbbbbbbb-8888-4000-8000-000000000001"),
 )
 
 
@@ -168,6 +176,92 @@ async def _semear_coleta(conexao: asyncpg.Connection) -> None:
             fonte,
             bytes(32),
         )
+        calculo = uuid4()
+        await conexao.execute(
+            "INSERT INTO calculo (tenant_id, calculo_id, empresa_id, inventario_id, metodo,"
+            " metodo_versao, gwp_conjunto, conhecido_em, entrada, hash_entrada, hash_resultado,"
+            " escopo1_tco2e, biogenico_tco2, linhas, pendencias) VALUES ($1, $2, $3, $4,"
+            " 'fator_direto', '1.0.0', 'AR5_100', now(), '{}', $5, $5, 0, 0, 1, 1)",
+            tenant,
+            calculo,
+            empresa,
+            inventario,
+            bytes(32),
+        )
+        await conexao.execute(
+            "INSERT INTO calculo_linha (tenant_id, calculo_id, linha, empresa_id, fonte_id,"
+            " lancamento_id, periodo, categoria, atividade, componente, data_referencia,"
+            " quantidade, unidade, quantidade_convertida, gas, biogenico, fator, unidade_fator,"
+            " fator_versao_id, gwp, gwp_versao_id, percentual_consolidado, massa_t, tco2e)"
+            " VALUES ($1, $2, 1, $3, $4, $5, 1, 'escopo1.combustao_estacionaria', 'x', 'x',"
+            " '2025-01-31', 100, 'L', 100, 'CO2', false, 0, 'kg/L', gen_random_uuid(), 1,"
+            " gen_random_uuid(), 100, 0, 0)",
+            tenant,
+            calculo,
+            empresa,
+            fonte,
+            lancamento,
+        )
+        await conexao.execute(
+            "INSERT INTO calculo_pendencia (tenant_id, calculo_id, item, empresa_id, fonte_id,"
+            " periodo, motivo, detalhe) VALUES ($1, $2, 1, $3, $4, 2, 'falta_dado', 'sem dado')",
+            tenant,
+            calculo,
+            empresa,
+            fonte,
+        )
+        meta = uuid4()
+        await conexao.execute(
+            "INSERT INTO meta (tenant_id, meta_id, empresa_id, nome, escopos, inventario_base_id,"
+            " calculo_base_id, ano_base, valor_base_tco2e, ano_alvo, reducao_percentual)"
+            " VALUES ($1, $2, $3, 'Meta 2030', '1+2', $4, $5, 2025, 100, 2030, 40)",
+            tenant,
+            meta,
+            empresa,
+            inventario,
+            calculo,
+        )
+        await conexao.execute(
+            "INSERT INTO acao_reducao (tenant_id, acao_id, empresa_id, meta_id, titulo,"
+            " reducao_estimada_tco2e, ano_inicio) VALUES ($1, gen_random_uuid(), $2, $3,"
+            " 'Trocar a caldeira', 10, 2026)",
+            tenant,
+            empresa,
+            meta,
+        )
+        campanha = uuid4()
+        await conexao.execute(
+            "INSERT INTO campanha (tenant_id, campanha_id, empresa_id, inventario_id, prazo)"
+            " VALUES ($1, $2, $3, $4, '2026-01-31')",
+            tenant,
+            campanha,
+            empresa,
+            inventario,
+        )
+        await conexao.execute(
+            "INSERT INTO campanha_envio (tenant_id, campanha_id, tipo, empresa_id, destinatarios)"
+            " VALUES ($1, $2, 'abertura', $3, 1)",
+            tenant,
+            campanha,
+            empresa,
+        )
+        await conexao.execute(
+            "INSERT INTO integridade_verificacao (tenant_id, verificacao_id, origem, iniciada_em,"
+            " contagens, falhas, integra) VALUES ($1, gen_random_uuid(), 'agendada', now(),"
+            " '{}', '[]', true)",
+            tenant,
+        )
+        # Evento sem mudar o estado (o inventario segue em coleta): so para a suite de
+        # vazamento ter linhas dos dois tenants.
+        await conexao.execute(
+            "INSERT INTO inventario_evento (tenant_id, evento_id, empresa_id, inventario_id, tipo,"
+            " versao, motivo, registrado_por) VALUES ($1, gen_random_uuid(), $2, $3, 'reabertura',"
+            " 1, 'Semente da suite de isolamento', $4)",
+            tenant,
+            empresa,
+            inventario,
+            revisor,
+        )
 
 
 async def _semear(dsn_admin: str) -> None:
@@ -210,6 +304,8 @@ async def _semear(dsn_admin: str) -> None:
                 (DADOS.responsavel_a1, "resp@a.example", "Responsavel A1"),
                 (DADOS.admin_b, "admin@b.example", "Admin B"),
                 (DADOS.responsavel_b1, "resp@b.example", "Responsavel B1"),
+                (DADOS.verificador_a, "verif@a.example", "Verificador A"),
+                (DADOS.verificador_b, "verif@b.example", "Verificador B"),
             ],
         )
         await conexao.executemany(
@@ -237,6 +333,18 @@ async def _semear(dsn_admin: str) -> None:
             ],
         )
         await _semear_coleta(conexao)
+        # Concessao aceita, de 30 dias, para o inventario da empresa 1 de cada tenant.
+        await conexao.executemany(
+            "INSERT INTO concessao_verificacao (tenant_id, concessao_id, empresa_id,"
+            " inventario_id, email, segredo_hash, criado_por, expira_em, aceito_em, usuario_id)"
+            " VALUES ($1, $2, $3, $4, $5, $6, $7, now() + interval '30 days', now(), $8)",
+            [
+                (DADOS.tenant_a, DADOS.concessao_a1, DADOS.empresa_a1, DADOS.inventario_a1,
+                 "verif@a.example", bytes(32), DADOS.admin_a, DADOS.verificador_a),
+                (DADOS.tenant_b, DADOS.concessao_b1, DADOS.empresa_b1, DADOS.inventario_b1,
+                 "verif@b.example", bytes(32), DADOS.admin_b, DADOS.verificador_b),
+            ],
+        )  # fmt: skip
         # seq e hash vem da trigger; os valores mandados aqui sao descartados.
         await conexao.executemany(
             "INSERT INTO audit_log (tenant_id, seq, evento_id, ocorrido_em, acao, entidade,"
@@ -347,6 +455,8 @@ def app_cliente(
         "OIDC_DEV_EMISSOR": emissor_oidc,
         "COOKIE_SEGURO": "false",
         "APP_URL_BASE": "http://testserver",
+        # Os roteiros entram muitas vezes pelo mesmo IP; o limite tem teste proprio.
+        "LOGIN_LIMITE_TENTATIVAS": "100000",
     }.items():
         monkeypatch.setenv(nome, valor)
     obter_configuracao.cache_clear()

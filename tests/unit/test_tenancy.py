@@ -17,6 +17,7 @@ def test_configuracoes_do_escopo_tenant() -> None:
         "app.escopo": "tenant",
         "app.empresas": "{}",
         "app.usuario_id": str(U),
+        "app.concessao_id": "",
     }
 
 
@@ -62,9 +63,38 @@ async def test_aplicar_contexto_usa_set_config_local() -> None:
     await aplicar_contexto(conexao, ContextoTenant(tenant_id=T, escopo=Escopo.TENANT))
     ((sql, *valores),) = conexao.chamadas
     assert isinstance(sql, str)
-    assert sql.count(", true)") == 4
+    assert sql.count(", true)") == 5
     assert "SET " not in sql.upper().replace("SET_CONFIG", "")
-    assert valores == [str(T), "tenant", "{}", ""]
+    assert valores == [str(T), "tenant", "{}", "", ""]
+
+
+C = UUID("55555555-5555-4555-8555-555555555555")
+
+
+async def test_verificador_assume_o_papel_so_de_leitura() -> None:
+    conexao = _ConexaoFalsa(em_transacao=True)
+    contexto = ContextoTenant(
+        tenant_id=T, escopo=Escopo.EMPRESAS, empresas=frozenset({E1}), usuario_id=U, concessao_id=C
+    )
+    assert contexto.verificador
+    await aplicar_contexto(conexao, contexto)
+    (_sql, *valores), (papel,) = conexao.chamadas
+    assert valores[-1] == str(C)
+    assert papel == "SET LOCAL ROLE app_verificador"
+
+
+@pytest.mark.parametrize(
+    "argumentos",
+    [
+        {"escopo": Escopo.TENANT, "usuario_id": U},
+        {"escopo": Escopo.EMPRESAS, "empresas": frozenset({E1, E2}), "usuario_id": U},
+        {"escopo": Escopo.EMPRESAS, "empresas": frozenset(), "usuario_id": U},
+        {"escopo": Escopo.EMPRESAS, "empresas": frozenset({E1})},
+    ],
+)
+def test_verificador_exige_uma_empresa_e_o_usuario(argumentos: dict[str, object]) -> None:
+    with pytest.raises(ContextoInvalido):
+        ContextoTenant(tenant_id=T, concessao_id=C, **argumentos)  # type: ignore[arg-type]
 
 
 async def test_aplicar_contexto_fora_de_transacao_e_recusado() -> None:

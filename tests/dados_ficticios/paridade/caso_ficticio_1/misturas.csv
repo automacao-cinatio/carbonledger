@@ -1,0 +1,4 @@
+# FICTICIO
+combustivel;componente;percentual;vigencia_inicio;vigencia_fim;fonte
+teste_par.diesel_comercial;teste_par.diesel_fossil;85;01/01/2020;;FICTICIO
+teste_par.diesel_comercial;teste_par.biodiesel;15;01/01/2020;;FICTICIO

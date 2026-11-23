@@ -7,7 +7,7 @@ campo com 422.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 from urllib.parse import quote
@@ -18,14 +18,15 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse
 from starlette.datastructures import UploadFile
 
-from app.api.dependencias import SessaoTenant
+from app.api.dependencias import SessaoTenant, conexao_asyncpg
 from app.api.paginas import resposta_com_aviso
+from app.core import email as servico_email
 from app.core.antivirus import Antivirus
 from app.core.armazenamento import ArmazemObjetos
 from app.core.config import obter_configuracao
 from app.core.erros import AcessoNegado, ErroValidacao
 from app.core.security.acesso import Acesso, Perfil, exigir_perfil
-from app.modules.coleta import evidencias, planilha, servico
+from app.modules.coleta import campanhas, evidencias, planilha, servico
 from app.modules.coleta.categorias import CATEGORIAS, periodos, rotulo, rotulo_periodo
 from app.modules.organizacao import estrutura
 from app.modules.organizacao.limites import ROTULOS_ABORDAGEM, Abordagem
@@ -293,6 +294,20 @@ async def ver_inventario(
     inventario = await servico.obter_inventario(sessao, inventario_id)
     empresa = await estrutura.obter_empresa(sessao, inventario.empresa_id)
     situacoes = await servico.situacao_das_fontes(sessao, inventario_id)
+    conexao = await conexao_asyncpg(sessao)
+    campanha = await campanhas.aberta(conexao, inventario_id)
+    envios = (
+        []
+        if campanha is None
+        else [
+            {
+                "tipo": TIPOS_ENVIO[e["tipo"]],
+                "quando": e["enviado_em"].astimezone(FUSO).strftime("%d/%m/%Y %H:%M"),
+                "destinatarios": e["destinatarios"],
+            }
+            for e in await campanhas.envios(conexao, campanha.campanha_id)
+        ]
+    )
     linhas = [
         {
             "descricao": s.fonte.descricao,
@@ -324,8 +339,62 @@ async def ver_inventario(
         colunas=COLUNAS_FONTES,
         linhas=linhas,
         pode_fontes=_pode_revisar(acesso) and inventario.em_coleta,
+        pode_campanha=acesso.perfil.ve_o_tenant_inteiro and inventario.em_coleta,
+        campanha=campanha,
+        envios=envios,
+        colunas_envios=COLUNAS_ENVIOS,
+        amanha=(hoje() + timedelta(days=1)).isoformat(),
         proximo=_proximo_do_inventario(inventario, situacoes, acesso),
     )
+
+
+TIPOS_ENVIO = {
+    "abertura": "Abertura",
+    "lembrete_7": "Lembrete (7 dias)",
+    "lembrete_3": "Lembrete (3 dias)",
+    "lembrete_1": "Lembrete (1 dia)",
+    "vencida": "Prazo vencido",
+}
+COLUNAS_ENVIOS = [
+    {"chave": "tipo", "titulo": "Aviso"},
+    {"chave": "quando", "titulo": "Enviado em"},
+    {"chave": "destinatarios", "titulo": "Destinatários", "unidade": "pessoas", "casas": 0},
+]
+
+
+async def _enviar_email(para: str, assunto: str, corpo: str) -> None:
+    await servico_email.enviar_email(obter_configuracao(), para, assunto, corpo)
+
+
+@router.post("/inventarios/{inventario_id}/campanha")
+async def abrir_campanha(
+    request: Request, inventario_id: UUID, sessao: SessaoTenant, acesso: Gestao
+) -> Response:
+    await servico.obter_inventario(sessao, inventario_id)
+    _campanha, avisados = await campanhas.abrir(
+        await conexao_asyncpg(sessao),
+        tenant_id=acesso.tenant_id,
+        usuario_id=acesso.usuario_id,
+        inventario_id=inventario_id,
+        formulario=await _formulario(request),
+        hoje=hoje(),
+        enviar=_enviar_email,
+    )
+    return resposta_com_aviso(
+        f"Campanha aberta. {avisados} pessoa(s) avisada(s) por e-mail.", **{"HX-Refresh": "true"}
+    )
+
+
+@router.post("/campanhas/{campanha_id}/encerrar")
+async def encerrar_campanha(campanha_id: UUID, sessao: SessaoTenant, acesso: Gestao) -> Response:
+    await campanhas.encerrar(
+        await conexao_asyncpg(sessao),
+        tenant_id=acesso.tenant_id,
+        usuario_id=acesso.usuario_id,
+        campanha_id=campanha_id,
+        motivo="manual",
+    )
+    return resposta_com_aviso("Campanha encerrada. Os lembretes param.", **{"HX-Refresh": "true"})
 
 
 @router.get("/inventarios/{inventario_id}/planilha.csv")
@@ -368,6 +437,19 @@ async def importar_planilha(
 # ---------------------------------------------------------------- fontes
 
 
+async def _opcoes_atividade(sessao: SessaoTenant, categoria: str | None) -> list[tuple[str, str]]:
+    """Atividades com fator aprovado. Sem categoria (fonte nova), as de todas, com o nome dela."""
+    if categoria is not None:
+        return list((await servico.atividades_da_categoria(sessao, categoria)).items())
+    opcoes: dict[str, str] = {}
+    for c in CATEGORIAS:
+        for codigo, rotulo_atividade in (
+            await servico.atividades_da_categoria(sessao, c.codigo)
+        ).items():
+            opcoes.setdefault(codigo, f"{c.rotulo}: {rotulo_atividade}")
+    return sorted(opcoes.items(), key=lambda par: par[1].lower())
+
+
 def _valores_fonte(fonte: servico.Fonte | None) -> dict[str, Any]:
     if fonte is None:
         return {
@@ -378,8 +460,10 @@ def _valores_fonte(fonte: servico.Fonte | None) -> dict[str, Any]:
             "periodicidade": "mensal",
             "material": True,
             "justificativa": "",
+            "atividade": None,
         }
     return {
+        "atividade": fonte.atividade,
         "unidade_id": str(fonte.unidade_id),
         "categoria": fonte.categoria,
         "descricao": fonte.descricao,
@@ -415,7 +499,9 @@ async def nova_fonte(
         unidades=unidades,
         categorias=OPCOES_CATEGORIA,
         periodicidades=OPCOES_PERIODICIDADE,
+        atividades=await _opcoes_atividade(sessao, None),
         valores=_valores_fonte(None),
+        ia_disponivel=getattr(request.app.state, "ia", None) is not None,
     )
 
 
@@ -498,6 +584,9 @@ async def ver_fonte(
         fonte=fonte,
         inventario=inventario,
         categoria=rotulo(fonte.categoria),
+        atividade=(await servico.atividades_da_categoria(sessao, fonte.categoria)).get(
+            fonte.atividade or "", fonte.atividade
+        ),
         progresso=situacao.progresso,
         colunas=colunas,
         linhas=linhas,
@@ -531,6 +620,8 @@ async def editar_fonte(
         unidades=[(str(fonte.unidade_id), fonte.unidade_nome)],
         categorias=OPCOES_CATEGORIA,
         periodicidades=OPCOES_PERIODICIDADE,
+        atividades=await _opcoes_atividade(sessao, fonte.categoria),
+        ia_disponivel=False,
         valores=_valores_fonte(fonte),
     )
 
@@ -641,6 +732,7 @@ async def ver_periodo(
         pode_lancar=pode_lancar,
         pode_decidir=pode_decidir,
         autor_e_voce=atual is not None and atual.criado_por == acesso.usuario_id,
+        ia_disponivel=getattr(request.app.state, "ia", None) is not None,
         proximo=proximo,
     )
 

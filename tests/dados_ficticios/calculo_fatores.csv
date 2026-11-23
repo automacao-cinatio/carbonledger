@@ -1,0 +1,8 @@
+# FICTICIO: valores inventados, so para os testes do calculo (P09)
+codigo;descricao;categoria;gas;biogenico;valor;unidade;vigencia_inicio;vigencia_fim;fonte;referencia
+teste_calc.diesel_fossil;Diesel fossil (teste);escopo1.combustao_estacionaria;CO2;nao;2,6;kg/L;01/01/2020;;FICTICIO, so para testes;
+teste_calc.diesel_fossil;Diesel fossil (teste);escopo1.combustao_estacionaria;CH4;nao;0,0004;kg/L;01/01/2020;;FICTICIO, so para testes;
+teste_calc.biodiesel;Biodiesel (teste);escopo1.combustao_estacionaria;CO2;sim;2,4;kg/L;01/01/2020;;FICTICIO, so para testes;
+teste_calc.biodiesel;Biodiesel (teste);escopo1.combustao_estacionaria;CH4;nao;0,0003;kg/L;01/01/2020;;FICTICIO, so para testes;
+teste_calc.gas_natural;Gas natural (teste);escopo1.combustao_estacionaria;CO2;nao;2;kg/m**3;01/01/2020;;FICTICIO, so para testes;
+teste_calc.voo;Voo (teste);escopo3.cat06_viagens;CO2;nao;0,15;kg/km;01/01/2020;;FICTICIO, so para testes;

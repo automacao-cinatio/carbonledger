@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/formulario.html" import link_botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Verificação {{ verificacao.empresa_nome }} {{ verificacao.ano }}{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Inventário " ~ verificacao.ano ~ " de " ~ verificacao.empresa_nome, pretitulo="Verificação para " ~ verificacao.tenant_nome) }}
+
+{{ alerta("info", "Acesso só de leitura", "Você vê este inventário e nada mais do cliente. O acesso vale até o prazo da concessão e pode ser revogado pelo cliente.") }}
+
+<section class="card mb-3" aria-labelledby="titulo-estado">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-estado">Estado e fechamento</h2>
+    <div class="card-actions">{{ etiqueta(inventario.estado_rotulo, "success" if inventario.estado == "fechado" else "warning") }}</div>
+  </div>
+  <div class="card-body">
+    {% set atual = situacao.fechamento_atual %}
+    {% if atual %}
+    {{ ficha([("Versão do fechamento", atual.versao | string), ("Hash do fechamento", atual.hash_fechamento.hex())]) }}
+    {% else %}
+    {{ alerta("warning", "Inventário reaberto", "O cliente reabriu o inventário para reapresentação. Os números podem mudar até o próximo fechamento.") }}
+    {% endif %}
+  </div>
+</section>
+
+{% if calculo %}
+<section class="card mb-3" aria-labelledby="titulo-calculo">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-calculo">Cálculo do fechamento</h2>
+    <div class="card-actions">{{ link_botao("Baixar a memória de cálculo (CSV)", "/verificacao/calculos/" ~ calculo.calculo_id ~ "/memoria.csv", "outline-primary", "download") }}</div>
+  </div>
+  <div class="card-body">
+    {{ ficha([
+      ("Escopo 1", (calculo.escopo1_tco2e | numero(3)) ~ " tCO₂e"),
+      ("Escopo 2 (localização)", (calculo.escopo2_tco2e | numero(3)) ~ " tCO₂e"),
+      ("Escopo 3", (calculo.escopo3_tco2e | numero(3)) ~ " tCO₂e"),
+      ("CO₂ biogênico (fora dos escopos)", (calculo.biogenico_tco2 | numero(3)) ~ " t"),
+      ("Método", calculo.metodo ~ " " ~ calculo.metodo_versao),
+      ("Fatores conhecidos até", conhecido_em),
+    ]) }}
+    <p class="small text-secondary mb-0 mt-2">{{ glossario("Hash do resultado", "Impressão digital do cálculo: refazendo a conta com a mesma entrada, o hash é o mesmo.") }}: <span class="cl-hash">{{ calculo.hash_resultado.hex() }}</span></p>
+  </div>
+</section>
+{% endif %}
+
+<section class="card mb-3" aria-labelledby="titulo-fontes">
+  <div class="card-header"><h2 class="card-title" id="titulo-fontes">Fontes de emissão</h2></div>
+  {% if fontes %}
+  {{ tabela("Fontes do inventário", [
+      {"chave": "descricao", "titulo": "Fonte", "link": "url"},
+      {"chave": "unidade", "titulo": "Unidade"},
+      {"chave": "categoria", "titulo": "Categoria"},
+      {"chave": "aprovados", "titulo": "Dados aprovados", "unidade": "períodos", "casas": 0},
+      {"chave": "esperados", "titulo": "Dados esperados", "unidade": "períodos", "casas": 0},
+      {"chave": "com_evidencia", "titulo": "Com evidência", "unidade": "períodos", "casas": 0},
+    ], fontes, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Nenhuma fonte material.</div>
+  {% endif %}
+</section>
+
+{% if excluidas %}
+<section class="card" aria-labelledby="titulo-excluidas">
+  <div class="card-header"><h2 class="card-title" id="titulo-excluidas">Fontes fora da materialidade</h2></div>
+  {{ tabela("Fontes fora do inventário, com a justificativa", [
+      {"chave": "descricao", "titulo": "Fonte"},
+      {"chave": "justificativa", "titulo": "Justificativa"},
+    ], excluidas, "visually-hidden") }}
+</section>
+{% endif %}
+
+{{ proximo_passo("Confira cada fonte com as evidências e a memória de cálculo. A atestação é sua: a plataforma só calcula e organiza.") }}
+{% endblock %}

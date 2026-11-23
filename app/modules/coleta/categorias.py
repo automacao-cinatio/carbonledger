@@ -1,8 +1,8 @@
-"""Categorias de fonte de emissao dos escopos 1 e 2 (estrutura do GHG Protocol).
+"""Categorias de fonte de emissao dos escopos 1, 2 e 3 (estrutura do GHG Protocol).
 
 So a estrutura: nenhum fator, GWP ou percentual mora aqui. O codigo segue o formato da coluna
 categoria de data/fatores (escopo1.combustao_estacionaria), para o calculo achar os fatores.
-O escopo 3 entra no P17.
+O escopo 3 segue as 15 categorias do GHG Protocol (Corporate Value Chain Standard).
 
 Energia eletrica e sempre mensal: o fator do SIN e mensal (P10).
 """
@@ -87,6 +87,38 @@ CATEGORIAS: tuple[Categoria, ...] = (
         "Perdas na transmissão e distribuição",
         "Só para quem opera linhas de transmissão ou distribuição de energia.",
     ),
+)
+
+_ESCOPO3 = (
+    ("cat01_bens_servicos", "Bens e serviços comprados",
+     "Insumos, materiais e serviços comprados."),
+    ("cat02_bens_capital", "Bens de capital",
+     "Máquinas, equipamentos, prédios e veículos comprados."),
+    ("cat03_combustivel_energia", "Atividades de combustível e energia",
+     "Extração e transporte dos combustíveis e da energia comprados, fora dos escopos 1 e 2."),
+    ("cat04_transporte_upstream", "Transporte e distribuição (upstream)",
+     "Frete contratado para trazer o que a empresa compra."),
+    ("cat05_residuos", "Resíduos gerados nas operações",
+     "Resíduos e efluentes tratados por terceiros."),
+    ("cat06_viagens", "Viagens a negócios", "Voos, hospedagem e deslocamentos a trabalho."),
+    ("cat07_deslocamento", "Deslocamento de funcionários", "Ida e volta do trabalho."),
+    ("cat08_arrendados_upstream", "Bens arrendados (upstream)",
+     "Bens alugados pela empresa e fora dos escopos 1 e 2."),
+    ("cat09_transporte_downstream", "Transporte e distribuição (downstream)",
+     "Frete dos produtos vendidos, não pago pela empresa."),
+    ("cat10_processamento", "Processamento de produtos vendidos",
+     "Transformação dos produtos vendidos por terceiros."),
+    ("cat11_uso", "Uso de bens vendidos", "Emissões no uso dos produtos vendidos."),
+    ("cat12_fim_de_vida", "Fim de vida dos produtos vendidos",
+     "Descarte e tratamento dos produtos vendidos."),
+    ("cat13_arrendados_downstream", "Bens arrendados (downstream)",
+     "Bens da empresa alugados a terceiros."),
+    ("cat14_franquias", "Franquias", "Operação das franquias."),
+    ("cat15_investimentos", "Investimentos", "Emissões das empresas investidas."),
+)  # fmt: skip
+CATEGORIAS = CATEGORIAS + tuple(
+    Categoria(f"escopo3.{codigo}", 3, f"{indice}. {rotulo_categoria}", ajuda)
+    for indice, (codigo, rotulo_categoria, ajuda) in enumerate(_ESCOPO3, start=1)
 )
 
 POR_CODIGO = {c.codigo: c for c in CATEGORIAS}

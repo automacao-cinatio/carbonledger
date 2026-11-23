@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import botao %}
 {% block titulo %}Escolher cliente{% endblock %}
 {% block conteudo %}
 {{ cabecalho_pagina("Escolha o cliente") }}
@@ -22,8 +23,27 @@
   {% endfor %}
 </div>
 {{ proximo_passo("Depois de abrir um cliente, você pode trocar a qualquer momento pelo menu com o seu nome.") }}
-{% else %}
+{% elif not verificacoes %}
 <p>Você não tem acesso ativo a nenhum cliente.</p>
 {{ proximo_passo("Peça um novo convite ao administrador da sua empresa.") }}
+{% endif %}
+{% if verificacoes %}
+<section class="mt-4" aria-labelledby="titulo-verificacoes">
+  <h2 class="h3" id="titulo-verificacoes">Verificações</h2>
+  <div class="row row-cards">
+    {% for v in verificacoes %}
+    <div class="col-md-6 col-lg-4">
+      <div class="card">
+        <div class="card-body">
+          <h3 class="card-title">{{ v.empresa_nome }}, inventário {{ v.ano }}</h3>
+          <p class="text-secondary">Cliente: {{ v.tenant_nome }}. Acesso só de leitura.</p>
+          {{ botao("Abrir a verificação", "primary", "shield-check", atributos={"hx-post": "/verificacao/abrir/" ~ v.tenant_id ~ "/" ~ v.concessao_id, "hx-swap": "none"}, indicador_id="ind-verificacao-" ~ loop.index) }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if not portal.acessos %}{{ proximo_passo("Abra a verificação para ver o inventário, as evidências e a memória de cálculo.") }}{% endif %}
+</section>
 {% endif %}
 {% endblock %}

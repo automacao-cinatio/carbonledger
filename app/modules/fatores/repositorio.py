@@ -234,6 +234,61 @@ async def fatores_da_atividade(
     return [FatorVigente(**dict(linha)) for linha in linhas]
 
 
+_SQL_FATORES_NA_CATEGORIA = """
+SELECT DISTINCT ON (v.gas, v.biogenico)
+       v.fator_versao_id, v.codigo, v.gas, v.biogenico, v.valor, v.unidade,
+       v.vigencia_inicio, v.vigencia_fim, v.fonte, v.hash_conteudo,
+       d.decidido_em AS aprovado_em
+FROM fator_versao v
+JOIN lote_decisao d
+  ON d.lote_id = v.lote_id AND d.decisao = 'aprovado' AND d.decidido_em <= $3
+WHERE v.codigo = $1
+  AND v.categoria = $4
+  AND v.vigencia_inicio <= $2
+  AND (v.vigencia_fim IS NULL OR v.vigencia_fim >= $2)
+ORDER BY v.gas, v.biogenico, d.decidido_em DESC, v.vigencia_inicio DESC
+"""
+
+
+async def fatores_na_categoria(
+    conexao: Any, categoria: str, codigo: str, data_referencia: date, conhecido_em: datetime
+) -> list[FatorVigente]:
+    """Como fatores_da_atividade, mas so da categoria da fonte: e a consulta do calculo."""
+    linhas = await conexao.fetch(
+        _SQL_FATORES_NA_CATEGORIA, codigo, data_referencia, conhecido_em, categoria
+    )
+    return [FatorVigente(**dict(linha)) for linha in linhas]
+
+
+@dataclass(frozen=True)
+class AtividadeConhecida:
+    codigo: str
+    descricao: str
+    mistura: bool
+
+
+async def atividades_conhecidas(conexao: Any, categoria: str) -> list[AtividadeConhecida]:
+    """Codigos que a fonte pode usar: fatores aprovados da categoria e combustiveis com mistura."""
+    linhas = await conexao.fetch(
+        """
+        SELECT DISTINCT ON (codigo) codigo, descricao, mistura FROM (
+            SELECT v.codigo, v.descricao, false AS mistura
+              FROM fator_versao v
+              JOIN lote_decisao d ON d.lote_id = v.lote_id AND d.decisao = 'aprovado'
+             WHERE v.categoria = $1
+            UNION ALL
+            SELECT m.combustivel, m.combustivel, true
+              FROM mistura_versao m
+              JOIN lote_decisao d ON d.lote_id = m.lote_id AND d.decisao = 'aprovado'
+             WHERE $1 LIKE 'escopo1.combustao%'
+        ) t
+        ORDER BY codigo, mistura DESC
+        """,
+        categoria,
+    )
+    return [AtividadeConhecida(**dict(linha)) for linha in linhas]
+
+
 async def gwp_do_gas(
     conexao: Any, conjunto: str, gas: str, conhecido_em: datetime
 ) -> GwpVigente | None:
@@ -251,6 +306,7 @@ async def mistura_na_data(
 
 __all__ = [
     "TIPOS",
+    "AtividadeConhecida",
     "ComponenteMistura",
     "DecisaoInvalida",
     "FatorVigente",
@@ -260,8 +316,10 @@ __all__ = [
     "LinhaMistura",
     "LoteRepetido",
     "ResultadoImportacao",
+    "atividades_conhecidas",
     "decidir",
     "fatores_da_atividade",
+    "fatores_na_categoria",
     "gwp_do_gas",
     "importar",
     "instante_do_banco",

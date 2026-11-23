@@ -2,6 +2,7 @@
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
 {% from "componentes/formulario.html" import campo_texto, campo_selecao, campo_marcacao, formulario, link_botao %}
 {% from "componentes/feedback.html" import glossario %}
+{% from "componentes/formulario.html" import botao %}
 {% block titulo %}{{ titulo }}{% endblock %}
 {% block conteudo %}
 {{ cabecalho_pagina(titulo, pretitulo=empresa.nome ~ ", inventário " ~ inventario.ano) }}
@@ -23,10 +24,18 @@
         {{ campo_selecao("periodicidade", "Periodicidade", periodicidades, selecionado=valores.periodicidade, obrigatorio=True, ajuda="Energia elétrica é sempre mensal.") }}
       </div>
     </div>
+    {% if ia_disponivel %}
+    <div class="mb-3">
+      {{ botao("Sugerir categoria com IA", "outline-secondary", "sparkles", atributos={"hx-post": "/ia/fontes/sugestao", "hx-include": "#campo-descricao, #campo-unidade_medida", "hx-target": "#sugestao-ia", "hx-swap": "innerHTML"}, indicador_id="ind-sugestao-ia") }}
+      <p class="form-hint mt-1">Envia à IA (Anthropic) só a descrição e a unidade. A sugestão não preenche nada: você escolhe.</p>
+      <div id="sugestao-ia" aria-live="polite"></div>
+    </div>
+    {% endif %}
     {% else %}
     {{ ficha([("Unidade", fonte.unidade_nome), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual")]) }}
     <p class="form-hint">Unidade, categoria, unidade de medida e periodicidade não mudam depois do cadastro, porque os dados lançados dependem delas. Para trocar, desative esta fonte e cadastre outra.</p>
     {% endif %}
+    {{ campo_selecao("atividade", "Combustível ou atividade", atividades, selecionado=valores.atividade, vazio="Definir depois", ajuda="A lista vem dos fatores de emissão aprovados pela curadoria. Sem esta escolha, a fonte fica pendente no cálculo.") }}
     {{ campo_texto("descricao", "Descrição da fonte", valor=valores.descricao, obrigatorio=True, ajuda="Como a fonte é conhecida, por exemplo, Caldeira 1 (óleo diesel) ou Frota de entregas.") }}
     <fieldset class="mb-2">
       <legend class="form-label">{{ glossario("Materialidade", "Fontes materiais entram no inventário. Uma fonte pode ficar de fora quando é irrelevante, mas o motivo fica registrado para o verificador.") }}</legend>

@@ -17,6 +17,14 @@ class AcessoNegado(Exception):
     """Sem contexto, sem permissao ou recurso de outro tenant: a resposta e sempre 404."""
 
 
+class MuitasTentativas(Exception):
+    """Limite de tentativas de login passado: responde 429 dizendo quanto esperar."""
+
+    def __init__(self, minutos: int) -> None:
+        super().__init__(f"espere {minutos} minutos")
+        self.minutos = minutos
+
+
 class ErroValidacao(Exception):
     """Dado recusado por regra de negocio. A mensagem diz como corrigir e vai para a tela."""
 
@@ -107,7 +115,27 @@ async def _tratar_http(request: Request, erro: Exception) -> Response:
     return await http_exception_handler(request, erro)  # type: ignore[arg-type]
 
 
+async def _tratar_muitas_tentativas(request: Request, erro: Exception) -> Response:
+    minutos = erro.minutos if isinstance(erro, MuitasTentativas) else 10
+    mensagem = f"Muitas tentativas de entrada. Espere {minutos} minutos e tente de novo."
+    if quer_pagina(request):
+        from app.web.portal import montar_portal, renderizar
+
+        return renderizar(
+            request,
+            "paginas/erro.html",
+            await montar_portal(request),
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            titulo="Muitas tentativas",
+            mensagem=mensagem,
+        )
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS, content={"detalhe": mensagem}
+    )
+
+
 def registrar_tratadores(app: FastAPI) -> None:
+    app.add_exception_handler(MuitasTentativas, _tratar_muitas_tentativas)
     app.add_exception_handler(AcessoNegado, _tratar_acesso_negado)
     app.add_exception_handler(ErroValidacao, _tratar_validacao)
     app.add_exception_handler(ErrosDeValidacao, _tratar_validacao)

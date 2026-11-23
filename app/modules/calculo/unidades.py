@@ -14,7 +14,11 @@ DIMENSAO_MASSA = "[mass]"
 
 @lru_cache(maxsize=1)
 def registro() -> pint.UnitRegistry:
-    return pint.UnitRegistry(non_int_type=Decimal, autoconvert_offset_to_baseunit=False)
+    unidades = pint.UnitRegistry(non_int_type=Decimal, autoconvert_offset_to_baseunit=False)
+    # Moeda para fatores por valor gasto (escopo 3): uma grandeza propria, sem conversao entre
+    # moedas (cambio nao e unidade). So o real.
+    unidades.define("BRL = [moeda]")
+    return unidades
 
 
 class UnidadeInvalida(ValueError):

@@ -5,7 +5,7 @@ Sem ele, toda rota de tenant responde 404: falha fechada.
 """
 
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import Depends, Request
@@ -31,6 +31,16 @@ async def obter_sessao(
     fabrica: async_sessionmaker[AsyncSession] = request.app.state.fabrica_sessoes
     async with sessao_de_tenant(fabrica, contexto) as sessao:
         yield sessao
+
+
+async def conexao_asyncpg(sessao: AsyncSession) -> Any:
+    """Conexao asyncpg da transacao da sessao, com o contexto de tenant ja aplicado.
+
+    Para as funcoes que tambem rodam nos workers (asyncpg direto): calculo e fechamento.
+    """
+    conexao = await sessao.connection()
+    bruta = await conexao.get_raw_connection()
+    return bruta.driver_connection
 
 
 Contexto = Annotated[ContextoTenant, Depends(obter_contexto)]

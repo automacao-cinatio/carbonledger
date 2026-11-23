@@ -85,6 +85,7 @@ def test_vigencia_sobreposta_no_mesmo_arquivo() -> None:
         "teste.x;d;escopo1.a;CO2;nao;1;kg/L;01/01/2020;31/12/2025;f;\n"
         "teste.x;d;escopo1.a;CO2;nao;2;kg/L;01/06/2025;;f;\n"
         "teste.x;d;escopo1.a;CO2;sim;2;kg/L;01/06/2025;;f;\n"  # biogenico: outra chave, ok
+        "teste.x;d;escopo1.b;CO2;nao;3;kg/L;01/06/2025;;f;\n"  # outra categoria: outra chave
     )
     with pytest.raises(ErroArquivo) as erro:
         ler_fatores(_bytes(texto))

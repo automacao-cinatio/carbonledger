@@ -25,7 +25,7 @@
 <section class="card mb-3" aria-labelledby="titulo-dados-fonte">
   <div class="card-header"><h2 class="card-title" id="titulo-dados-fonte">Dados da fonte</h2></div>
   <div class="card-body">
-    {{ ficha([("Categoria", categoria), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual"), ("Entra no inventário", "Sim" if fonte.material else "Não")]) }}
+    {{ ficha([("Categoria", categoria), ("Combustível ou atividade", atividade), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual"), ("Entra no inventário", "Sim" if fonte.material else "Não")]) }}
     {% if fonte.material and fonte.ativa %}
     <div class="row g-3 mt-1">
       <div class="col-md-6">{{ barra_progresso("Dados aprovados da fonte", progresso.aprovados, progresso.esperados) }}</div>

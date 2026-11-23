@@ -1,0 +1,6 @@
+# FICTICIO: valores inventados
+codigo;descricao;categoria;gas;biogenico;valor;unidade;vigencia_inicio;vigencia_fim;fonte;referencia
+teste_par.voo;Voo (teste);escopo3.cat06_viagens;CO2;nao;0,15;kg/km;01/01/2020;;FICTICIO;
+teste_par.voo;Voo (teste);escopo3.cat06_viagens;N2O;nao;0,000005;kg/km;01/01/2020;;FICTICIO;
+teste_par.servicos;Servicos (teste);escopo3.cat01_bens_servicos;CO2;nao;0,5;kg/BRL;01/01/2020;;FICTICIO;
+teste_par.frete;Frete (teste);escopo3.cat04_transporte_upstream;CO2;nao;0,1;kg/(t*km);01/01/2020;;FICTICIO;

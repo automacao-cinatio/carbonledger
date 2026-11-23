@@ -20,10 +20,52 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "lancamento": True,
     "lancamento_decisao": True,
     "evidencia": True,
+    "calculo": True,
+    "calculo_linha": True,
+    "calculo_pendencia": True,
+    "inventario_evento": True,
+    "concessao_verificacao": True,
+    "meta": True,
+    "acao_reducao": True,
+    "integridade_verificacao": False,
+    "campanha": True,
+    "campanha_envio": True,
 }
 
+# O que o verificador ve com uma concessao valida (migracao 0010). Fora daqui, nada.
+VISIVEIS_AO_VERIFICADOR = frozenset(
+    {
+        "tenant",
+        "empresa",
+        "grupo",
+        "unidade",
+        "inventario",
+        "fonte_emissao",
+        "planilha_importacao",
+        "calculo",
+        "inventario_evento",
+        "lancamento",
+        "evidencia",
+        "lancamento_decisao",
+        "calculo_linha",
+        "calculo_pendencia",
+        "concessao_verificacao",
+    }
+)
+
 # Dado de cliente so de insercao (trigger somente_insercao): o app_user so le e insere.
-TABELAS_SO_INSERCAO = ("planilha_importacao", "lancamento", "lancamento_decisao", "evidencia")
+TABELAS_SO_INSERCAO = (
+    "planilha_importacao",
+    "lancamento",
+    "lancamento_decisao",
+    "evidencia",
+    "calculo",
+    "calculo_linha",
+    "calculo_pendencia",
+    "inventario_evento",
+    "integridade_verificacao",
+    "campanha_envio",
+)
 
 # Tabelas sem tenant_id, de proposito. Cada entrada precisa de justificativa.
 TABELAS_GLOBAIS: dict[str, str] = {
@@ -57,5 +99,10 @@ FUNCOES_IDENTIDADE = frozenset(
         "identidade_acessos",
         "identidade_acesso",
         "identidade_aceitar_convite",
+        # P12, revisadas na migracao 0010: aceite da concessao e concessoes ativas da pessoa.
+        "identidade_aceitar_concessao",
+        "identidade_concessoes",
+        # P20, revisada na migracao 0013: so os ids dos tenants, para o disparo diario.
+        "identidade_tenants",
     }
 )

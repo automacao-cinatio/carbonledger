@@ -11,7 +11,7 @@ import pytest
 
 from app.core.tenancy import ContextoInvalido, ContextoTenant, Escopo, aplicar_contexto
 from tests.isolation.conftest import Dados
-from tests.isolation.tabelas import TABELAS_COM_TENANT
+from tests.isolation.tabelas import TABELAS_COM_TENANT, VISIVEIS_AO_VERIFICADOR
 
 pytestmark = pytest.mark.integration
 
@@ -106,22 +106,104 @@ async def test_contexto_nao_sobrevive_a_transacao(
     assert await _linhas(conexao_app, tabela) == []
 
 
+def _contexto_verificador(dados: Dados, concessao: UUID) -> ContextoTenant:
+    return ContextoTenant(
+        tenant_id=dados.tenant_a,
+        escopo=Escopo.EMPRESAS,
+        empresas=frozenset({dados.empresa_a1}),
+        usuario_id=dados.verificador_a,
+        concessao_id=concessao,
+    )
+
+
+# Colunas que amarram cada tabela visivel ao inventario ou a empresa da concessao.
+_DO_INVENTARIO = {
+    "inventario",
+    "fonte_emissao",
+    "planilha_importacao",
+    "calculo",
+    "inventario_evento",
+    "concessao_verificacao",
+}
+
+
 @pytest.mark.parametrize("tabela", TABELAS)
-async def test_verificador_le_no_tenant_e_nao_escreve(
+async def test_verificador_ve_so_o_inventario_da_concessao_e_nao_escreve(
     conexao_app: asyncpg.Connection, dados: Dados, tabela: str
 ) -> None:
     async with conexao_app.transaction():
-        await aplicar_contexto(conexao_app, _contexto_tenant(dados.tenant_a))
-        await conexao_app.execute("SET LOCAL ROLE app_verificador")
+        await aplicar_contexto(conexao_app, _contexto_verificador(dados, dados.concessao_a1))
         assert await conexao_app.fetchval("SELECT current_user") == "app_verificador"
         linhas = await _linhas(conexao_app, tabela)
-        assert linhas
-        assert {linha["tenant_id"] for linha in linhas} == {dados.tenant_a}
+        if tabela in VISIVEIS_AO_VERIFICADOR:
+            assert linhas, f"{tabela}: o verificador deveria ver a parte da concessao"
+            assert {linha["tenant_id"] for linha in linhas} == {dados.tenant_a}
+            if "empresa_id" in linhas[0]:
+                assert {linha["empresa_id"] for linha in linhas} == {dados.empresa_a1}
+            if tabela in _DO_INVENTARIO:
+                assert {linha["inventario_id"] for linha in linhas} == {dados.inventario_a1}
+        else:
+            assert linhas == [], f"{tabela}: o verificador nao pode ver nada aqui"
         with pytest.raises(NEGADO):
             await conexao_app.execute(
                 f"UPDATE {tabela} SET tenant_id = tenant_id"  # noqa: S608  # nosec B608
             )
     assert await conexao_app.fetchval("SELECT current_user") == "app_user"
+
+
+@pytest.mark.parametrize("tabela", TABELAS)
+async def test_verificador_sem_concessao_valida_nao_ve_nada(
+    conexao_app: asyncpg.Connection, dados: Dados, tabela: str
+) -> None:
+    """Concessao inexistente ou de outra pessoa: so a linha do proprio tenant aparece."""
+    for concessao in (uuid4(), dados.concessao_b1):
+        async with conexao_app.transaction():
+            await aplicar_contexto(conexao_app, _contexto_verificador(dados, concessao))
+            linhas = await _linhas(conexao_app, tabela)
+        assert linhas == [] or tabela == "tenant", (tabela, concessao)
+
+
+async def test_concessao_revogada_ou_vencida_fecha_na_hora(
+    conexao_app: asyncpg.Connection, dados: Dados
+) -> None:
+    for mudanca in (
+        "UPDATE concessao_verificacao SET revogado_em = now(), revogado_por = $2"
+        " WHERE concessao_id = $1",
+        "UPDATE concessao_verificacao SET expira_em = criado_em + interval '1 second'"
+        " WHERE concessao_id = $1 AND $2::uuid IS NOT NULL",
+    ):
+        transacao = conexao_app.transaction()
+        await transacao.start()
+        try:
+            await aplicar_contexto(conexao_app, _contexto_tenant(dados.tenant_a))
+            await conexao_app.execute(mudanca, dados.concessao_a1, dados.admin_a)
+            await aplicar_contexto(conexao_app, _contexto_verificador(dados, dados.concessao_a1))
+            assert await _linhas(conexao_app, "inventario") == []
+            assert await _linhas(conexao_app, "lancamento") == []
+        finally:
+            await transacao.rollback()
+
+
+async def test_verificador_nao_ve_outro_inventario_da_mesma_empresa(
+    conexao_app: asyncpg.Connection, dados: Dados
+) -> None:
+    transacao = conexao_app.transaction()
+    await transacao.start()
+    try:
+        await aplicar_contexto(conexao_app, _contexto_tenant(dados.tenant_a))
+        outro = uuid4()
+        await conexao_app.execute(
+            "INSERT INTO inventario (tenant_id, inventario_id, empresa_id, ano, abordagem)"
+            " VALUES ($1, $2, $3, 2024, 'controle_operacional')",
+            dados.tenant_a,
+            outro,
+            dados.empresa_a1,
+        )
+        await aplicar_contexto(conexao_app, _contexto_verificador(dados, dados.concessao_a1))
+        visiveis = {linha["inventario_id"] for linha in await _linhas(conexao_app, "inventario")}
+        assert visiveis == {dados.inventario_a1}
+    finally:
+        await transacao.rollback()
 
 
 # ---------------------------------------------------------------- escrita

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_texto, campo_numero, campo_selecao, formulario %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Metas{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Metas de redução", pretitulo=empresa.nome if empresa else None) }}
+
+{% if empresa %}
+{% if linhas %}
+<section class="card mb-3" aria-labelledby="titulo-metas">
+  <div class="card-header"><h2 class="card-title" id="titulo-metas">Metas de {{ empresa.nome }}</h2></div>
+  {{ tabela("Metas de " ~ empresa.nome, colunas, linhas, "visually-hidden") }}
+</section>
+{% endif %}
+
+{% if pode_criar and bases %}
+<section class="card" aria-labelledby="titulo-nova-meta">
+  <div class="card-header"><h2 class="card-title" id="titulo-nova-meta">Nova meta</h2></div>
+  <div class="card-body">
+    <p class="text-secondary">
+      A meta parte do {{ glossario("ano-base", "Ano de referência da meta. O valor vem do inventário fechado daquele ano e fica guardado na meta, mesmo que o inventário seja reapresentado depois.") }}
+      e cai em linha reta até o ano-alvo. A redução é a que a empresa assume: o sistema não sugere números.
+    </p>
+    {% call formulario("form-meta", "/metas/empresas/" ~ empresa.empresa_id, "Criar meta", rascunho="meta-" ~ empresa.empresa_id) %}
+    <div class="row">
+      <div class="col-md-6">
+        {{ campo_texto("nome", "Nome da meta", obrigatorio=True, ajuda="Por exemplo, Redução das emissões diretas até 2030.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_selecao("escopos", "Escopos", escopos, selecionado="1+2", obrigatorio=True) }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_selecao("inventario_base_id", "Ano-base", bases, selecionado=bases[-1][0], obrigatorio=True) }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_texto("ano_alvo", "Ano-alvo", obrigatorio=True) }}
+      </div>
+      <div class="col-md-4">
+        {{ campo_numero("reducao_percentual", "Redução em relação ao ano-base", "%", casas=1, obrigatorio=True) }}
+      </div>
+    </div>
+    {% endcall %}
+  </div>
+</section>
+{% elif not linhas %}
+{{ alerta("info", "Sem metas", "Nenhuma meta definida para esta empresa.") }}
+{% endif %}
+{% endif %}
+
+{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{% endblock %}

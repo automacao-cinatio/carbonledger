@@ -34,7 +34,12 @@ celery_app = CeleryCarbonLedger(
     "carbonledger",
     broker=_configuracao.redis_url,
     backend=_configuracao.redis_url,
-    include=["app.workers.tarefas"],
+    include=[
+        "app.workers.tarefas",
+        "app.workers.calculo",
+        "app.workers.integridade",
+        "app.workers.campanhas",
+    ],
 )
 celery_app.conf.update(
     task_serializer="json",

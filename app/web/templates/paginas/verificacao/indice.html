@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/formulario.html" import campo_texto, campo_numero, campo_selecao, formulario %}
+{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel %}
+{% block titulo %}Verificação{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Verificação", pretitulo=empresa.nome if empresa else None) }}
+
+{{ alerta("info", "A plataforma calcula; quem atesta é o verificador", "O verificador recebe acesso só de leitura a um inventário fechado, por um prazo. Ele vê os dados aprovados, as evidências, o cálculo e o fechamento, e nada mais do cliente.") }}
+
+{% if empresa and pode_conceder and inventarios %}
+<section class="card mb-3" aria-labelledby="titulo-conceder">
+  <div class="card-header"><h2 class="card-title" id="titulo-conceder">Dar acesso ao verificador</h2></div>
+  <div class="card-body">
+    {% call formulario("form-concessao", "/verificacao/concessoes", "Conceder acesso", rascunho="concessao-" ~ empresa.empresa_id) %}
+    <div class="row">
+      <div class="col-md-4">
+        {{ campo_selecao("inventario_id", "Inventário", inventarios, selecionado=inventarios[0][0], obrigatorio=True) }}
+      </div>
+      <div class="col-md-5">
+        {{ campo_texto("email", "E-mail do verificador", tipo="email", obrigatorio=True, ajuda="O link de acesso vai para este e-mail e só funciona com uma conta dele.") }}
+      </div>
+      <div class="col-md-3">
+        {{ campo_numero("prazo_dias", "Prazo", "dias", valor=prazo_padrao, casas=0, ajuda="De 1 a 365 dias.") }}
+      </div>
+    </div>
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+
+{% if concessoes %}
+<section aria-labelledby="titulo-concessoes">
+  <h2 class="h3" id="titulo-concessoes">Acessos concedidos</h2>
+  {% for c in concessoes %}
+  <div class="card mb-2">
+    <div class="card-header">
+      <h3 class="card-title">{{ c.titulo }}</h3>
+      <div class="card-actions">{{ etiqueta(c.etiqueta[0], c.etiqueta[1]) }}</div>
+    </div>
+    <div class="card-body">
+      {{ ficha(c["itens"]) }}
+      {% if pode_conceder and c.revogavel %}
+      {{ confirmacao_irreversivel("revogar-" ~ loop.index, "Revogar acesso", "Revogar o acesso de " ~ c.titulo, ["O verificador perde o acesso na próxima tela que abrir.", "O link deixa de funcionar. Para voltar, conceda um acesso novo."], "/verificacao/concessoes/" ~ c.concessao_id ~ "/revogar", "Revogar") }}
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% elif empresa %}
+<div class="card"><div class="card-body text-secondary">Nenhum acesso concedido para esta empresa.</div></div>
+{% endif %}
+
+{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{% endblock %}

@@ -38,6 +38,8 @@ class Sessao:
     criada_em: float
     # Empresa em foco no seletor do topo (so interface; o acesso vem do perfil).
     empresa_id: UUID | None = None
+    # Verificador: concessao aberta nesta sessao (o acesso e relido no banco a cada pedido).
+    concessao_id: UUID | None = None
 
     def como_json(self) -> str:
         return json.dumps(
@@ -47,6 +49,7 @@ class Sessao:
                 "csrf": self.csrf,
                 "criada_em": self.criada_em,
                 "empresa_id": None if self.empresa_id is None else str(self.empresa_id),
+                "concessao_id": None if self.concessao_id is None else str(self.concessao_id),
             }
         )
 
@@ -89,6 +92,7 @@ class ArmazemSessoes:
             csrf=dados["csrf"],
             criada_em=float(dados["criada_em"]),
             empresa_id=UUID(dados["empresa_id"]) if dados.get("empresa_id") else None,
+            concessao_id=UUID(dados["concessao_id"]) if dados.get("concessao_id") else None,
         )
         ttl = self._ttl(sessao.criada_em)
         if ttl <= 0:
@@ -104,8 +108,18 @@ class ArmazemSessoes:
         return sessao
 
     async def trocar_tenant(self, sessao: Sessao, tenant_id: UUID | None) -> Sessao:
-        """Trocar de cliente sempre limpa a empresa em foco."""
-        return await self._gravar(replace(sessao, tenant_id=tenant_id, empresa_id=None))
+        """Trocar de cliente sempre limpa a empresa em foco e a verificacao aberta."""
+        return await self._gravar(
+            replace(sessao, tenant_id=tenant_id, empresa_id=None, concessao_id=None)
+        )
+
+    async def abrir_verificacao(
+        self, sessao: Sessao, tenant_id: UUID, concessao_id: UUID
+    ) -> Sessao:
+        """Sessao de verificador: o tenant da concessao, sem perfil de membro."""
+        return await self._gravar(
+            replace(sessao, tenant_id=tenant_id, empresa_id=None, concessao_id=concessao_id)
+        )
 
     async def trocar_empresa(self, sessao: Sessao, empresa_id: UUID | None) -> Sessao:
         return await self._gravar(replace(sessao, empresa_id=empresa_id))

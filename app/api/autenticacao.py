@@ -18,9 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core import audit
 from app.core.config import Configuracao, obter_configuracao
-from app.core.erros import AcessoNegado
+from app.core.erros import AcessoNegado, MuitasTentativas
 from app.core.security.acesso import nomes_dos_cookies, obter_sessao_usuario, resolver_acesso
 from app.core.security.convite import decodificar_token
+from app.core.security.limite import contar_tentativa
 from app.core.security.oidc import (
     ClienteOidc,
     ErroOidc,
@@ -35,6 +36,7 @@ router = APIRouter(tags=["autenticacao"])
 log = structlog.get_logger()
 
 DESTINO_APOS_LOGIN = "/"
+DESTINO_VERIFICADOR = "/verificacao/painel"
 
 # Erros que o banco usa para recusar convite: invalido (CL001) e empresa de outro tenant.
 SQLSTATES_DE_CONVITE_RECUSADO = frozenset({"CL001", "23503"})
@@ -63,10 +65,23 @@ def _definir_cookie(
 
 
 async def _iniciar(
-    request: Request, configuracao: Configuracao, provedor: Provedor, convite: str | None
+    request: Request,
+    configuracao: Configuracao,
+    provedor: Provedor,
+    convite: str | None,
+    tipo: str = "convite",
 ) -> RedirectResponse:
     cliente: ClienteOidc = request.app.state.oidc
     armazem: ArmazemSessoes = request.app.state.sessoes
+    ip = request.client.host if request.client else "desconhecido"
+    if not await contar_tentativa(
+        armazem.redis,
+        ip,
+        limite=configuracao.login_limite_tentativas,
+        janela_s=configuracao.login_janela_min * 60,
+    ):
+        log.warning("login_limitado", provedor=provedor.nome)
+        raise MuitasTentativas(configuracao.login_janela_min)
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
     verificador, desafio = novo_verificador_pkce()
@@ -83,7 +98,13 @@ async def _iniciar(
         raise AcessoNegado from erro
     await armazem.guardar_login(
         state,
-        {"provedor": provedor.nome, "nonce": nonce, "verificador": verificador, "convite": convite},
+        {
+            "provedor": provedor.nome,
+            "nonce": nonce,
+            "verificador": verificador,
+            "convite": convite,
+            "tipo": tipo,
+        },
     )
     resposta = RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
     _, cookie_login = nomes_dos_cookies(configuracao.cookie_seguro)
@@ -104,6 +125,65 @@ async def aceitar_convite(
     if decodificar_token(token) is None:
         raise AcessoNegado
     return await _iniciar(request, configuracao, _provedor(request, provedor), token)
+
+
+@router.get("/verificacao/convite/{token}/{provedor}")
+async def aceitar_concessao(
+    request: Request, token: str, provedor: str, configuracao: Config
+) -> RedirectResponse:
+    if decodificar_token(token) is None:
+        raise AcessoNegado
+    return await _iniciar(
+        request, configuracao, _provedor(request, provedor), token, tipo="concessao"
+    )
+
+
+async def _aceitar_concessao(
+    fabrica: async_sessionmaker[AsyncSession], identificacao: Identificacao, link: str
+) -> tuple[UUID, UUID, UUID]:
+    """Aceita a concessao do verificador e grava o evento no tenant dela, na mesma transacao."""
+    token = decodificar_token(link)
+    if token is None or identificacao.email is None:
+        log.warning("login_falhou", provedor=identificacao.provedor, etapa="concessao")
+        raise AcessoNegado
+    contexto = ContextoTenant(tenant_id=token.tenant_id, escopo=Escopo.TENANT)
+    try:
+        async with sessao_de_tenant(fabrica, contexto) as sessao:
+            usuario_id = UUID(
+                str(
+                    await sessao.scalar(
+                        text(
+                            "SELECT identidade_aceitar_concessao(:tenant, :concessao, :hash,"
+                            " :provedor, :sujeito, :email, :nome)"
+                        ),
+                        {
+                            "tenant": token.tenant_id,
+                            "concessao": token.convite_id,
+                            "hash": token.segredo_hash,
+                            "provedor": identificacao.provedor,
+                            "sujeito": identificacao.sujeito,
+                            "email": identificacao.email,
+                            "nome": identificacao.nome,
+                        },
+                    )
+                )
+            )
+            await audit.registrar(
+                sessao,
+                tenant_id=token.tenant_id,
+                usuario_id=usuario_id,
+                acao="concessao.aceita",
+                entidade="concessao_verificacao",
+                entidade_id=token.convite_id,
+                dados={"provedor": identificacao.provedor},
+            )
+    except DBAPIError as erro:
+        codigo = getattr(erro.orig, "sqlstate", None) or getattr(erro.orig, "pgcode", None)
+        if codigo in SQLSTATES_DE_CONVITE_RECUSADO:
+            log.warning("login_falhou", provedor=identificacao.provedor, etapa="concessao")
+            raise AcessoNegado from erro
+        raise
+    return usuario_id, token.tenant_id, token.convite_id
 
 
 async def _aceitar_convite(
@@ -229,15 +309,27 @@ async def retorno(
         log.warning("login_falhou", provedor=p.nome, etapa="token", erro=str(erro))
         raise AcessoNegado from erro
 
-    usuario_id, tenant_id = await _usuario_do_login(
-        request.app.state.fabrica_sessoes, identificacao, pendente.get("convite")
-    )
-    token, _ = await armazem.criar(usuario_id, tenant_id)
-    log.info("login", provedor=p.nome, tenant_id=None if tenant_id is None else str(tenant_id))
-    if tenant_id is not None:
-        await auditar_sessao(request, usuario_id, tenant_id, "sessao.entrou", {"provedor": p.nome})
+    destino = DESTINO_APOS_LOGIN
+    if pendente.get("tipo") == "concessao" and pendente.get("convite"):
+        usuario_id, tenant_concessao, concessao_id = await _aceitar_concessao(
+            request.app.state.fabrica_sessoes, identificacao, str(pendente["convite"])
+        )
+        token, sessao_nova = await armazem.criar(usuario_id, None)
+        await armazem.abrir_verificacao(sessao_nova, tenant_concessao, concessao_id)
+        log.info("login", provedor=p.nome, tenant_id=str(tenant_concessao), verificador=True)
+        destino = DESTINO_VERIFICADOR
+    else:
+        usuario_id, tenant_id = await _usuario_do_login(
+            request.app.state.fabrica_sessoes, identificacao, pendente.get("convite")
+        )
+        token, _ = await armazem.criar(usuario_id, tenant_id)
+        log.info("login", provedor=p.nome, tenant_id=None if tenant_id is None else str(tenant_id))
+        if tenant_id is not None:
+            await auditar_sessao(
+                request, usuario_id, tenant_id, "sessao.entrou", {"provedor": p.nome}
+            )
 
-    resposta = RedirectResponse(DESTINO_APOS_LOGIN, status_code=status.HTTP_303_SEE_OTHER)
+    resposta = RedirectResponse(destino, status_code=status.HTTP_303_SEE_OTHER)
     _definir_cookie(
         resposta,
         cookie_sessao,

@@ -186,7 +186,18 @@ class _Linha:
         return False
 
 
+LinhaLida = _Linha
+
+
 def _linhas(tipo: str, conteudo: bytes) -> tuple[list[_Linha], list[Problema]]:
+    return ler_tabela(COLUNAS[tipo], conteudo)
+
+
+def ler_tabela(colunas: Sequence[str], conteudo: bytes) -> tuple[list[_Linha], list[Problema]]:
+    """CSV no formato de data/ (";", decimal com virgula), com o cabecalho exato pedido.
+
+    Usado pelos arquivos de referencia e pelos casos de paridade (data/paridade).
+    """
     problemas: list[Problema] = []
     try:
         texto = conteudo.decode("utf-8-sig")
@@ -200,7 +211,7 @@ def _linhas(tipo: str, conteudo: bytes) -> tuple[list[_Linha], list[Problema]]:
             continue
         if cabecalho is None:
             cabecalho = [c.strip().lower() for c in celulas]
-            esperado = set(COLUNAS[tipo])
+            esperado = set(colunas)
             faltam, sobram = esperado - set(cabecalho), set(cabecalho) - esperado
             if faltam or sobram or len(cabecalho) != len(set(cabecalho)):
                 raise ErroArquivo(
@@ -208,7 +219,7 @@ def _linhas(tipo: str, conteudo: bytes) -> tuple[list[_Linha], list[Problema]]:
                         Problema(
                             leitor.line_num,
                             "cabecalho",
-                            f"esperado {';'.join(COLUNAS[tipo])}"
+                            f"esperado {';'.join(colunas)}"
                             + (f"; faltam {sorted(faltam)}" if faltam else "")
                             + (f"; sobram {sorted(sobram)}" if sobram else ""),
                         )
@@ -263,7 +274,7 @@ def ler_gwp(conteudo: bytes) -> list[LinhaGwp]:
 def ler_fatores(conteudo: bytes) -> list[LinhaFator]:
     linhas, problemas = _linhas("fatores", conteudo)
     resultado: list[LinhaFator] = []
-    por_chave: dict[tuple[str, str, bool], list[tuple[int, tuple[date, date | None]]]] = (
+    por_chave: dict[tuple[str, str, str, bool], list[tuple[int, tuple[date, date | None]]]] = (
         defaultdict(list)
     )
     for linha in linhas:
@@ -294,7 +305,8 @@ def ler_fatores(conteudo: bytes) -> list[LinhaFator]:
             linha._erro("vigencia_fim", "termina antes de comecar")
         if not linha.ok:
             continue
-        chave = (registro.codigo, registro.gas, registro.biogenico)
+        # O mesmo componente tem fatores diferentes por categoria (combustao movel e estacionaria).
+        chave = (registro.categoria, registro.codigo, registro.gas, registro.biogenico)
         periodo = (registro.vigencia_inicio, registro.vigencia_fim)
         conflito = next((n for n, p in por_chave[chave] if _sobrepoe(p, periodo)), None)
         if conflito is not None:

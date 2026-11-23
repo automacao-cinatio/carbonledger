@@ -7,6 +7,10 @@ e uma conexao reaproveitada do pool volta a nao enxergar nada. Nunca use SET de 
 Escopos:
 - tenant: todas as empresas do tenant.
 - empresas: so as empresas listadas (lista vazia = nenhuma).
+
+Verificador (P12): com concessao_id, o contexto leva app.concessao_id e a transacao assume o
+papel app_verificador (SET LOCAL ROLE): so leitura, e as politicas restritivas do banco
+limitam ao inventario da concessao. Exige escopo de empresas com exatamente uma empresa.
 """
 
 from collections.abc import AsyncIterator
@@ -39,6 +43,7 @@ class ContextoTenant:
     escopo: Escopo
     empresas: frozenset[UUID] = field(default_factory=frozenset)
     usuario_id: UUID | None = None
+    concessao_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.tenant_id, UUID):
@@ -49,6 +54,17 @@ class ContextoTenant:
             raise ContextoInvalido("empresas precisa conter so UUIDs")
         if self.escopo is Escopo.TENANT and self.empresas:
             raise ContextoInvalido("escopo tenant nao leva lista de empresas")
+        if self.concessao_id is not None and (
+            not isinstance(self.concessao_id, UUID)
+            or self.escopo is not Escopo.EMPRESAS
+            or len(self.empresas) != 1
+            or self.usuario_id is None
+        ):
+            raise ContextoInvalido("verificador exige concessao, uma empresa e o usuario")
+
+    @property
+    def verificador(self) -> bool:
+        return self.concessao_id is not None
 
     def como_configuracoes(self) -> dict[str, str]:
         """Valores de texto para set_config; a ordem das empresas e estavel."""
@@ -58,6 +74,7 @@ class ContextoTenant:
             "app.escopo": self.escopo.value,
             "app.empresas": "{" + empresas + "}",
             "app.usuario_id": "" if self.usuario_id is None else str(self.usuario_id),
+            "app.concessao_id": "" if self.concessao_id is None else str(self.concessao_id),
         }
 
 
@@ -65,8 +82,11 @@ SQL_APLICAR_CONTEXTO = (
     "SELECT set_config('app.tenant_id', $1, true),"
     " set_config('app.escopo', $2, true),"
     " set_config('app.empresas', $3, true),"
-    " set_config('app.usuario_id', $4, true)"
+    " set_config('app.usuario_id', $4, true),"
+    " set_config('app.concessao_id', $5, true)"
 )
+# Fixo (sem valor de fora): o papel do verificador vale ate o fim da transacao.
+SQL_PAPEL_VERIFICADOR = "SET LOCAL ROLE app_verificador"
 
 
 async def aplicar_contexto(conexao: Any, contexto: ContextoTenant) -> None:
@@ -84,7 +104,10 @@ async def aplicar_contexto(conexao: Any, contexto: ContextoTenant) -> None:
         valores["app.escopo"],
         valores["app.empresas"],
         valores["app.usuario_id"],
+        valores["app.concessao_id"],
     )
+    if contexto.verificador:
+        await conexao.execute(SQL_PAPEL_VERIFICADOR)
 
 
 # ---------------------------------------------------------------- SQLAlchemy (API)
@@ -97,7 +120,8 @@ _SQL_CONTEXTO_SA = text(
     "SELECT set_config('app.tenant_id', :tenant_id, true),"
     " set_config('app.escopo', :escopo, true),"
     " set_config('app.empresas', :empresas, true),"
-    " set_config('app.usuario_id', :usuario_id, true)"
+    " set_config('app.usuario_id', :usuario_id, true),"
+    " set_config('app.concessao_id', :concessao_id, true)"
 )
 
 
@@ -126,8 +150,11 @@ def _aplicar_contexto_ao_iniciar(
             "escopo": valores["app.escopo"],
             "empresas": valores["app.empresas"],
             "usuario_id": valores["app.usuario_id"],
+            "concessao_id": valores["app.concessao_id"],
         },
     )
+    if contexto.verificador:
+        conexao.execute(text(SQL_PAPEL_VERIFICADOR))
 
 
 @asynccontextmanager

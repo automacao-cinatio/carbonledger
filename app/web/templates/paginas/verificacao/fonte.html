@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import link_botao %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}{{ fonte.descricao }}{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina(fonte.descricao, pretitulo=fonte.unidade_nome ~ ", inventário " ~ verificacao.ano) }}
+<section class="card mb-3" aria-labelledby="titulo-dados-fonte">
+  <div class="card-header"><h2 class="card-title" id="titulo-dados-fonte">Dados da fonte</h2></div>
+  <div class="card-body">
+    {{ ficha([("Categoria", categoria), ("Combustível ou atividade", fonte.atividade), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual")]) }}
+  </div>
+</section>
+<section class="card mb-3" aria-labelledby="titulo-periodos">
+  <div class="card-header"><h2 class="card-title" id="titulo-periodos">Dados por período (versão atual)</h2></div>
+  {{ tabela("Dados de " ~ fonte.descricao ~ " por período", colunas, linhas, "visually-hidden") }}
+</section>
+<section class="card" aria-labelledby="titulo-evidencias">
+  <div class="card-header"><h2 class="card-title" id="titulo-evidencias">Evidências</h2></div>
+  {% if linhas_evidencias %}
+  {{ tabela("Evidências de " ~ fonte.descricao, colunas_evidencias, linhas_evidencias, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Nenhuma evidência enviada.</div>
+  {% endif %}
+</section>
+<div class="mt-3">{{ link_botao("Voltar ao inventário", "/verificacao/painel", "link", "arrow-left") }}</div>
+{{ proximo_passo("Compare cada quantidade com a evidência do período. O SHA-256 permite conferir que o arquivo baixado é o mesmo que foi enviado.") }}
+{% endblock %}

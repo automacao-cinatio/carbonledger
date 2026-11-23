@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, campo_arquivo, link_botao, botao, formulario %}
+{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, campo_opcoes, campo_arquivo, link_botao, botao, formulario %}
 {% from "componentes/layout.html" import icone, cabecalho_pagina, proximo_passo, barra_progresso, estado_inventario, seletor_empresa, etiqueta, ficha %}
 {% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
 {% from "componentes/dados.html" import tabela, grafico %}
@@ -31,6 +31,9 @@
       </div>
       <div class="col-md-6">
         {{ campo_selecao("uf_exemplo", "UF", [("SP", "SP"), ("RJ", "RJ")], vazio="Escolha a UF") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_opcoes("empresas_exemplo", "Empresas que a pessoa acompanha", [("e1", "Empresa Exemplo Ltda"), ("e2", "Filial Norte")], selecionados=["e1"], ajuda="Marque uma ou mais.") }}
       </div>
       <div class="col-md-6">
         {{ campo_marcacao("controle_exemplo", "A empresa tem o controle operacional desta unidade", marcado=True, ajuda="Quem define as políticas de operação da unidade.") }}

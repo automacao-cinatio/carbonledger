@@ -1,0 +1,4 @@
+# FICTICIO
+fonte;categoria;atividade;periodicidade;participacao_societaria;controle_operacional;controle_financeiro
+caldeira;escopo1.combustao_estacionaria;teste_par.diesel_comercial;anual;100;sim;sim
+energia;escopo2.energia_eletrica;teste_par.sin;mensal;100;sim;sim

@@ -44,7 +44,7 @@ MINIMO_MOTIVO = 5
 CASAS_MAXIMAS = 6
 DIGITOS_INTEIROS_MAXIMOS = 15
 
-ROTULOS_ESTADO = {"em_coleta": "Em coleta"}
+ROTULOS_ESTADO = {"em_coleta": "Em coleta", "fechado": "Fechado"}
 
 
 # ---------------------------------------------------------------- tipos
@@ -82,6 +82,7 @@ class Fonte:
     material: bool
     justificativa: str | None
     ativa: bool
+    atividade: str | None = None
 
     @property
     def conta_no_progresso(self) -> bool:
@@ -332,7 +333,7 @@ def _exigir_em_coleta(inventario: Inventario) -> None:
 _COLUNAS_FONTE = (
     "f.fonte_id, f.empresa_id, f.inventario_id, f.unidade_id, u.nome AS unidade_nome,"
     " f.categoria, f.descricao, f.unidade_medida, f.periodicidade, f.material,"
-    " f.justificativa, f.ativa"
+    " f.justificativa, f.ativa, f.atividade"
 )
 _DE_FONTE = (
     " FROM fonte_emissao f JOIN unidade u"
@@ -364,6 +365,25 @@ async def obter_fonte(sessao: AsyncSession, fonte_id: UUID) -> Fonte:
     if linha is None:
         raise AcessoNegado
     return Fonte(**linha._asdict())
+
+
+async def atividades_da_categoria(sessao: AsyncSession, categoria: str) -> dict[str, str]:
+    """Codigo -> rotulo das atividades com fator aprovado (ou mistura) para a categoria."""
+    linhas = await sessao.execute(
+        text(
+            "SELECT DISTINCT v.codigo, v.descricao FROM fator_versao v"
+            " JOIN lote_decisao d ON d.lote_id = v.lote_id AND d.decisao = 'aprovado'"
+            " WHERE v.categoria = :categoria"
+            " UNION SELECT DISTINCT m.combustivel, m.combustivel FROM mistura_versao m"
+            " JOIN lote_decisao d ON d.lote_id = m.lote_id AND d.decisao = 'aprovado'"
+            " WHERE :categoria LIKE 'escopo1.combustao%'"
+        ),
+        {"categoria": categoria},
+    )
+    rotulos: dict[str, str] = {}
+    for linha in linhas:
+        rotulos.setdefault(linha.codigo, f"{linha.descricao} ({linha.codigo})")
+    return dict(sorted(rotulos.items(), key=lambda par: par[1].lower()))
 
 
 async def _validar_fonte(
@@ -426,6 +446,18 @@ async def _validar_fonte(
         )
     dados["material"] = material
     dados["justificativa"] = None if material else justificativa
+
+    # Atividade: o codigo do combustivel ou da atividade nos fatores. Pode ficar para depois
+    # (a fonte vira pendencia no calculo), mas so aceita codigo com fator aprovado.
+    atividade = _texto(formulario.get("atividade")) or None
+    codigo_categoria = atual.categoria if atual is not None else dados.get("categoria", "")
+    if atividade is not None and atividade not in await atividades_da_categoria(
+        sessao, codigo_categoria
+    ):
+        coletor.adicionar(
+            "atividade", "Escolha um combustível ou atividade da lista, ou deixe para depois."
+        )
+    dados["atividade"] = atividade
     coletor.levantar_se_houver()
     return dados
 
@@ -441,9 +473,9 @@ async def criar_fonte(
         text(
             "INSERT INTO fonte_emissao (tenant_id, fonte_id, empresa_id, inventario_id,"
             " unidade_id, categoria, descricao, unidade_medida, periodicidade, material,"
-            " justificativa) VALUES (:tenant, :id, :empresa, :inventario, :unidade_id,"
-            " :categoria, :descricao, :unidade_medida, :periodicidade, :material,"
-            " :justificativa)"
+            " justificativa, atividade) VALUES (:tenant, :id, :empresa, :inventario,"
+            " :unidade_id, :categoria, :descricao, :unidade_medida, :periodicidade, :material,"
+            " :justificativa, :atividade)"
         ),
         {
             "tenant": acesso.tenant_id,
@@ -473,8 +505,9 @@ async def criar_fonte(
 async def alterar_fonte(
     sessao: AsyncSession, acesso: Acesso, fonte_id: UUID, formulario: dict[str, str]
 ) -> Fonte:
-    """Muda descricao e materialidade. Unidade, categoria e periodicidade ficam: os dados ja
-    lancados dependem delas (para trocar, desative e crie outra fonte)."""
+    """Muda descricao, atividade e materialidade. Unidade, categoria e periodicidade ficam: os
+    dados ja lancados dependem delas (para trocar, desative e crie outra fonte). Os calculos
+    ja feitos guardam a atividade que usaram."""
     fonte = await obter_fonte(sessao, fonte_id)
     inventario = await obter_inventario(sessao, fonte.inventario_id)
     _exigir_em_coleta(inventario)
@@ -484,7 +517,8 @@ async def alterar_fonte(
         await sessao.execute(
             text(
                 "UPDATE fonte_emissao SET descricao = :descricao, material = :material,"
-                " justificativa = :justificativa, atualizado_em = now() WHERE fonte_id = :id"
+                " justificativa = :justificativa, atividade = :atividade, atualizado_em = now()"
+                " WHERE fonte_id = :id"
             ),
             {"id": fonte_id, **dados},
         )

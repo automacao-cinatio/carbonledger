@@ -1,23 +1,37 @@
 {% extends "base.html" %}
-{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
 {% from "componentes/feedback.html" import glossario %}
+{% from "componentes/dados.html" import tabela %}
 {% block titulo %}Início{% endblock %}
 {% block conteudo %}
 {{ cabecalho_pagina("Olá, " ~ portal.usuario_nome, pretitulo=portal.tenant_nome) }}
-<div class="card">
+<div class="card mb-3">
   <div class="card-body">
-    <p>
+    <p class="mb-0">
       Aqui você monta o {{ glossario("inventário de emissões", "Levantamento das emissões de gases de efeito estufa de uma empresa em um ano, seguindo o Programa Brasileiro GHG Protocol.") }}
       da sua empresa: organiza as unidades, coleta os dados, confere o cálculo, fecha o inventário e entrega para verificação.
     </p>
-    {% if not portal.empresas %}
-    <p class="mb-0">Ainda não há empresas cadastradas neste cliente.</p>
-    {% endif %}
   </div>
 </div>
-{% if portal.empresas %}
-{{ proximo_passo("Revise as empresas e unidades antes de começar a coleta.", "/organizacao", "Ver a organização") }}
+
+{% if jornada %}
+<section class="card mb-3" aria-labelledby="titulo-jornada">
+  <div class="card-header"><h2 class="card-title" id="titulo-jornada">Onde {{ empresa_nome }} está</h2></div>
+  {{ tabela("Etapas do inventário de " ~ empresa_nome, colunas_jornada, linhas_jornada, "visually-hidden") }}
+  {% if jornada.escopo1 is not none %}
+  <div class="card-body">
+    {{ ficha([("Escopo 1 (último cálculo)", (jornada.escopo1 | numero(3)) ~ " tCO₂e"), ("Escopo 2 (último cálculo)", (jornada.escopo2 | numero(3)) ~ " tCO₂e")]) }}
+  </div>
+  {% endif %}
+</section>
+{% set proxima = jornada.proxima %}
+{% if proxima %}
+{{ proximo_passo(proxima.nome ~ ": " ~ proxima.detalhe, proxima.url, "Ir para " ~ proxima.nome) }}
 {% else %}
+{{ proximo_passo("Inventário fechado e com o verificador. Acompanhe a verificação e prepare o relatório.", "/verificacao", "Ver a verificação") }}
+{% endif %}
+{% else %}
+<p>Ainda não há empresas cadastradas neste cliente.</p>
 {{ proximo_passo("Cadastre os grupos, as empresas e as unidades do cliente.", "/organizacao", "Ir para a organização") }}
 {% endif %}
 {% endblock %}

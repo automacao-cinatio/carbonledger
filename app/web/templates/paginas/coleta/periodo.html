@@ -22,6 +22,13 @@
     {% elif atual.decisao is none and autor_e_voce %}
     {{ alerta("info", "Aguardando a aprovação de outra pessoa", "Quem lança o dado não pode aprová-lo: outra pessoa com perfil de responsável, gestor ou administrador confere.") }}
     {% endif %}
+    {% if pode_decidir and ia_disponivel %}
+    <div class="mt-3">
+      {{ botao("Pedir a opinião da IA sobre o valor", "outline-secondary", "sparkles", atributos={"hx-post": "/ia/lancamentos/" ~ atual.lancamento_id ~ "/opiniao", "hx-target": "#opiniao-ia", "hx-swap": "innerHTML"}, indicador_id="ind-opiniao-ia") }}
+      <p class="form-hint mt-1">Compara com os outros períodos desta fonte. Envia à IA (Anthropic) só a descrição, a unidade e os números. Quem decide é você.</p>
+      <div id="opiniao-ia" aria-live="polite"></div>
+    </div>
+    {% endif %}
     {% if pode_decidir %}
     <div class="d-flex flex-wrap gap-3 align-items-start mt-3">
       {{ botao("Aprovar o dado", "success", "check", atributos={"hx-post": "/coleta/lancamentos/" ~ atual.lancamento_id ~ "/aprovar", "hx-swap": "none"}, indicador_id="ind-aprovar") }}

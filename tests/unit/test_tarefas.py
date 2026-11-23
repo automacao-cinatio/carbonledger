@@ -115,3 +115,44 @@ def test_toda_tarefa_registrada_e_de_tenant_ou_global_justificada() -> None:
         )
     for nome, justificativa in TAREFAS_GLOBAIS.items():
         assert justificativa.strip(), f"{nome} sem justificativa"
+
+
+def test_disparo_da_integridade_enfileira_um_por_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.workers import integridade
+
+    tenants = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"]
+
+    async def falsos() -> list[str]:
+        return tenants
+
+    enfileirados: list[dict[str, str]] = []
+    monkeypatch.setattr(integridade, "_tenants", falsos)
+    monkeypatch.setattr(
+        integridade.verificar_tenant, "delay", lambda **kwargs: enfileirados.append(kwargs)
+    )
+    assert integridade.disparar() == 2
+    assert enfileirados == [{"tenant_id": t} for t in tenants]
+    agenda = integridade.celery_app.conf.beat_schedule["integridade-diaria"]
+    assert agenda["task"] == "integridade.disparar"
+
+
+def test_disparo_das_campanhas_enfileira_um_por_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.workers import campanhas
+
+    tenant = "33333333-3333-4333-8333-333333333333"
+
+    async def falsos() -> list[str]:
+        return [tenant]
+
+    enfileirados: list[dict[str, str]] = []
+    monkeypatch.setattr(campanhas, "_tenants", falsos)
+    monkeypatch.setattr(
+        campanhas.lembrar_tenant, "delay", lambda **kwargs: enfileirados.append(kwargs)
+    )
+    assert campanhas.disparar() == 1
+    assert enfileirados == [{"tenant_id": tenant}]
+    assert campanhas.celery_app.conf.beat_schedule["campanhas-diaria"]["task"] == (
+        "campanhas.disparar"
+    )
+    # As duas rotinas diarias convivem na agenda do beat.
+    assert "integridade-diaria" in campanhas.celery_app.conf.beat_schedule

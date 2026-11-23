@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, barra_progresso %}
-{% from "componentes/formulario.html" import campo_arquivo, formulario, link_botao %}
+{% from "componentes/formulario.html" import campo_arquivo, campo_texto, formulario, link_botao, botao %}
 {% from "componentes/feedback.html" import alerta, glossario %}
 {% from "componentes/dados.html" import tabela %}
 {% block titulo %}Inventário {{ inventario.ano }}{% endblock %}
@@ -41,6 +41,37 @@
   <div class="card-body text-secondary">Nenhuma fonte cadastrada.</div>
   {% endif %}
 </section>
+
+{% if campanha %}
+<section class="card mb-3" aria-labelledby="titulo-campanha">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-campanha">Campanha de coleta</h2>
+    {% if pode_campanha %}
+    <div class="card-actions">{{ botao("Encerrar campanha", "outline-secondary", "player-stop", atributos={"hx-post": "/coleta/campanhas/" ~ campanha.campanha_id ~ "/encerrar", "hx-swap": "none"}, indicador_id="ind-encerrar-campanha") }}</div>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {{ ficha([("Prazo", campanha.prazo | data), ("Recado da gestão", campanha.mensagem)]) }}
+    <p class="text-secondary mb-0">A equipe recebe lembretes por e-mail a 7, 3 e 1 dia do prazo e no vencimento. A campanha termina sozinha quando a coleta fica completa.</p>
+  </div>
+  {% if envios %}
+  {{ tabela("Avisos enviados", colunas_envios, envios, "visually-hidden") }}
+  {% endif %}
+</section>
+{% elif pode_campanha and linhas %}
+<section class="card mb-3" aria-labelledby="titulo-nova-campanha">
+  <div class="card-header"><h2 class="card-title" id="titulo-nova-campanha">Campanha de coleta</h2></div>
+  <div class="card-body">
+    <p class="text-secondary">Defina um prazo e avise a equipe da empresa por e-mail, com a lista do que falta. Os lembretes saem sozinhos até o prazo.</p>
+    {% call formulario("form-campanha", "/coleta/inventarios/" ~ inventario.inventario_id ~ "/campanha", "Abrir campanha e avisar a equipe", rascunho="campanha-" ~ inventario.inventario_id) %}
+    <div class="row">
+      <div class="col-md-4">{{ campo_texto("prazo", "Prazo da coleta", valor=amanha, tipo="date", obrigatorio=True) }}</div>
+      <div class="col-md-8">{{ campo_texto("mensagem", "Recado para a equipe", ajuda="Opcional, até 1.000 caracteres. Vai no e-mail.") }}</div>
+    </div>
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
 
 {% if linhas and inventario.em_coleta %}
 <section class="card" aria-labelledby="titulo-planilha">

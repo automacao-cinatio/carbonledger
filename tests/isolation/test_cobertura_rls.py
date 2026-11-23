@@ -153,6 +153,22 @@ async def test_papeis_sem_privilegio_de_contornar_rls(conexao_admin: asyncpg.Con
 
 
 @pytest.mark.parametrize("tabela", sorted(TABELAS_COM_TENANT))
+async def test_verificador_tem_politica_restritiva_propria(
+    conexao_admin: asyncpg.Connection, tabela: str
+) -> None:
+    """Toda tabela de tenant limita o app_verificador a concessao (ou a nada)."""
+    politicas = await conexao_admin.fetch(
+        "SELECT permissive, cmd, roles FROM pg_policies"
+        " WHERE schemaname = 'public' AND tablename = $1 AND policyname = $2",
+        tabela,
+        f"{tabela}_verificador",
+    )
+    assert len(politicas) == 1, f"{tabela}: falta a politica restritiva do verificador"
+    assert politicas[0]["permissive"] == "RESTRICTIVE"
+    assert list(politicas[0]["roles"]) == ["app_verificador"]
+
+
+@pytest.mark.parametrize("tabela", sorted(TABELAS_COM_TENANT))
 async def test_verificador_so_le(conexao_admin: asyncpg.Connection, tabela: str) -> None:
     for privilegio, esperado in (
         ("SELECT", True),

@@ -84,6 +84,22 @@
 </div>
 {%- endmacro %}
 
+{# Varias opcoes marcaveis com o mesmo nome (o servidor le a lista). #}
+{% macro campo_opcoes(nome, rotulo, opcoes, selecionados=[], ajuda=None) -%}
+<fieldset class="mb-3" aria-describedby="{{ _descricao(nome, ajuda) }}">
+  <legend class="form-label">{{ rotulo }}</legend>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint mt-0 mb-2">{{ ajuda }}</div>{% endif %}
+  {% for valor, texto in opcoes %}
+  <label class="form-check">
+    <input id="campo-{{ nome }}-{{ loop.index }}" name="{{ nome }}" type="checkbox" value="{{ valor }}" class="form-check-input"
+           {{- ' checked' if valor in selecionados else "" }}>
+    <span class="form-check-label">{{ texto }}</span>
+  </label>
+  {% endfor %}
+  {{ mensagem_campo(nome) }}
+</fieldset>
+{%- endmacro %}
+
 {# Navegacao com cara de botao (link de verdade: abre em nova aba, tem endereco). #}
 {% macro link_botao(rotulo, url, variante="primary", icone=None) -%}
 <a href="{{ url }}" class="btn btn-{{ variante }}">

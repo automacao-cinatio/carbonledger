@@ -1,0 +1,5 @@
+# FICTICIO
+fonte;periodo;quantidade;unidade;data_compra
+viagens;ano;20.000;km;
+compras;ano;10.000;BRL;
+frete;ano;3.000;t*km;

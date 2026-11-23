@@ -55,6 +55,56 @@ class Acesso:
         )
 
 
+@dataclass(frozen=True)
+class Verificacao:
+    """Concessao ativa aberta na sessao: le um inventario de um cliente, e nada mais."""
+
+    usuario_id: UUID
+    tenant_id: UUID
+    concessao_id: UUID
+    empresa_id: UUID
+    inventario_id: UUID
+    tenant_nome: str
+    empresa_nome: str
+    ano: int
+
+    def contexto(self) -> ContextoTenant:
+        return ContextoTenant(
+            tenant_id=self.tenant_id,
+            escopo=Escopo.EMPRESAS,
+            empresas=frozenset({self.empresa_id}),
+            usuario_id=self.usuario_id,
+            concessao_id=self.concessao_id,
+        )
+
+
+async def concessoes_ativas(
+    fabrica: async_sessionmaker[AsyncSession], usuario_id: UUID
+) -> list[Verificacao]:
+    async with fabrica() as sessao:
+        linhas = await sessao.execute(
+            text(
+                "SELECT tenant_id, concessao_id, empresa_id, inventario_id, tenant_nome,"
+                " empresa_nome, ano FROM identidade_concessoes(:usuario)"
+            ),
+            {"usuario": usuario_id},
+        )
+        return [Verificacao(usuario_id, *linha) for linha in linhas]
+
+
+async def resolver_verificacao(
+    fabrica: async_sessionmaker[AsyncSession], usuario_id: UUID, tenant_id: UUID, concessao_id: UUID
+) -> Verificacao | None:
+    return next(
+        (
+            v
+            for v in await concessoes_ativas(fabrica, usuario_id)
+            if v.tenant_id == tenant_id and v.concessao_id == concessao_id
+        ),
+        None,
+    )
+
+
 def nomes_dos_cookies(seguro: bool) -> tuple[str, str]:
     """(sessao, login). Com HTTPS, o prefixo __Host- prende o cookie ao dominio exato."""
     prefixo = "__Host-" if seguro else ""
@@ -96,7 +146,20 @@ class MiddlewareSessao(BaseHTTPMiddleware):
             ):
                 return JSONResponse(status_code=404, content=CORPO_NAO_ENCONTRADO)
             request.state.sessao = sessao
-            if sessao.tenant_id is not None:
+            if sessao.tenant_id is not None and sessao.concessao_id is not None:
+                # Verificador: so a concessao aberta, relida no banco (revogou, perdeu na hora).
+                verificacao = await resolver_verificacao(
+                    request.app.state.fabrica_sessoes,
+                    sessao.usuario_id,
+                    sessao.tenant_id,
+                    sessao.concessao_id,
+                )
+                if verificacao is None:
+                    request.state.sessao = await armazem.trocar_tenant(sessao, None)
+                else:
+                    request.state.verificacao = verificacao
+                    setattr(request.state, ATRIBUTO_REQUISICAO, verificacao.contexto())
+            elif sessao.tenant_id is not None:
                 acesso = await resolver_acesso(
                     request.app.state.fabrica_sessoes, sessao.usuario_id, sessao.tenant_id
                 )
@@ -113,6 +176,13 @@ def obter_sessao_usuario(request: Request) -> Sessao:
     if not isinstance(sessao, Sessao):
         raise AcessoNegado
     return sessao
+
+
+def exigir_verificacao(request: Request) -> Verificacao:
+    verificacao = getattr(request.state, "verificacao", None)
+    if not isinstance(verificacao, Verificacao):
+        raise AcessoNegado
+    return verificacao
 
 
 def exigir_perfil(*perfis: Perfil) -> Callable[[Request], Acesso]:

@@ -20,6 +20,12 @@
           </span>
         </button>
         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+          {% if portal.perfil and portal.perfil.value == "administrador" %}
+          <a href="/usuarios" class="dropdown-item"><i class="ti ti-users me-2" aria-hidden="true"></i>Usuários e acessos</a>
+          {% endif %}
+          {% if portal.perfil and portal.perfil.ve_o_tenant_inteiro %}
+          <a href="/integridade" class="dropdown-item"><i class="ti ti-shield-lock me-2" aria-hidden="true"></i>Integridade</a>
+          {% endif %}
           {% if portal.acessos | length > 1 %}
           <a href="/clientes" class="dropdown-item"><i class="ti ti-switch-horizontal me-2" aria-hidden="true"></i>Trocar de cliente</a>
           {% endif %}

@@ -199,6 +199,11 @@ body {
   color: var(--cl-texto-suave);
 }
 
+/* Hash do calculo: texto longo sem espaco, quebra em qualquer ponto */
+.cl-hash {
+  word-break: break-all;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

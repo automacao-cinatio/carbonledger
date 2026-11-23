@@ -19,7 +19,7 @@
 {#
   Acao irreversivel: o modal mostra o efeito antes de confirmar. Com texto_exigido, o botao so
   libera quando a pessoa digita exatamente esse texto (ex.: o nome da empresa ao fechar o
-  inventario).
+  inventario), e o texto vai junto no envio (campo confirmacao) para o servidor conferir.
 #}
 {% macro confirmacao_irreversivel(id, rotulo_botao, titulo, efeitos, acao_url, rotulo_confirmar, texto_exigido=None) -%}
 <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#{{ id }}">
@@ -40,7 +40,7 @@
         </ul>
         {% if texto_exigido %}
         <label class="form-label" for="confirmar-{{ id }}">Para confirmar, digite <strong>{{ texto_exigido }}</strong></label>
-        <input id="confirmar-{{ id }}" type="text" class="form-control" autocomplete="off"
+        <input id="confirmar-{{ id }}" name="confirmacao" type="text" class="form-control" autocomplete="off"
                data-confirmar-texto="{{ texto_exigido }}" data-confirmar-botao="botao-{{ id }}">
         {% endif %}
       </div>
@@ -48,6 +48,7 @@
         <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Cancelar</button>
         <button type="button" id="botao-{{ id }}" class="btn btn-danger"
                 hx-post="{{ acao_url }}" hx-swap="none" hx-indicator="#ind-{{ id }}"
+                {%- if texto_exigido %} hx-include="#confirmar-{{ id }}"{% endif %}
                 {{- ' disabled' if texto_exigido else "" }}>
           {{ rotulo_confirmar }}
           <span id="ind-{{ id }}" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"><span class="visually-hidden">Carregando</span></span>

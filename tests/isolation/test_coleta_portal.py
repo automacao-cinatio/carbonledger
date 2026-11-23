@@ -21,7 +21,12 @@ from fastapi.testclient import TestClient
 from app.cli import criar_tenant
 from app.core.config import obter_configuracao
 from tests.isolation.conftest import Banco, Dados
-from tests.isolation.portal import csrf, entrar
+from tests.isolation.portal import (
+    CONJUNTO_GWP_DE_TESTE,
+    carregar_referencia_de_calculo,
+    csrf,
+    entrar,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -377,3 +382,95 @@ def test_roteiro_da_coleta(
         "planilha.importada",
     ):
         assert acao in acoes, acao
+
+    # 10. Calculo do escopo 1 (P09) com a referencia FICTICIA aprovada pela curadoria. So
+    #     janeiro esta aprovado: 1.234,5 L de diesel comercial (85/15), controle operacional.
+    #     fossil: CO2 2,728245 t; CH4 0,01175244 tCO2e. bio: CH4 0,00155547 tCO2e.
+    #     escopo 1 = 2,74155291 tCO2e; fevereiro a dezembro viram pendencia.
+    asyncio.run(carregar_referencia_de_calculo(banco.dsn_curadoria))
+    asyncio.run(_usar_gwp_de_teste(banco, inventario_id))
+    assert "Nenhum cálculo feito" in cliente.get("/resultados").text
+    url_fonte = f"/coleta/fontes/{fonte_id}"
+    assert "teste_calc.diesel_comercial" in cliente.get(url_fonte + "/editar").text
+    assert _campos_com_erro(
+        cliente.post(url_fonte, data={**base_fonte, "atividade": "inventada"}, headers=cabecalho)
+    ) == {"atividade"}
+    salvo = cliente.post(
+        url_fonte,
+        data={**base_fonte, "atividade": "teste_calc.diesel_comercial"},
+        headers=cabecalho,
+    )
+    assert salvo.status_code == 204
+    calculado = cliente.post(f"/resultados/inventarios/{inventario_id}/calcular", headers=cabecalho)
+    aviso = _aviso(calculado)
+    assert "2,742 tCO₂e" in aviso and "11 pendência(s)" in aviso
+    url_calculo = calculado.headers["hx-redirect"]
+    pagina = cliente.get(url_calculo).text
+    assert "2,742 tCO₂e" in pagina and "Dado não aprovado" in pagina
+    assert "Combustão estacionária" in pagina and "CH4" in pagina
+    calculo_id = url_calculo.rsplit("/", 1)[-1]
+    memoria = cliente.get(f"/resultados/calculos/{calculo_id}/memoria.csv")
+    assert memoria.status_code == 200
+    linhas_memoria = memoria.content.decode("utf-8-sig").strip().splitlines()
+    assert len(linhas_memoria) == 5  # cabecalho e 4 linhas (2 gases x 2 componentes)
+    assert "2,728245" in memoria.text and "1049,325" in memoria.text
+    conferido = cliente.post(f"/resultados/calculos/{calculo_id}/conferir", headers=cabecalho)
+    assert _aviso(conferido).startswith("Conferido")
+    assert "calculo.executado" in asyncio.run(_acoes_da_trilha(banco, tenant_id))
+
+    # 11. Fechamento (P11): com pendencias, nao fecha, e a tela diz o que falta.
+    pagina = cliente.get("/fechamento").text
+    assert "Condições para fechar" in pagina and "Sem pendências" in pagina
+    assert "Fechar o inventário" not in pagina
+    recusado = cliente.post(
+        f"/fechamento/inventarios/{inventario_id}/fechar",
+        data={"confirmacao": "Coleta Industria S.A."},
+        headers=cabecalho,
+    )
+    assert "Ainda não dá para fechar" in _mensagens(recusado)
+
+    # 12a. Campanha de coleta (P21): prazo validado; o responsavel da empresa recebe o aviso
+    #      com o que falta; encerrar para os lembretes.
+    url_campanha = f"/coleta/inventarios/{inventario_id}/campanha"
+    assert _campos_com_erro(
+        cliente.post(url_campanha, data={"prazo": "2000-01-01"}, headers=cabecalho)
+    ) == {"prazo"}
+    prazo = date.fromordinal(date.today().toordinal() + 10).isoformat()
+    aberta = cliente.post(
+        url_campanha, data={"prazo": prazo, "mensagem": "Até sexta."}, headers=cabecalho
+    )
+    assert "1 pessoa(s) avisada(s)" in _aviso(aberta)
+    aviso = emails[-1]
+    assert aviso["para"] == "resp@coleta.example" and "Até sexta." in aviso["corpo"]
+    assert "Caldeira 1 (diesel): Fevereiro (aguardando aprovação)" in aviso["corpo"]
+    pagina = cliente.get(f"/coleta/inventarios/{inventario_id}").text
+    assert "Encerrar campanha" in pagina and "Abertura" in pagina
+    campanha_id = re.search(r"/coleta/campanhas/([0-9a-f-]{36})/encerrar", pagina).group(1)  # type: ignore[union-attr]
+    assert "Os lembretes param" in _aviso(
+        cliente.post(f"/coleta/campanhas/{campanha_id}/encerrar", headers=cabecalho)
+    )
+
+    # 12. Integridade (P20): tudo o que o roteiro gravou confere; um arquivo adulterado no
+    #     armazenamento aparece como falha.
+    assert "Nenhuma verificação ainda" in cliente.get("/integridade").text
+    assert _aviso(cliente.post("/integridade/verificar", headers=cabecalho)).startswith(
+        "Verificação concluída: tudo confere"
+    )
+    assert "Tudo confere" in cliente.get("/integridade").text
+    chave = next(c for c in armazem.objetos if "/evidencias/" in c)
+    armazem.objetos[chave] = (b"%PDF-1.7 adulterado", "application/pdf")
+    assert "1 falha(s)" in _aviso(cliente.post("/integridade/verificar", headers=cabecalho))
+    pagina = cliente.get("/integridade").text
+    assert "Falhas de integridade" in pagina and "SHA-256 diferente do registrado" in pagina
+
+
+async def _usar_gwp_de_teste(banco: Banco, inventario_id: str) -> None:
+    conexao = await asyncpg.connect(banco.dsn_admin)
+    try:
+        await conexao.execute(
+            "UPDATE inventario SET gwp_conjunto = $1 WHERE inventario_id = $2",
+            CONJUNTO_GWP_DE_TESTE,
+            inventario_id,
+        )
+    finally:
+        await conexao.close()

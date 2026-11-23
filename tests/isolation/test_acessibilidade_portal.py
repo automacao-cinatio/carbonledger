@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -52,7 +53,7 @@ def portal(banco: Banco, redis_url: str, emissor_oidc: str) -> Iterator[str]:
 
 async def _estrutura(banco: Banco, tenant_id: UUID) -> dict[str, UUID]:
     grupo, empresa, unidade = uuid4(), uuid4(), uuid4()
-    inventario, fonte = uuid4(), uuid4()
+    inventario, fonte, calculo, lancamento = uuid4(), uuid4(), uuid4(), uuid4()
     admin = await asyncpg.connect(banco.dsn_admin)
     try:
         await admin.execute(
@@ -97,15 +98,76 @@ async def _estrutura(banco: Banco, tenant_id: UUID) -> dict[str, UUID]:
         # Dado lancado por outra pessoa (sem autor): a tela mostra aprovar e devolver.
         await admin.execute(
             "INSERT INTO lancamento (tenant_id, lancamento_id, empresa_id, fonte_id, periodo,"
-            " versao, quantidade, unidade, origem) VALUES ($1, gen_random_uuid(), $2, $3, 1, 1,"
+            " versao, quantidade, unidade, origem) VALUES ($1, $4, $2, $3, 1, 1,"
             " 1234.5, 'L', 'manual')",
             tenant_id,
             empresa,
             fonte,
+            lancamento,
+        )
+        # Calculo ja feito (valores quaisquer: a tela so mostra o que esta gravado).
+        await admin.execute(
+            "INSERT INTO calculo (tenant_id, calculo_id, empresa_id, inventario_id, metodo,"
+            " metodo_versao, gwp_conjunto, conhecido_em, entrada, hash_entrada, hash_resultado,"
+            " escopo1_tco2e, biogenico_tco2, linhas, pendencias) VALUES ($1, $2, $3, $4,"
+            " 'fator_direto', '1.0.0', 'AR5_100', now(), '{}', $5, $5, 3.2, 0.4, 1, 1)",
+            tenant_id,
+            calculo,
+            empresa,
+            inventario,
+            bytes(range(32)),
+        )
+        await admin.execute(
+            "INSERT INTO calculo_linha (tenant_id, calculo_id, linha, empresa_id, fonte_id,"
+            " lancamento_id, periodo, categoria, atividade, componente, data_referencia,"
+            " quantidade, unidade, quantidade_convertida, gas, biogenico, fator, unidade_fator,"
+            " fator_versao_id, gwp, gwp_versao_id, percentual_consolidado, massa_t, tco2e)"
+            " VALUES ($1, $2, 1, $3, $4, $5, 1, 'escopo1.combustao_movel', 'x', 'x',"
+            " '2025-01-31', 1234.5, 'L', 1234.5, 'CO2', false, 2.6, 'kg/L', gen_random_uuid(),"
+            " 1, gen_random_uuid(), 100, 3.2, 3.2)",
+            tenant_id,
+            calculo,
+            empresa,
+            fonte,
+            lancamento,
+        )
+        await admin.execute(
+            "INSERT INTO calculo_pendencia (tenant_id, calculo_id, item, empresa_id, fonte_id,"
+            " periodo, motivo, detalhe) VALUES ($1, $2, 1, $3, $4, 2, 'falta_dado', 'sem dado')",
+            tenant_id,
+            calculo,
+            empresa,
+            fonte,
+        )
+        meta = uuid4()
+        await admin.execute(
+            "INSERT INTO meta (tenant_id, meta_id, empresa_id, nome, escopos, inventario_base_id,"
+            " calculo_base_id, ano_base, valor_base_tco2e, ano_alvo, reducao_percentual)"
+            " VALUES ($1, $2, $3, 'Meta acessível', '1+2', $4, $5, 2025, 3.2, 2030, 40)",
+            tenant_id,
+            meta,
+            empresa,
+            inventario,
+            calculo,
+        )
+        await admin.execute(
+            "INSERT INTO acao_reducao (tenant_id, acao_id, empresa_id, meta_id, titulo,"
+            " reducao_estimada_tco2e, ano_inicio) VALUES ($1, gen_random_uuid(), $2, $3,"
+            " 'Trocar a frota', 1, 2026)",
+            tenant_id,
+            empresa,
+            meta,
         )
     finally:
         await admin.close()
-    return {"empresa": empresa, "unidade": unidade, "inventario": inventario, "fonte": fonte}
+    return {
+        "meta": meta,
+        "empresa": empresa,
+        "unidade": unidade,
+        "inventario": inventario,
+        "fonte": fonte,
+        "calculo": calculo,
+    }
 
 
 @pytest.fixture(scope="module")
@@ -159,6 +221,15 @@ TELAS = [
     "/coleta/fontes/{fonte}/editar",
     "/coleta/fontes/{fonte}/periodos/1",
     "/coleta/fontes/{fonte}/periodos/2",
+    "/resultados",
+    "/resultados/calculos/{calculo}",
+    "/fechamento",
+    "/verificacao",
+    "/usuarios",
+    "/metas",
+    "/metas/{meta}",
+    "/integridade",
+    "/painel",
 ]
 
 
@@ -190,3 +261,84 @@ def test_formulario_mostra_todos_os_erros(
         assert pagina.locator(f"#campo-{campo}").get_attribute("aria-invalid") == "true", campo
     assert "dígitos finais" in pagina.locator("#erro-cnpj").text_content()
     assert not violacoes_axe(pagina)
+
+
+async def _verificador(banco: Banco, ids: dict[str, UUID], tenant_id: UUID) -> None:
+    """Pessoa com identidade no provedor simulado e uma concessao aceita para o inventario."""
+    admin = await asyncpg.connect(banco.dsn_admin)
+    try:
+        usuario = uuid4()
+        await admin.execute(
+            "INSERT INTO usuario (usuario_id, email, nome) VALUES ($1, 'verif@acessivel.example',"
+            " 'Verificadora')",
+            usuario,
+        )
+        await admin.execute(
+            "INSERT INTO identidade (provedor, sujeito, usuario_id) VALUES ('dev',"
+            " 'verificadora-acessivel', $1)",
+            usuario,
+        )
+        criador = await admin.fetchval(
+            "SELECT usuario_id FROM membro WHERE tenant_id = $1 LIMIT 1", tenant_id
+        )
+        await admin.execute(
+            "INSERT INTO concessao_verificacao (tenant_id, concessao_id, empresa_id,"
+            " inventario_id, email, segredo_hash, criado_por, expira_em, aceito_em, usuario_id)"
+            " VALUES ($1, gen_random_uuid(), $2, $3, 'verif@acessivel.example', $4, $5,"
+            " now() + interval '30 days', now(), $6)",
+            tenant_id,
+            ids["empresa"],
+            ids["inventario"],
+            bytes(32),
+            criador,
+            usuario,
+        )
+    finally:
+        await admin.close()
+
+
+def test_telas_do_verificador_sem_violacao(
+    portal: str, banco: Banco, pagina_logada: tuple[Any, dict[str, UUID]]
+) -> None:
+    pagina_do_cliente, ids = pagina_logada
+
+    async def preparar() -> None:
+        await _verificador(banco, ids, await _tenant_da_empresa(banco, ids["empresa"]))
+
+    # O Playwright sincrono ja roda um event loop nesta thread: o banco vai noutra.
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.submit(asyncio.run, preparar()).result()
+    contexto = pagina_do_cliente.context.browser.new_context(locale="pt-BR")
+    try:
+        pagina = contexto.new_page()
+        pagina.goto(f"{portal}/entrar/dev")
+        pagina.fill("input[name=username]", "verificadora-acessivel")
+        pagina.fill(
+            "textarea[name=claims]",
+            json.dumps({"email": "verif@acessivel.example", "email_verified": True}),
+        )
+        pagina.click("input[type=submit]")
+        pagina.wait_for_url(f"{portal}/clientes", timeout=60_000)
+        assert not violacoes_axe(pagina)
+        pagina.get_by_role("button", name="Abrir a verificação").click()
+        pagina.wait_for_url(f"{portal}/verificacao/painel", timeout=30_000)
+        for caminho in ("/verificacao/painel", f"/verificacao/fontes/{ids['fonte']}"):
+            erros = vigiar_console(pagina)
+            pagina.goto(portal + caminho, wait_until="networkidle")
+            assert not erros, erros
+            violacoes = violacoes_axe(pagina)
+            assert not violacoes, (caminho, violacoes)
+    finally:
+        contexto.close()
+
+
+async def _tenant_da_empresa(banco: Banco, empresa: UUID) -> UUID:
+    admin = await asyncpg.connect(banco.dsn_admin)
+    try:
+        return UUID(
+            str(
+                await admin.fetchval("SELECT tenant_id FROM empresa WHERE empresa_id = $1", empresa)
+            )
+        )
+    finally:
+        await admin.close()

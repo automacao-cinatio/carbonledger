@@ -199,6 +199,7 @@ def test_menu_na_ordem_do_trabalho() -> None:
         "/verificacao",
         "/relatorios",
         "/metas",
+        "/painel",
     ]
 
 

@@ -1,0 +1,11 @@
+# FICTICIO: totais feitos a mao
+# viagens: 20.000 km x 0,15 kg = 3 t CO2; N2O 0,1 kg x 265 = 0,0265 t; x 50% = 1,51325
+# compras: 10.000 BRL x 0,5 kg = 5 t
+# frete: 3.000 t*km x 0,1 kg = 0,3 t
+indicador;valor
+escopo1_tco2e;0
+escopo2_tco2e;0
+escopo3_tco2e;6,81325
+categoria:escopo3.cat06_viagens;1,51325
+categoria:escopo3.cat01_bens_servicos;5
+gas:N2O;0,01325

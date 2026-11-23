@@ -11,11 +11,19 @@ from app.api import (
     auditoria,
     autenticacao,
     coleta_telas,
+    fechamento_telas,
+    ia_telas,
+    integridade_telas,
+    metas_telas,
     organizacao,
     organizacao_telas,
     paginas,
+    painel_telas,
+    resultados_telas,
     saude,
     ui,
+    usuarios_telas,
+    verificacao_telas,
 )
 from app.core.antivirus import ClienteClamav
 from app.core.armazenamento import ArmazemS3
@@ -28,6 +36,7 @@ from app.core.security.acesso import MiddlewareSessao
 from app.core.security.oidc import ClienteOidc, provedores_habilitados
 from app.core.security.sessao import ArmazemSessoes
 from app.core.tenancy import SessaoTenant
+from app.modules.ia.cliente import criar_cliente as criar_cliente_ia
 from app.web.cabecalhos import MiddlewareCabecalhos
 from app.web.renderizacao import PASTA_ESTATICOS
 
@@ -54,6 +63,8 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
     # Os testes podem trocar os dois antes de subir o app (fakes de S3 e ClamAV).
     if not hasattr(app.state, "armazem"):
         app.state.armazem = ArmazemS3(configuracao)
+    if not hasattr(app.state, "ia"):
+        app.state.ia = criar_cliente_ia(configuracao)
     if not hasattr(app.state, "antivirus"):
         app.state.antivirus = ClienteClamav(
             configuracao.clamav_host, configuracao.clamav_port, configuracao.clamav_tempo_limite_s
@@ -84,6 +95,14 @@ def criar_app() -> FastAPI:
     app.include_router(organizacao_telas.router)
     app.include_router(organizacao.router)
     app.include_router(coleta_telas.router)
+    app.include_router(resultados_telas.router)
+    app.include_router(fechamento_telas.router)
+    app.include_router(verificacao_telas.router)
+    app.include_router(usuarios_telas.router)
+    app.include_router(metas_telas.router)
+    app.include_router(ia_telas.router)
+    app.include_router(integridade_telas.router)
+    app.include_router(painel_telas.router)
     app.include_router(auditoria.router)
     return app
 

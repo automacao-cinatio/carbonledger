@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import campo_texto, campo_numero, campo_selecao, formulario, botao, link_botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela, grafico %}
+{% block titulo %}{{ meta.nome }}{% endblock %}
+{% block scripts %}<script src="{{ estatico('vendor/echarts-6.1.0/echarts.min.js') }}" defer></script>{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina(meta.nome, pretitulo=empresa.nome) %}
+  {% if pode_metas %}
+  {% if meta.ativa %}
+  {{ botao("Arquivar meta", "outline-secondary", "archive", atributos={"hx-post": "/metas/" ~ meta.meta_id ~ "/arquivar", "hx-swap": "none"}, indicador_id="ind-situacao-meta") }}
+  {% else %}
+  {{ botao("Reativar meta", "outline-primary", "player-play", atributos={"hx-post": "/metas/" ~ meta.meta_id ~ "/reativar", "hx-swap": "none"}, indicador_id="ind-situacao-meta") }}
+  {% endif %}
+  {% endif %}
+{% endcall %}
+
+{% if not meta.ativa %}
+{{ alerta("warning", "Meta arquivada", "Ela continua guardada, mas não aparece como meta ativa.") }}
+{% endif %}
+
+<section class="card mb-3" aria-labelledby="titulo-dados-meta">
+  <div class="card-header"><h2 class="card-title" id="titulo-dados-meta">A meta</h2></div>
+  <div class="card-body">
+    {{ ficha([
+      ("Escopos", escopos),
+      ("Ano-base", meta.ano_base | string),
+      ("Emissões no ano-base", (meta.valor_base_tco2e | numero(3)) ~ " tCO₂e"),
+      ("Ano-alvo", meta.ano_alvo | string),
+      ("Redução", (meta.reducao_percentual | numero(1)) ~ "%"),
+      ("Emissões no ano-alvo", (meta.valor_alvo_tco2e | numero(3)) ~ " tCO₂e"),
+    ]) }}
+  </div>
+</section>
+
+<section class="card mb-3" aria-labelledby="titulo-trajetoria">
+  <div class="card-header"><h2 class="card-title" id="titulo-trajetoria">Trajetória e realizado</h2></div>
+  <div class="card-body">
+    <p class="text-secondary">O realizado vem do inventário de cada ano: do fechamento, quando fechado; senão, do último cálculo, marcado como preliminar.</p>
+    {{ grafico("grafico-meta", "Trajetória da meta e emissões realizadas", dados_grafico, colunas_trajetoria, linhas_trajetoria) }}
+  </div>
+</section>
+
+<section class="card" aria-labelledby="titulo-acoes">
+  <div class="card-header"><h2 class="card-title" id="titulo-acoes">Plano de ação</h2></div>
+  <div class="card-body">
+    <p>
+      Redução a alcançar: <strong>{{ lacuna | numero(3) }} tCO₂e</strong>.
+      Ações planejadas somam <strong>{{ estimado | numero(3) }} tCO₂e/ano</strong>
+      ({{ glossario("estimativa", "Valor informado por quem cadastrou a ação. Não é calculado pelo sistema e não entra no inventário: só o inventário de cada ano mostra a redução real.") }}).
+    </p>
+  </div>
+  {% if linhas_acoes %}
+  {{ tabela("Ações do plano", colunas_acoes, linhas_acoes, "visually-hidden") }}
+  {% if pode_acoes %}
+  <div class="card-body">
+    <h3 class="h4">Atualizar a situação</h3>
+    {% for a in acoes %}
+    {% call formulario("form-acao-" ~ loop.index, "/metas/acoes/" ~ a.acao_id ~ "/situacao", "Salvar a situação de " ~ a.titulo, variante="outline-primary") %}
+    {{ campo_selecao("situacao_" ~ loop.index, "Situação de " ~ a.titulo, situacoes, selecionado=a.situacao) }}
+    {% endcall %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+  {% if pode_acoes %}
+  <div class="card-body">
+    <h3 class="h4">Nova ação</h3>
+    {% call formulario("form-nova-acao", "/metas/" ~ meta.meta_id ~ "/acoes", "Cadastrar ação", rascunho="acao-" ~ meta.meta_id) %}
+    <div class="row">
+      <div class="col-md-6">{{ campo_texto("titulo", "Ação", obrigatorio=True, ajuda="Por exemplo, Trocar a caldeira a óleo por uma elétrica.") }}</div>
+      <div class="col-md-3">{{ campo_numero("reducao_estimada_tco2e", "Redução estimada", "tCO₂e/ano", casas=3, obrigatorio=True) }}</div>
+      <div class="col-md-3">{{ campo_texto("ano_inicio", "Ano de início", obrigatorio=True) }}</div>
+    </div>
+    {{ campo_texto("descricao", "Descrição", ajuda="Opcional, até 500 caracteres.") }}
+    {% endcall %}
+  </div>
+  {% endif %}
+</section>
+
+<div class="mt-3">{{ link_botao("Voltar para as metas", "/metas", "link", "arrow-left") }}</div>
+{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{% endblock %}

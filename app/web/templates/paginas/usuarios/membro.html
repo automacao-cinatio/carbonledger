@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import campo_selecao, campo_opcoes, formulario, botao, link_botao %}
+{% from "componentes/feedback.html" import alerta %}
+{% block titulo %}{{ membro.nome }}{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina(membro.nome, pretitulo="Usuários e acessos") %}
+  {% if not e_voce %}
+  {% if membro.ativo %}
+  {{ botao("Desativar", "outline-secondary", "player-pause", atributos={"hx-post": "/usuarios/" ~ membro.usuario_id ~ "/desativar", "hx-swap": "none"}, indicador_id="ind-situacao-membro") }}
+  {% else %}
+  {{ botao("Reativar", "outline-primary", "player-play", atributos={"hx-post": "/usuarios/" ~ membro.usuario_id ~ "/reativar", "hx-swap": "none"}, indicador_id="ind-situacao-membro") }}
+  {% endif %}
+  {% endif %}
+{% endcall %}
+
+<section class="card mb-3" aria-labelledby="titulo-dados-membro">
+  <div class="card-header"><h2 class="card-title" id="titulo-dados-membro">Dados</h2></div>
+  <div class="card-body">
+    {{ ficha([("E-mail", membro.email), ("Perfil", perfil_rotulo), ("Situação", "Ativo" if membro.ativo else "Desativado")]) }}
+  </div>
+</section>
+
+{% if e_voce %}
+{{ alerta("info", "Este é você", "Você não pode mudar o próprio acesso. Peça a outro administrador.") }}
+{% else %}
+<section class="card" aria-labelledby="titulo-acesso">
+  <div class="card-header"><h2 class="card-title" id="titulo-acesso">Acesso</h2></div>
+  <div class="card-body">
+    {% call formulario("form-membro", "/usuarios/" ~ membro.usuario_id, "Salvar acesso", rascunho="membro-" ~ membro.usuario_id) %}
+    {{ campo_selecao("perfil", "Perfil", perfis, selecionado=membro.perfil.value, obrigatorio=True, ajuda=ajuda_perfil) }}
+    {% if empresas %}
+    {{ campo_opcoes("empresas", "Empresas", empresas, selecionados=selecionadas, ajuda="Para responsável e colaborador, marque pelo menos uma. Administrador e gestor veem todas: deixe em branco.") }}
+    {% endif %}
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+<div class="mt-3">{{ link_botao("Voltar para usuários e acessos", "/usuarios", "link", "arrow-left") }}</div>
+{{ proximo_passo("A mudança vale na próxima tela que a pessoa abrir: o acesso é relido a cada pedido.") }}
+{% endblock %}
