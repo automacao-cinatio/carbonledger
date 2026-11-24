@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_texto, campo_selecao, campo_opcoes, formulario, botao %}
+{% from "componentes/dados.html" import tabela %}
+{% from "componentes/feedback.html" import alerta %}
+{% block titulo %}Usuários e acessos{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Usuários e acessos", pretitulo=portal.tenant_nome) }}
+
+<section class="card mb-3" aria-labelledby="titulo-convidar">
+  <div class="card-header"><h2 class="card-title" id="titulo-convidar">Convidar pessoa</h2></div>
+  <div class="card-body">
+    {% call formulario("form-convite", "/usuarios/convites", "Enviar convite", rascunho="convite-novo") %}
+    <div class="row">
+      <div class="col-md-6">
+        {{ campo_texto("email", "E-mail", tipo="email", obrigatorio=True, ajuda="A pessoa entra com a conta Google ou Microsoft deste e-mail.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_selecao("perfil", "Perfil", perfis, selecionado="colaborador", obrigatorio=True, ajuda=ajuda_perfil) }}
+      </div>
+    </div>
+    {% if empresas %}
+    {{ campo_opcoes("empresas", "Empresas", empresas, ajuda="Para responsável e colaborador, marque pelo menos uma. Administrador e gestor veem todas: deixe em branco.") }}
+    {% endif %}
+    {% endcall %}
+  </div>
+</section>
+
+<section class="card mb-3" aria-labelledby="titulo-membros">
+  <div class="card-header"><h2 class="card-title" id="titulo-membros">Pessoas</h2></div>
+  {{ tabela("Pessoas com acesso ao cliente", colunas_membros, membros, "visually-hidden") }}
+</section>
+
+{% if convites %}
+<section class="card" aria-labelledby="titulo-convites">
+  <div class="card-header"><h2 class="card-title" id="titulo-convites">Convites</h2></div>
+  {{ tabela("Convites enviados", colunas_convites, convites, "visually-hidden") }}
+  {% if pendentes %}
+  <div class="card-body d-flex flex-wrap gap-2">
+    {% for c in pendentes %}
+    {{ botao("Revogar o convite de " ~ c.email, "outline-secondary", "x", atributos={"hx-post": "/usuarios/convites/" ~ c.convite_id ~ "/revogar", "hx-swap": "none"}, indicador_id="ind-revogar-" ~ loop.index) }}
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if ia_configurada %}
+<section class="card mt-3" aria-labelledby="titulo-ia">
+  <div class="card-header"><h2 class="card-title" id="titulo-ia">Sugestões de inteligência artificial</h2></div>
+  <div class="card-body">
+    <p>Com a IA ligada, as telas oferecem sugestões de categoria para fontes novas e uma opinião sobre valores fora do padrão. Para isso, a descrição e a unidade da fonte e os números dos períodos são enviados à Anthropic, operadora externa. Nenhum nome, e-mail ou documento é enviado, e a IA nunca calcula nem aprova nada.</p>
+    {% if ia_habilitada %}
+    {{ alerta("success", "IA ligada para este cliente") }}
+    {{ botao("Desligar a IA", "outline-secondary", "player-pause", atributos={"hx-post": "/usuarios/ia/desligar", "hx-swap": "none"}, indicador_id="ind-ia") }}
+    {% else %}
+    {{ alerta("info", "IA desligada para este cliente") }}
+    {{ botao("Ligar a IA", "outline-primary", "sparkles", atributos={"hx-post": "/usuarios/ia/ligar", "hx-swap": "none"}, indicador_id="ind-ia") }}
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{{ proximo_passo("Convide quem vai lançar e aprovar os dados de cada empresa. Quem lança não aprova o próprio dado: cada empresa precisa de pelo menos duas pessoas.") }}
+{% endblock %}

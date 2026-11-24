@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, campo_opcoes, campo_arquivo, link_botao, botao, formulario %}
+{% from "componentes/layout.html" import icone, cabecalho_pagina, proximo_passo, barra_progresso, estado_inventario, seletor_empresa, etiqueta, ficha %}
+{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
+{% from "componentes/dados.html" import tabela, grafico %}
+{% block titulo %}Componentes{% endblock %}
+{% block scripts %}<script src="{{ estatico('vendor/echarts-6.1.0/echarts.min.js') }}" defer></script>{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Componentes do portal", pretitulo="Referência interna") %}
+  {{ botao("Ação de exemplo", icone="player-play", atributos={"hx-post": "/ui/acao", "hx-swap": "none"}, indicador_id="ind-acao-topo") }}
+{% endcall %}
+
+{{ alerta("info", "Só fora de produção", "Toda tela usa as macros desta página. Componente novo entra aqui primeiro.") }}
+
+<section class="card mb-4" aria-labelledby="sec-formularios">
+  <div class="card-header"><h2 id="sec-formularios" class="card-title">Formulário com validação na hora</h2></div>
+  <div class="card-body">
+    {% call formulario("form-exemplo", "/ui/enviar", "Salvar consumo", rascunho="ui-exemplo") %}
+    <div class="row">
+      <div class="col-md-6">
+        {{ campo_texto("responsavel", "E-mail do responsável", tipo="email", ajuda="Quem responde por este dado.", obrigatorio=True, validar_url="/ui/validar/responsavel") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_numero("consumo", "Consumo de diesel no mês", "L", ajuda="Use vírgula para os decimais, como 1.234,5.", obrigatorio=True, validar_url="/ui/validar/consumo") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_selecao("mes", "Mês de referência", [("1", "Janeiro"), ("2", "Fevereiro"), ("3", "Março")], selecionado="2", obrigatorio=True) }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_numero("fator", "Fator de exemplo", "kgCO₂e/L", valor=fator_exemplo, casas=4, erro="Exemplo de erro: o fator vem da tabela oficial e não pode ser digitado.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_selecao("uf_exemplo", "UF", [("SP", "SP"), ("RJ", "RJ")], vazio="Escolha a UF") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_opcoes("empresas_exemplo", "Empresas que a pessoa acompanha", [("e1", "Empresa Exemplo Ltda"), ("e2", "Filial Norte")], selecionados=["e1"], ajuda="Marque uma ou mais.") }}
+      </div>
+      <div class="col-md-6">
+        {{ campo_marcacao("controle_exemplo", "A empresa tem o controle operacional desta unidade", marcado=True, ajuda="Quem define as políticas de operação da unidade.") }}
+      </div>
+    </div>
+    {% endcall %}
+    <p class="small text-secondary mt-3 mb-0">O que você digitar fica guardado neste navegador até o envio dar certo.
+      Indicador avulso: {{ indicador("ind-demo") }} e mensagem de campo vazia: {{ mensagem_campo("demo") }}</p>
+  </div>
+</section>
+
+<section class="card mb-4" aria-labelledby="sec-arquivo">
+  <div class="card-header"><h2 id="sec-arquivo" class="card-title">Envio de arquivo</h2></div>
+  <div class="card-body">
+    {% call formulario("form-arquivo-exemplo", "/ui/arquivo", "Enviar evidência", multipart=True, variante="outline-primary") %}
+    {{ campo_arquivo("arquivo", "Evidência", ".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.csv,.txt,.xml", ajuda="PDF, imagem, planilha .xlsx ou documento .docx, até 20 MB. Arquivos com macro são recusados.", obrigatorio=True) }}
+    {% endcall %}
+  </div>
+</section>
+
+<section class="card mb-4" aria-labelledby="sec-dados">
+  <div class="card-header"><h2 id="sec-dados" class="card-title">Números, tabela e gráfico</h2></div>
+  <div class="card-body">
+    {{ tabela("Emissões por escopo em 2026 (exemplo)", colunas_exemplo, linhas_exemplo) }}
+  </div>
+  <div class="card-body">
+    {{ tabela("Empresas do grupo (exemplo com link e situação)", colunas_cadastro, linhas_cadastro) }}
+  </div>
+  <div class="card-body">
+    {{ tabela("Lançamentos com as casas que o número tem (exemplo)", colunas_exatas, linhas_exatas) }}
+  </div>
+  <div class="card-body">
+    {{ grafico("grafico-exemplo", "Emissões por escopo em 2026 (exemplo)", grafico_exemplo, colunas_exemplo, linhas_exemplo) }}
+  </div>
+</section>
+
+<section class="card mb-4" aria-labelledby="sec-estado">
+  <div class="card-header"><h2 id="sec-estado" class="card-title">Estado e progresso</h2></div>
+  <div class="card-body">
+    <div class="row align-items-center g-3 mb-3">{{ estado_inventario(portal.inventario) }}</div>
+    <div class="row align-items-center g-3 mb-3">{{ estado_inventario(none) }}</div>
+    <div class="col-md-6">{{ barra_progresso("Unidades com dados", 7, 9) }}</div>
+    <div class="cl-topo p-3 mt-3 rounded">{{ seletor_empresa(portal.empresas, portal.empresa_atual) }}</div>
+    <div class="mt-3">
+      Situação: {{ etiqueta("Ativa", "success") }} {{ etiqueta("Desativada", "secondary") }}
+    </div>
+    <div class="mt-3">{{ ficha([("CNPJ", "11.222.333/0001-81"), ("CNAE", "2512-8/00"), ("Nome fantasia", none)]) }}</div>
+    <div class="mt-3">{{ link_botao("Ver a empresa", "/ui", "outline-primary", "building") }}</div>
+  </div>
+</section>
+
+<section class="card mb-4" aria-labelledby="sec-avisos">
+  <div class="card-header"><h2 id="sec-avisos" class="card-title">Avisos, glossário e confirmação</h2></div>
+  <div class="card-body">
+    {{ alerta("success", "Dados salvos", "Os 12 lançamentos de março foram registrados.") }}
+    {{ alerta("warning", "Falta evidência", "3 lançamentos ainda não têm nota fiscal anexada.") }}
+    {{ alerta("danger", "Não foi possível salvar", "O consumo precisa ser um número. Corrija o campo destacado.") }}
+    <p>
+      Termo com dica: {{ glossario("CO₂e", "Dióxido de carbono equivalente: soma dos gases de efeito estufa convertidos pelo potencial de aquecimento de cada um.") }}
+      e ícone com texto para leitor de tela: {{ icone("leaf", "Folha") }}.
+    </p>
+    {{ confirmacao_irreversivel("fechar-exemplo", "Fechar inventário de exemplo", "Fechar o inventário 2026",
+        ["O inventário passa a aceitar só leitura.", "Mudanças depois disso só por reapresentação.", "O verificador recebe acesso aos números fechados."],
+        "/ui/acao", "Fechar inventário", texto_exigido="Empresa Exemplo Ltda") }}
+  </div>
+</section>
+
+{{ proximo_passo("Use estas macros nas telas novas. Se faltar algum componente, crie aqui primeiro.") }}
+{% endblock %}

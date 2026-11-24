@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/formulario.html" import link_botao, botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela, grafico %}
+{% block titulo %}Resultados{% endblock %}
+{% block scripts %}<script src="{{ estatico('vendor/echarts-6.1.0/echarts.min.js') }}" defer></script>{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Resultados" ~ (" do inventário " ~ inventario.ano if inventario else ""), pretitulo=empresa.nome if empresa else None) %}
+  {% if pode_calcular %}
+  {{ botao("Calcular agora", "primary", "calculator", atributos={"hx-post": "/resultados/inventarios/" ~ inventario.inventario_id ~ "/calcular", "hx-swap": "none"}, indicador_id="ind-calcular") }}
+  {% endif %}
+{% endcall %}
+
+{% if inventario is none %}
+{{ alerta("info", "Sem inventário", "Os resultados aparecem depois que o inventário é aberto e os dados são aprovados na coleta.") }}
+{% else %}
+{{ alerta("info", "A plataforma calcula; quem atesta é o verificador", "Os números usam só dados aprovados e a referência de fatores aprovada pela curadoria. O escopo 2 segue a abordagem por localização, com o fator do mês do consumo.") }}
+
+{% if atual is none %}
+<div class="card mb-3"><div class="card-body text-secondary">Nenhum cálculo feito para este inventário.</div></div>
+{% else %}
+{% if not atual.mais_recente %}
+{{ alerta("warning", "Cálculo antigo", "Você está vendo um cálculo do histórico. O mais recente está no topo da lista abaixo.") }}
+{% endif %}
+<section class="card mb-3" aria-labelledby="titulo-totais">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-totais">Totais</h2>
+    <div class="card-actions d-flex gap-2">
+      {{ link_botao("Baixar a memória de cálculo (CSV)", "/resultados/calculos/" ~ atual.calculo_id ~ "/memoria.csv", "outline-primary", "download") }}
+      {% if pode_calcular %}
+      {{ botao("Conferir o cálculo", "outline-secondary", "shield-check", atributos={"hx-post": "/resultados/calculos/" ~ atual.calculo_id ~ "/conferir", "hx-swap": "none"}, indicador_id="ind-conferir") }}
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body">
+    {{ ficha([
+      ("Escopo 1", (atual.escopo1 | numero(3)) ~ " tCO₂e"),
+      ("Escopo 2 (localização)", (atual.escopo2 | numero(3)) ~ " tCO₂e"),
+      ("Escopo 3", (atual.escopo3 | numero(3)) ~ " tCO₂e"),
+      ("CO₂ biogênico (fora dos escopos)", (atual.biogenico | numero(3)) ~ " t"),
+      ("Método", atual.metodo),
+      ("Potencial de aquecimento global", atual.gwp),
+      ("Fatores conhecidos até", atual.conhecido_em),
+      ("Calculado em", atual.calculado_em),
+    ]) }}
+    <p class="small text-secondary mb-0 mt-2">
+      {{ glossario("Hash", "Impressão digital do cálculo. Com a mesma entrada e os mesmos fatores, o hash é sempre o mesmo: é assim que o cálculo pode ser refeito e conferido.") }}
+      da entrada: <span class="cl-hash">{{ atual.hash_entrada }}</span><br>
+      Hash do resultado: <span class="cl-hash">{{ atual.hash_resultado }}</span>
+    </p>
+  </div>
+</section>
+
+{% if atual.pendencias %}
+<section class="card mb-3" aria-labelledby="titulo-pendencias">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-pendencias">Pendências</h2>
+    <div class="card-actions">{{ etiqueta(atual.pendencias | length ~ " pendência(s)", "warning") }}</div>
+  </div>
+  <div class="card-body pb-0"><p class="text-secondary">O que está aqui não entrou no total. Nada é contado como zero.</p></div>
+  {{ tabela("Pendências do cálculo", colunas_pendencias, atual.pendencias, "visually-hidden") }}
+</section>
+{% endif %}
+
+{% if atual.por_categoria %}
+<section class="card mb-3" aria-labelledby="titulo-categorias">
+  <div class="card-header"><h2 class="card-title" id="titulo-categorias">Emissões por categoria</h2></div>
+  <div class="card-body">
+    {{ grafico("grafico-categorias", "Emissões por categoria", atual.grafico, colunas_categoria, atual.por_categoria) }}
+  </div>
+</section>
+<section class="card mb-3" aria-labelledby="titulo-gases">
+  <div class="card-header"><h2 class="card-title" id="titulo-gases">Emissões por gás</h2></div>
+  {{ tabela("Emissões por gás (escopos 1, 2 e 3)", colunas_gas, atual.por_gas, "visually-hidden") }}
+</section>
+{% endif %}
+{% endif %}
+
+{% if historico %}
+<section class="card" aria-labelledby="titulo-historico">
+  <div class="card-header"><h2 class="card-title" id="titulo-historico">Histórico de cálculos</h2></div>
+  {{ tabela("Histórico de cálculos do inventário", colunas_historico, historico, "visually-hidden") }}
+</section>
+{% endif %}
+{% endif %}
+
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}

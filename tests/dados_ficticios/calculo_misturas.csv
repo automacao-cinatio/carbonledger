@@ -1,0 +1,4 @@
+# FICTICIO: valores inventados, so para os testes do calculo (P09)
+combustivel;componente;percentual;vigencia_inicio;vigencia_fim;fonte
+teste_calc.diesel_comercial;teste_calc.diesel_fossil;85;01/01/2020;;FICTICIO, so para testes
+teste_calc.diesel_comercial;teste_calc.biodiesel;15;01/01/2020;;FICTICIO, so para testes

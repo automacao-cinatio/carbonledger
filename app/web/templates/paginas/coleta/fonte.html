@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, barra_progresso %}
+{% from "componentes/formulario.html" import campo_selecao, campo_arquivo, formulario, link_botao, botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}{{ fonte.descricao }}{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina(fonte.descricao, pretitulo=fonte.unidade_nome ~ ", inventário " ~ inventario.ano) %}
+  {% if pode_editar %}
+  {{ link_botao("Editar fonte", "/coleta/fontes/" ~ fonte.fonte_id ~ "/editar", "outline-primary", "pencil") }}
+  {% if fonte.ativa %}
+  {{ botao("Desativar fonte", "outline-secondary", "player-pause", atributos={"hx-post": "/coleta/fontes/" ~ fonte.fonte_id ~ "/desativar", "hx-swap": "none"}, indicador_id="ind-situacao-fonte") }}
+  {% else %}
+  {{ botao("Reativar fonte", "outline-primary", "player-play", atributos={"hx-post": "/coleta/fontes/" ~ fonte.fonte_id ~ "/reativar", "hx-swap": "none"}, indicador_id="ind-situacao-fonte") }}
+  {% endif %}
+  {% endif %}
+{% endcall %}
+
+{% if not fonte.ativa %}
+{{ alerta("warning", "Fonte desativada", "Ela não entra no inventário e não recebe dados novos. O que já foi lançado continua guardado.") }}
+{% elif not fonte.material %}
+{{ alerta("info", "Fonte fora da materialidade", "Justificativa: " ~ fonte.justificativa) }}
+{% endif %}
+
+<section class="card mb-3" aria-labelledby="titulo-dados-fonte">
+  <div class="card-header"><h2 class="card-title" id="titulo-dados-fonte">Dados da fonte</h2></div>
+  <div class="card-body">
+    {{ ficha([("Categoria", categoria), ("Combustível ou atividade", atividade), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual"), ("Entra no inventário", "Sim" if fonte.material else "Não")]) }}
+    {% if fonte.material and fonte.ativa %}
+    <div class="row g-3 mt-1">
+      <div class="col-md-6">{{ barra_progresso("Dados aprovados da fonte", progresso.aprovados, progresso.esperados) }}</div>
+      <div class="col-md-6">{{ barra_progresso("Períodos da fonte com evidência", progresso.com_evidencia, progresso.esperados) }}</div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mb-3" aria-labelledby="titulo-periodos">
+  <div class="card-header"><h2 class="card-title" id="titulo-periodos">Dados por período</h2></div>
+  {{ tabela("Dados de " ~ fonte.descricao ~ " por período", colunas, linhas, "visually-hidden") }}
+</section>
+
+<section class="card" aria-labelledby="titulo-evidencias">
+  <div class="card-header"><h2 class="card-title" id="titulo-evidencias">Evidências</h2></div>
+  <div class="card-body">
+    <p class="text-secondary">
+      A {{ glossario("evidência", "Documento que comprova o dado: nota fiscal, conta de luz, relatório do sistema. O verificador confere o dado com ela.") }}
+      fica guardada sem possibilidade de apagar ou trocar, com a impressão digital (SHA-256) registrada.
+    </p>
+    {% if pode_enviar %}
+    {% call formulario("form-evidencia", "/coleta/fontes/" ~ fonte.fonte_id ~ "/evidencias", "Enviar evidência", multipart=True) %}
+    <div class="row">
+      <div class="col-md-4">
+        {{ campo_selecao("periodo", "Período que a evidência comprova", opcoes_periodo, selecionado="") }}
+      </div>
+      <div class="col-md-8">
+        {{ campo_arquivo("arquivo", "Arquivo", ".pdf,.png,.jpg,.jpeg,.xlsx,.docx,.csv,.txt,.xml", ajuda="PDF, imagem, planilha .xlsx ou documento .docx, até 20 MB. Arquivos com macro são recusados.", obrigatorio=True) }}
+      </div>
+    </div>
+    {% endcall %}
+    {% endif %}
+  </div>
+  {% if linhas_evidencias %}
+  {{ tabela("Evidências de " ~ fonte.descricao, colunas_evidencias, linhas_evidencias, "visually-hidden") }}
+  {% else %}
+  <div class="card-body pt-0 text-secondary">Nenhuma evidência enviada.</div>
+  {% endif %}
+</section>
+
+<div class="mt-3">{{ link_botao("Voltar para o inventário " ~ inventario.ano, "/coleta/inventarios/" ~ inventario.inventario_id, "link", "arrow-left") }}</div>
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}

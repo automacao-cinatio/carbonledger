@@ -1,0 +1,59 @@
+{% from "componentes/layout.html" import seletor_empresa %}
+<header class="navbar navbar-expand-xl cl-topo d-print-none" data-bs-theme="dark">
+  <div class="container-xl">
+    {% if portal.usuario_nome %}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#cl-menu"
+            aria-controls="cl-menu" aria-expanded="false" aria-label="Abrir o menu">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    {% endif %}
+    <a class="navbar-brand cl-marca me-3" href="/">CarbonLedger</a>
+    {% if portal.usuario_nome %}
+    <div class="navbar-nav flex-row order-xl-last align-items-center gap-3">
+      {% if portal.tenant_nome %}{{ seletor_empresa(portal.empresas, portal.empresa_atual) }}{% endif %}
+      <div class="nav-item dropdown">
+        <button type="button" class="nav-link d-flex lh-1 p-1 border-0 bg-transparent" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="ti ti-user-circle me-1" aria-hidden="true"></i>
+          <span class="text-start">
+            <span class="d-block">{{ portal.usuario_nome }}</span>
+            {% if portal.tenant_nome %}<span class="d-block small mt-1">{{ portal.tenant_nome }}</span>{% endif %}
+          </span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+          <a href="/meus-dados" class="dropdown-item"><i class="ti ti-user-shield me-2" aria-hidden="true"></i>Meus dados</a>
+          {% if portal.perfil and portal.perfil.value == "administrador" %}
+          <a href="/usuarios" class="dropdown-item"><i class="ti ti-users me-2" aria-hidden="true"></i>Usuários e acessos</a>
+          {% endif %}
+          {% if portal.perfil and portal.perfil.ve_o_tenant_inteiro %}
+          <a href="/integridade" class="dropdown-item"><i class="ti ti-shield-lock me-2" aria-hidden="true"></i>Integridade</a>
+          {% endif %}
+          {% if portal.acessos | length > 1 %}
+          <a href="/clientes" class="dropdown-item"><i class="ti ti-switch-horizontal me-2" aria-hidden="true"></i>Trocar de cliente</a>
+          {% endif %}
+          <button type="button" class="dropdown-item" hx-post="/sair" hx-swap="none">
+            <i class="ti ti-logout me-2" aria-hidden="true"></i>Sair
+          </button>
+        </div>
+      </div>
+    </div>
+    {% if portal.tenant_nome %}
+    <nav class="collapse navbar-collapse" id="cl-menu" aria-label="Menu principal">
+      <ul class="navbar-nav">
+        {% for item in menu %}
+        <li class="nav-item">
+          <a class="nav-link{{ ' active' if pagina_atual == item.url else '' }}" href="{{ item.url }}"
+             {{- ' aria-current="page"' | safe if pagina_atual == item.url else '' }}>
+            <i class="ti ti-{{ item.icone }} me-1" aria-hidden="true"></i>{{ item.rotulo }}
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="navbar-nav flex-row order-xl-last">
+      <a class="nav-link" href="/entrar"><i class="ti ti-login me-1" aria-hidden="true"></i>Entrar</a>
+    </div>
+    {% endif %}
+  </div>
+</header>

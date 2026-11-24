@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import campo_texto, formulario %}
+{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Fechamento{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Fechamento" ~ (" do inventário " ~ inventario.ano if inventario else ""), pretitulo=empresa.nome if empresa else None) %}
+  {% if situacao and situacao.pode_fechar and pode_decidir %}
+  {{ confirmacao_irreversivel(
+       "modal-fechar",
+       "Fechar o inventário",
+       "Fechar o inventário " ~ inventario.ano ~ " de " ~ empresa.nome,
+       [
+         "Os dados, as fontes, as evidências e o cálculo deste inventário ficam congelados.",
+         "O fechamento recebe a versão " ~ situacao.proxima_versao ~ " e um hash que amarra o cálculo, os dados e as evidências.",
+         "Depois disso, mudar qualquer coisa só por reapresentação, com o motivo registrado.",
+       ],
+       "/fechamento/inventarios/" ~ inventario.inventario_id ~ "/fechar",
+       "Fechar o inventário",
+       texto_exigido=empresa.nome) }}
+  {% endif %}
+{% endcall %}
+
+{% if inventario is none %}
+{{ alerta("info", "Sem inventário", "O fechamento aparece depois que o inventário é aberto na coleta.") }}
+{% elif situacao.estado == "fechado" %}
+{% set atual = situacao.fechamento_atual %}
+{{ alerta("success", "Inventário fechado", "Versão " ~ atual.versao ~ ". Os dados só mudam por reapresentação.") }}
+<section class="card mb-3" aria-labelledby="titulo-fechamento">
+  <div class="card-header"><h2 class="card-title" id="titulo-fechamento">Fechamento</h2></div>
+  <div class="card-body">
+    {{ ficha([("Versão", atual.versao | string), ("Hash do fechamento", atual.hash_fechamento.hex()), ("Cálculo", atual.calculo_id | string)]) }}
+    <p class="small text-secondary mb-0">
+      O {{ glossario("hash do fechamento", "Impressão digital que amarra o cálculo, os dados usados e as evidências. Se qualquer coisa mudasse, o hash mudaria.") }}
+      identifica exatamente o que foi fechado.
+    </p>
+  </div>
+</section>
+{% if pode_decidir %}
+<section class="card mb-3" aria-labelledby="titulo-reapresentar">
+  <div class="card-header"><h2 class="card-title" id="titulo-reapresentar">Reapresentar</h2></div>
+  <div class="card-body">
+    <p>Reapresentar reabre a coleta deste inventário. O fechamento atual continua guardado e o próximo fechamento vira a versão {{ situacao.proxima_versao }}.</p>
+    {% call formulario("form-reapresentar", "/fechamento/inventarios/" ~ inventario.inventario_id ~ "/reapresentar", "Reabrir para reapresentação", variante="outline-danger") %}
+    {{ campo_texto("motivo", "Motivo da reapresentação", obrigatorio=True, ajuda="De 20 a 1.000 caracteres: o que mudou e por quê. Fica registrado para o verificador.") }}
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+{% else %}
+<section class="card mb-3" aria-labelledby="titulo-condicoes">
+  <div class="card-header"><h2 class="card-title" id="titulo-condicoes">Condições para fechar</h2></div>
+  {{ tabela("Condições para fechar o inventário", colunas_checagens, checagens, "visually-hidden") }}
+</section>
+{% for aviso in situacao.avisos %}
+{{ alerta("warning", "Atenção", aviso) }}
+{% endfor %}
+{% if situacao.pode_fechar and not pode_decidir %}
+{{ alerta("info", "Pronto para fechar", "Peça ao administrador ou ao gestor que feche o inventário.") }}
+{% endif %}
+{% endif %}
+
+{% if eventos %}
+<section class="card" aria-labelledby="titulo-eventos">
+  <div class="card-header"><h2 class="card-title" id="titulo-eventos">Histórico de fechamentos</h2></div>
+  {{ tabela("Fechamentos e reapresentações", colunas_eventos, eventos, "visually-hidden") }}
+</section>
+{% endif %}
+
+{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{% endblock %}

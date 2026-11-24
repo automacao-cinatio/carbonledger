@@ -1,0 +1,63 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Um push novo no mesmo PR cancela a rodada anterior.
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest # traz Docker, necessario para o testcontainers
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # o gitleaks do make check varre o historico inteiro
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Instalar dependencias (exatamente as do uv.lock)
+        run: uv sync --frozen
+
+      - name: Cache do Chromium do Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Chromium (acessibilidade com axe-core e relatorio em PDF)
+        run: uv run playwright install --with-deps chromium
+
+      - name: make check
+        run: make check
+
+  imagem:
+    # A imagem de producao precisa montar e gerar PDF (Chromium dentro dela). Nada e publicado.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Montar a imagem
+        run: docker build -t carbonledger:ci .
+
+      # Sem banco nem S3: so o modulo do relatorio (app.main exige a configuracao completa).
+      - name: O Chromium gera PDF dentro da imagem, com o usuario do app
+        run: |
+          docker run --rm carbonledger:ci python -c "
+          import asyncio
+          from app.modules.relatorios.relatorio import gerar_pdf
+          pdf = asyncio.run(gerar_pdf('<!DOCTYPE html><html lang=\"pt-BR\"><body>ok</body></html>'))
+          assert pdf.startswith(b'%PDF-'), 'sem PDF'
+          print('imagem ok')
+          "

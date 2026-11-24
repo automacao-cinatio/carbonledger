@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Integridade{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Integridade", pretitulo=portal.tenant_nome) %}
+  {{ botao("Verificar agora", "primary", "shield-check", atributos={"hx-post": "/integridade/verificar", "hx-swap": "none"}, indicador_id="ind-verificar") }}
+{% endcall %}
+
+<p class="text-secondary">
+  Toda noite o sistema confere, sem confiar em quem gravou: a
+  {{ glossario("trilha de auditoria", "Registro de cada ação, encadeado por hash: mudar ou apagar um evento quebra a corrente.") }},
+  cada cálculo (refeito pela entrada guardada), cada fechamento e cada arquivo guardado (o SHA-256 relido do armazenamento).
+</p>
+
+{% if ultima is none %}
+{{ alerta("info", "Nenhuma verificação ainda", "A primeira roda esta noite, ou agora, pelo botão acima.") }}
+{% elif ultima.integra %}
+{{ alerta("success", "Tudo confere", "Na última verificação, nenhum dado, cálculo ou arquivo foi alterado.") }}
+{% else %}
+{{ alerta("danger", "Falhas de integridade", "Trate como incidente: não altere nada e siga o runbook de integridade.") }}
+<section class="card mb-3" aria-labelledby="titulo-falhas">
+  <div class="card-header"><h2 class="card-title" id="titulo-falhas">Falhas da última verificação</h2></div>
+  {{ tabela("Falhas da última verificação", colunas_falhas, falhas, "visually-hidden") }}
+</section>
+{% endif %}
+
+{% if ultima is not none %}
+<section class="card mb-3" aria-labelledby="titulo-conferido">
+  <div class="card-header"><h2 class="card-title" id="titulo-conferido">O que foi conferido</h2></div>
+  <div class="card-body">
+    {{ ficha([
+      ("Eventos da trilha", (contagens.get("eventos_da_trilha", 0)) | string),
+      ("Cálculos", (contagens.get("calculos", 0)) | string),
+      ("Fechamentos", (contagens.get("fechamentos", 0)) | string),
+      ("Evidências", (contagens.get("evidencias", 0)) | string),
+      ("Planilhas", (contagens.get("planilhas", 0)) | string),
+    ]) }}
+  </div>
+</section>
+<section class="card" aria-labelledby="titulo-historico">
+  <div class="card-header"><h2 class="card-title" id="titulo-historico">Histórico</h2></div>
+  {{ tabela("Últimas verificações", colunas_historico, historico, "visually-hidden") }}
+</section>
+{% endif %}
+
+{{ proximo_passo("Com falha, siga o runbook docs/runbooks/integridade.md. Sem falha, nada a fazer: a próxima verificação roda esta noite.") }}
+{% endblock %}

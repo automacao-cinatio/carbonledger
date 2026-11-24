@@ -1,0 +1,243 @@
+x-app: &app
+  build: .
+  image: carbonledger:dev
+  # Sem env_file: o .env traz a senha do superusuario e a do app_owner, que a aplicacao
+  # nao pode receber. Variavel nova da aplicacao entra nesta lista.
+  environment:
+    AMBIENTE: ${AMBIENTE:-desenvolvimento}
+    LOG_NIVEL: ${LOG_NIVEL:-INFO}
+    DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env}
+    REDIS_URL: ${REDIS_URL:?defina REDIS_URL no .env}
+    S3_ENDPOINT: ${S3_ENDPOINT:?defina S3_ENDPOINT no .env}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY no .env}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY no .env}
+    S3_BUCKET_EVIDENCIAS: ${S3_BUCKET_EVIDENCIAS:-evidencias}
+    EVIDENCIAS_MODO_RETENCAO: ${EVIDENCIAS_MODO_RETENCAO:-GOVERNANCE}
+    EVIDENCIAS_RETENCAO_DIAS: ${EVIDENCIAS_RETENCAO_DIAS:-1825}
+    UPLOAD_LIMITE_MB: ${UPLOAD_LIMITE_MB:-20}
+    CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+    CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+    SMTP_HOST: ${SMTP_HOST:-mailpit}
+    SMTP_PORT: ${SMTP_PORT:-1025}
+    SMTP_USUARIO: ${SMTP_USUARIO:-}
+    SMTP_SENHA: ${SMTP_SENHA:-}
+    SMTP_TLS: ${SMTP_TLS:-false}
+    EMAIL_REMETENTE: ${EMAIL_REMETENTE:-CarbonLedger <nao-responda@carbonledger.local>}
+    APP_URL_BASE: ${APP_URL_BASE:-http://localhost:8000}
+    COOKIE_SEGURO: ${COOKIE_SEGURO:-true}
+    SESSAO_INATIVIDADE_MIN: ${SESSAO_INATIVIDADE_MIN:-120}
+    SESSAO_MAXIMA_H: ${SESSAO_MAXIMA_H:-12}
+    CONVITE_VALIDADE_DIAS: ${CONVITE_VALIDADE_DIAS:-7}
+    LOGIN_LIMITE_TENTATIVAS: ${LOGIN_LIMITE_TENTATIVAS:-20}
+    LOGIN_JANELA_MIN: ${LOGIN_JANELA_MIN:-10}
+    OIDC_DEV_EMISSOR: ${OIDC_DEV_EMISSOR:-}
+    OIDC_DEV_URL_PUBLICA: ${OIDC_DEV_URL_PUBLICA:-}
+    RESEND_API_KEY: ${RESEND_API_KEY:-}
+    PROVEDOR_CHAVES: ${PROVEDOR_CHAVES:-local}
+    CHAVES_LOCAIS: ${CHAVES_LOCAIS:-}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ANTHROPIC_MODELO: ${ANTHROPIC_MODELO:-}
+    IA_FALLBACKS: ${IA_FALLBACKS:-default}
+    IA_TEMPO_LIMITE_S: ${IA_TEMPO_LIMITE_S:-30}
+    OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+    OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+    OIDC_MICROSOFT_CLIENT_ID: ${OIDC_MICROSOFT_CLIENT_ID:-}
+    OIDC_MICROSOFT_CLIENT_SECRET: ${OIDC_MICROSOFT_CLIENT_SECRET:-}
+    ASAAS_API_KEY: ${ASAAS_API_KEY:-}
+    ASAAS_BASE_URL: ${ASAAS_BASE_URL:-}
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    minio-init:
+      condition: service_completed_successfully
+
+services:
+  api:
+    <<: *app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./app:/app/app:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/saude', timeout=4).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=INFO"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  beat:
+    <<: *app
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app
+      - beat
+      - --loglevel=INFO
+      - --schedule=/tmp/celerybeat-schedule
+    healthcheck:
+      test: ["CMD-SHELL", "ls /tmp/celerybeat-schedule* > /dev/null 2>&1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # Migracoes como app_owner: make migrate. Unico servico que recebe essa credencial.
+  migrar:
+    image: carbonledger:dev
+    build: .
+    profiles: ["ferramentas"]
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRACAO_DATABASE_URL: ${MIGRACAO_DATABASE_URL:?defina MIGRACAO_DATABASE_URL no .env}
+    volumes:
+      - ./app:/app/app:ro
+      - ./migrations:/app/migrations:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Curadoria de fatores, GWP e misturas (papel app_curadoria): docs/runbooks/curadoria-de-fatores.md.
+  #   docker compose run --rm curadoria fatores importar --tipo fatores --por "Nome" data/fatores/x.csv
+  curadoria:
+    image: carbonledger:dev
+    build: .
+    profiles: ["ferramentas"]
+    entrypoint: ["python", "-m", "app.cli"]
+    command: ["fatores", "lotes"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env}
+      REDIS_URL: ${REDIS_URL:?defina REDIS_URL no .env}
+      S3_ENDPOINT: ${S3_ENDPOINT:?defina S3_ENDPOINT no .env}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY no .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?defina S3_SECRET_KEY no .env}
+      CURADORIA_DATABASE_URL: ${CURADORIA_DATABASE_URL:?defina CURADORIA_DATABASE_URL no .env}
+    volumes:
+      - ./app:/app/app:ro
+      - ./data:/app/data:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      APP_OWNER_SENHA: ${APP_OWNER_SENHA:?defina APP_OWNER_SENHA no .env}
+      APP_USER_SENHA: ${APP_USER_SENHA:?defina APP_USER_SENHA no .env}
+      CURADORIA_SENHA: ${CURADORIA_SENHA:?defina CURADORIA_SENHA no .env}
+    # Sem "ports": o Postgres fica so na rede privada do compose.
+    volumes:
+      - postgres_dados:/var/lib/postgresql/data
+      # Cria app_owner, app_user e app_verificador na primeira subida do volume.
+      - ./infra/sql/initdb.sh:/docker-entrypoint-initdb.d/00_papeis.sh:ro
+      - ./infra/sql/papeis.sql:/infra/sql/papeis.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # As imagens oficiais do MinIO sairam do Docker Hub e do quay.io; a Chainguard
+  # compila o MinIO a partir do codigo-fonte. A variante -dev traz shell, mc e wget.
+  minio:
+    image: cgr.dev/chainguard/minio:latest-dev
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?defina S3_ACCESS_KEY no .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?defina S3_SECRET_KEY no .env}
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio_dados:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Cria o bucket de evidencias com Object Lock e termina.
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest-dev
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET_EVIDENCIAS: ${S3_BUCKET_EVIDENCIAS:-evidencias}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" &&
+        mc mb --ignore-existing --with-lock "local/$$S3_BUCKET_EVIDENCIAS"
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav_dados:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # Provedor OIDC simulado, so em desenvolvimento: login sem conta Google ou Microsoft.
+  # O navegador usa localhost:18080; a API fala com mock-oidc:8080 (OIDC_DEV_URL_PUBLICA).
+  mock-oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:latest
+    restart: unless-stopped
+    environment:
+      JSON_CONFIG: '{"interactiveLogin": true}'
+    ports:
+      - "127.0.0.1:18080:8080"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_dados:
+  minio_dados:
+  clamav_dados:

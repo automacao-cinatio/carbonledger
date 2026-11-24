@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, barra_progresso %}
+{% from "componentes/formulario.html" import campo_arquivo, campo_texto, formulario, link_botao, botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Inventário {{ inventario.ano }}{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Inventário " ~ inventario.ano, pretitulo=empresa.nome) %}
+  {% if pode_fontes %}
+  {{ link_botao("Nova fonte", "/coleta/inventarios/" ~ inventario.inventario_id ~ "/fontes/nova", "primary", "plus") }}
+  {% endif %}
+{% endcall %}
+
+<section class="card mb-3" aria-labelledby="titulo-dados-inventario">
+  <div class="card-header"><h2 class="card-title" id="titulo-dados-inventario">Dados do inventário</h2></div>
+  <div class="card-body">
+    {{ ficha([("Estado", inventario.estado_rotulo), ("Abordagem de consolidação", abordagem), ("Potencial de aquecimento global", "AR5, 100 anos" if inventario.gwp_conjunto == "AR5_100" else inventario.gwp_conjunto)]) }}
+    <div class="row g-3 mt-1">
+      <div class="col-md-6">{{ barra_progresso("Dados aprovados", total.aprovados, total.esperados) }}</div>
+      <div class="col-md-6">{{ barra_progresso("Períodos com evidência", total.com_evidencia, total.esperados) }}</div>
+    </div>
+    {% if total.aguardando or total.devolvidos %}
+    <p class="mt-3 mb-0">{{ total.aguardando }} dado(s) aguardando aprovação e {{ total.devolvidos }} devolvido(s) para correção.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mb-3" aria-labelledby="titulo-fontes">
+  <div class="card-header"><h2 class="card-title" id="titulo-fontes">Fontes de emissão</h2></div>
+  <div class="card-body pb-0">
+    <p class="text-secondary">
+      Cada {{ glossario("fonte de emissão", "Equipamento, frota ou consumo que libera gases de efeito estufa: uma caldeira, os caminhões da entrega, a conta de luz.") }}
+      recebe um dado por período. Só as fontes
+      {{ glossario("materiais", "Fontes que entram no inventário. Uma fonte pode ficar de fora por ser irrelevante, desde que a justificativa fique registrada.") }}
+      contam no progresso.
+    </p>
+  </div>
+  {% if linhas %}
+  {{ tabela("Fontes de emissão do inventário " ~ inventario.ano, colunas, linhas, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Nenhuma fonte cadastrada.</div>
+  {% endif %}
+</section>
+
+{% if campanha %}
+<section class="card mb-3" aria-labelledby="titulo-campanha">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-campanha">Campanha de coleta</h2>
+    {% if pode_campanha %}
+    <div class="card-actions">{{ botao("Encerrar campanha", "outline-secondary", "player-stop", atributos={"hx-post": "/coleta/campanhas/" ~ campanha.campanha_id ~ "/encerrar", "hx-swap": "none"}, indicador_id="ind-encerrar-campanha") }}</div>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {{ ficha([("Prazo", campanha.prazo | data), ("Recado da gestão", campanha.mensagem)]) }}
+    <p class="text-secondary mb-0">A equipe recebe lembretes por e-mail a 7, 3 e 1 dia do prazo e no vencimento. A campanha termina sozinha quando a coleta fica completa.</p>
+  </div>
+  {% if envios %}
+  {{ tabela("Avisos enviados", colunas_envios, envios, "visually-hidden") }}
+  {% endif %}
+</section>
+{% elif pode_campanha and linhas %}
+<section class="card mb-3" aria-labelledby="titulo-nova-campanha">
+  <div class="card-header"><h2 class="card-title" id="titulo-nova-campanha">Campanha de coleta</h2></div>
+  <div class="card-body">
+    <p class="text-secondary">Defina um prazo e avise a equipe da empresa por e-mail, com a lista do que falta. Os lembretes saem sozinhos até o prazo.</p>
+    {% call formulario("form-campanha", "/coleta/inventarios/" ~ inventario.inventario_id ~ "/campanha", "Abrir campanha e avisar a equipe", rascunho="campanha-" ~ inventario.inventario_id) %}
+    <div class="row">
+      <div class="col-md-4">{{ campo_texto("prazo", "Prazo da coleta", valor=amanha, tipo="date", obrigatorio=True) }}</div>
+      <div class="col-md-8">{{ campo_texto("mensagem", "Recado para a equipe", ajuda="Opcional, até 1.000 caracteres. Vai no e-mail.") }}</div>
+    </div>
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+
+{% if linhas and inventario.em_coleta %}
+<section class="card" aria-labelledby="titulo-planilha">
+  <div class="card-header"><h2 class="card-title" id="titulo-planilha">Planilha de coleta</h2></div>
+  <div class="card-body">
+    <p>Para lançar vários dados de uma vez: baixe a planilha, preencha as colunas de quantidade, unidade, data da compra e observação e importe. As outras colunas só ajudam a se achar: não mude fonte_id nem período.</p>
+    <div class="mb-3">{{ link_botao("Baixar a planilha (CSV)", "/coleta/inventarios/" ~ inventario.inventario_id ~ "/planilha.csv", "outline-primary", "download") }}</div>
+    {% call formulario("form-planilha", "/coleta/inventarios/" ~ inventario.inventario_id ~ "/planilha", "Importar planilha", multipart=True) %}
+    {{ campo_arquivo("arquivo", "Planilha preenchida", ".csv", ajuda="CSV separado por ponto e vírgula, como o Excel salva. Com qualquer erro, nada é gravado e todos os problemas aparecem aqui.", obrigatorio=True) }}
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}

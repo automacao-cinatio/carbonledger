@@ -1,0 +1,117 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import httpx
+import redis.asyncio as redis_async
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from app.api import (
+    auditoria,
+    autenticacao,
+    coleta_telas,
+    fechamento_telas,
+    ia_telas,
+    integridade_telas,
+    lgpd_telas,
+    metas_telas,
+    organizacao,
+    organizacao_telas,
+    paginas,
+    painel_telas,
+    relatorios_telas,
+    resultados_telas,
+    saude,
+    ui,
+    usuarios_telas,
+    verificacao_telas,
+)
+from app.core.antivirus import ClienteClamav
+from app.core.armazenamento import ArmazemS3
+from app.core.config import obter_configuracao
+from app.core.db import criar_motor
+from app.core.erros import registrar_tratadores
+from app.core.keys import provedor_da_configuracao as provedor_de_chaves
+from app.core.logs import configurar_logs
+from app.core.requisicao import MiddlewareRequestId
+from app.core.security.acesso import MiddlewareSessao
+from app.core.security.oidc import ClienteOidc, provedores_habilitados
+from app.core.security.sessao import ArmazemSessoes
+from app.core.tenancy import SessaoTenant
+from app.modules.ia.cliente import criar_cliente as criar_cliente_ia
+from app.web.cabecalhos import MiddlewareCabecalhos
+from app.web.renderizacao import PASTA_ESTATICOS
+
+TEMPO_LIMITE_OIDC_S = 10.0
+
+
+@asynccontextmanager
+async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
+    configuracao = obter_configuracao()
+    motor = criar_motor(configuracao.database_url)
+    app.state.fabrica_sessoes = async_sessionmaker(
+        motor, sync_session_class=SessaoTenant, expire_on_commit=False
+    )
+    cliente_redis = redis_async.from_url(configuracao.redis_url, decode_responses=True)
+    app.state.sessoes = ArmazemSessoes(
+        cliente_redis,
+        inatividade_s=configuracao.sessao_inatividade_min * 60,
+        maxima_s=configuracao.sessao_maxima_h * 3600,
+    )
+    app.state.cookie_seguro = configuracao.cookie_seguro
+    app.state.provedores = provedores_habilitados(configuracao)
+    http = httpx.AsyncClient(timeout=TEMPO_LIMITE_OIDC_S, follow_redirects=False)
+    app.state.oidc = ClienteOidc(http)
+    # Os testes podem trocar os dois antes de subir o app (fakes de S3 e ClamAV).
+    if not hasattr(app.state, "armazem"):
+        app.state.armazem = ArmazemS3(configuracao)
+    if not hasattr(app.state, "ia"):
+        app.state.ia = criar_cliente_ia(configuracao)
+    if not hasattr(app.state, "chaves"):
+        app.state.chaves = provedor_de_chaves(configuracao)
+    if not hasattr(app.state, "antivirus"):
+        app.state.antivirus = ClienteClamav(
+            configuracao.clamav_host, configuracao.clamav_port, configuracao.clamav_tempo_limite_s
+        )
+    try:
+        yield
+    finally:
+        await http.aclose()
+        await cliente_redis.aclose()
+        await motor.dispose()
+
+
+def criar_app() -> FastAPI:
+    configuracao = obter_configuracao()
+    configurar_logs(configuracao.log_nivel)
+    app = FastAPI(title="CarbonLedger", docs_url=None, redoc_url=None, lifespan=ciclo_de_vida)
+    # O ultimo adicionado e o mais externo: os cabecalhos de seguranca valem ate para erro,
+    # e o request_id envolve a leitura da sessao.
+    app.add_middleware(MiddlewareSessao)
+    app.add_middleware(MiddlewareRequestId)
+    app.add_middleware(MiddlewareCabecalhos, hsts=configuracao.em_producao)
+    registrar_tratadores(app)
+    app.mount("/static", StaticFiles(directory=PASTA_ESTATICOS), name="static")
+    app.include_router(saude.router)
+    app.include_router(autenticacao.router)
+    app.include_router(paginas.router)
+    app.include_router(ui.router)
+    app.include_router(organizacao_telas.router)
+    app.include_router(organizacao.router)
+    app.include_router(coleta_telas.router)
+    app.include_router(resultados_telas.router)
+    app.include_router(fechamento_telas.router)
+    app.include_router(verificacao_telas.router)
+    app.include_router(usuarios_telas.router)
+    app.include_router(metas_telas.router)
+    app.include_router(ia_telas.router)
+    app.include_router(integridade_telas.router)
+    app.include_router(painel_telas.router)
+    app.include_router(lgpd_telas.router)
+    app.include_router(relatorios_telas.router)
+    app.include_router(auditoria.router)
+    return app
+
+
+app = criar_app()

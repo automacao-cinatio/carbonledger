@@ -1,0 +1,9 @@
+# FICTICIO: valores inventados
+codigo;descricao;categoria;gas;biogenico;valor;unidade;vigencia_inicio;vigencia_fim;fonte;referencia
+teste_par.diesel_fossil;Diesel fossil (teste);escopo1.combustao_estacionaria;CO2;nao;2,6;kg/L;01/01/2020;;FICTICIO;
+teste_par.diesel_fossil;Diesel fossil (teste);escopo1.combustao_estacionaria;CH4;nao;0,0004;kg/L;01/01/2020;;FICTICIO;
+teste_par.biodiesel;Biodiesel (teste);escopo1.combustao_estacionaria;CO2;sim;2,4;kg/L;01/01/2020;;FICTICIO;
+teste_par.biodiesel;Biodiesel (teste);escopo1.combustao_estacionaria;CH4;nao;0,0003;kg/L;01/01/2020;;FICTICIO;
+teste_par.sin;Rede (teste);escopo2.energia_eletrica;CO2;nao;0,05;t/MWh;01/01/2025;31/01/2025;FICTICIO;
+teste_par.sin;Rede (teste);escopo2.energia_eletrica;CO2;nao;0,1;t/MWh;01/02/2025;28/02/2025;FICTICIO;
+teste_par.sin;Rede (teste);escopo2.energia_eletrica;CO2;nao;0,08;t/MWh;01/03/2025;31/12/2025;FICTICIO;

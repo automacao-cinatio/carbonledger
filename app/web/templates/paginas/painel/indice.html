@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_selecao, botao %}
+{% from "componentes/feedback.html" import alerta %}
+{% from "componentes/dados.html" import tabela, grafico %}
+{% block titulo %}Painel{% endblock %}
+{% block scripts %}<script src="{{ estatico('vendor/echarts-6.1.0/echarts.min.js') }}" defer></script>{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Painel consolidado", pretitulo=portal.tenant_nome) }}
+
+{% if grupos | length > 2 %}
+<form method="get" action="/painel" class="row align-items-end mb-3">
+  <div class="col-md-4">{{ campo_selecao("grupo", "Grupo", grupos, selecionado=grupo_atual) }}</div>
+  <div class="col-auto mb-3">{{ botao("Filtrar", "outline-primary", "filter", tipo="submit") }}</div>
+</form>
+{% endif %}
+
+<p class="text-secondary">O número de cada empresa vem do inventário mais recente: do fechamento, quando fechado; senão, do último cálculo, que é preliminar. Empresa sem cálculo aparece sem número, nunca com zero.</p>
+
+<section class="card mb-3" aria-labelledby="titulo-empresas">
+  <div class="card-header"><h2 class="card-title" id="titulo-empresas">Empresas</h2></div>
+  {% if linhas_empresas %}
+  {{ tabela("Situação e emissões de cada empresa", colunas_empresas, linhas_empresas, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Nenhuma empresa.</div>
+  {% endif %}
+</section>
+
+{% if tem_numeros %}
+<section class="card mb-3" aria-labelledby="titulo-grafico-empresas">
+  <div class="card-header"><h2 class="card-title" id="titulo-grafico-empresas">Emissões por empresa</h2></div>
+  <div class="card-body">
+    {{ grafico("grafico-empresas", "Emissões por empresa e escopo, no inventário mais recente", grafico_empresas, colunas_empresas, linhas_empresas) }}
+  </div>
+</section>
+<section class="card" aria-labelledby="titulo-anos">
+  <div class="card-header"><h2 class="card-title" id="titulo-anos">Evolução por ano</h2></div>
+  <div class="card-body">
+    {{ grafico("grafico-anos", "Emissões somadas por ano e escopo", grafico_anos, colunas_anos, linhas_anos) }}
+  </div>
+</section>
+{% else %}
+{{ alerta("info", "Sem cálculos ainda", "Os gráficos aparecem quando houver pelo menos um cálculo.") }}
+{% endif %}
+
+{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{% endblock %}

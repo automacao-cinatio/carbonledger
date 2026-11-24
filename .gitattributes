@@ -1,0 +1,8 @@
+* text=auto
+*.sh text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+# Terceiros: byte a byte como no pacote (o MANIFESTO.json fixa o hash de cada arquivo).
+app/web/static/vendor/** -text
+tests/e2e/vendor/** -text

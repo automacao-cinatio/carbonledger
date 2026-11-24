@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import link_botao %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Organização{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Organização", pretitulo=portal.tenant_nome) %}
+  {% if pode_estrutura %}
+  {{ link_botao("Novo grupo", "/organizacao/grupos/novo", "outline-primary", "plus") }}
+  {% if arvore %}{{ link_botao("Nova empresa", "/organizacao/empresas/nova", "primary", "plus") }}{% endif %}
+  {% endif %}
+{% endcall %}
+
+<p class="text-secondary">
+  Grupos reúnem empresas; cada empresa tem as suas unidades. Os dados de cada unidade definem os
+  {{ glossario("limites organizacionais", "Quais unidades e em que proporção entram no inventário, conforme a abordagem escolhida: controle operacional, controle financeiro ou participação societária.") }}
+  do inventário.
+</p>
+
+{% if not arvore %}
+{{ alerta("info", "Nenhum grupo cadastrado", "Comece criando um grupo. Se o cliente tem uma só empresa, um grupo com o nome dela basta.") }}
+{% endif %}
+
+{% for grupo in arvore %}
+<section class="card mb-3" aria-labelledby="grupo-{{ grupo.grupo_id }}">
+  <div class="card-header">
+    <h2 class="card-title" id="grupo-{{ grupo.grupo_id }}">{{ grupo.nome }}</h2>
+    {% if pode_estrutura %}
+    <div class="card-actions">{{ link_botao("Editar o grupo " ~ grupo.nome, "/organizacao/grupos/" ~ grupo.grupo_id ~ "/editar", "link", "pencil") }}</div>
+    {% endif %}
+  </div>
+  {% if grupo.linhas %}
+  {{ tabela("Empresas do grupo " ~ grupo.nome, colunas_empresas, grupo.linhas, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Nenhuma empresa neste grupo.</div>
+  {% endif %}
+</section>
+{% endfor %}
+
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}

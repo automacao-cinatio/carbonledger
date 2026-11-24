@@ -1,0 +1,5 @@
+# FICTICIO
+fonte;categoria;atividade;periodicidade;participacao_societaria;controle_operacional;controle_financeiro
+viagens;escopo3.cat06_viagens;teste_par.voo;anual;50;sim;sim
+compras;escopo3.cat01_bens_servicos;teste_par.servicos;anual;100;sim;sim
+frete;escopo3.cat04_transporte_upstream;teste_par.frete;anual;100;sim;sim

@@ -1,0 +1,4 @@
+# FICTICIO: valores inventados, so para os testes do calculo (P09)
+conjunto;gas;valor;fonte
+TESTE_CALC_100;CO2;1;FICTICIO, so para testes
+TESTE_CALC_100;CH4;28;FICTICIO, so para testes

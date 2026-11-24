@@ -1,0 +1,153 @@
+{#
+  Campos de formulario. Rotulo acima do campo, unidade ao lado do numero, validacao na hora
+  (validar_url: o servidor devolve a mensagem que diz como corrigir).
+  Componente novo entra primeiro na pagina /ui.
+#}
+
+{% macro indicador(id) -%}
+<span id="{{ id }}" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status">
+  <span class="visually-hidden">Carregando</span>
+</span>
+{%- endmacro %}
+
+{% macro mensagem_campo(nome, erro=None) -%}
+<div id="erro-{{ nome }}" class="invalid-feedback d-block" data-erro-de="campo-{{ nome }}" aria-live="polite">{{ erro or "" }}</div>
+{%- endmacro %}
+
+{% macro _descricao(nome, ajuda) -%}
+{%- if ajuda %}ajuda-{{ nome }} {% endif %}erro-{{ nome }}
+{%- endmacro %}
+
+{% macro _validacao(nome, validar_url) -%}
+{%- if validar_url %} hx-post="{{ validar_url }}" hx-trigger="input changed delay:500ms, blur" hx-target="#erro-{{ nome }}" hx-swap="outerHTML" hx-indicator="#ind-{{ nome }}"{% endif %}
+{%- endmacro %}
+
+{% macro campo_texto(nome, rotulo, valor="", tipo="text", ajuda=None, erro=None, obrigatorio=False, validar_url=None, autocomplete="off") -%}
+<div class="mb-3">
+  <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <input id="campo-{{ nome }}" name="{{ nome }}" type="{{ tipo }}" value="{{ valor }}"
+         class="form-control{{ ' is-invalid' if erro else "" }}" autocomplete="{{ autocomplete }}"
+         aria-describedby="{{ _descricao(nome, ajuda) }}"
+         {{- ' required aria-required="true"' | safe if obrigatorio else "" }}
+         {{- ' aria-invalid="true"' | safe if erro else "" }}
+         {{- _validacao(nome, validar_url) }}>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+  {{ mensagem_campo(nome, erro) }}
+  {% if validar_url %}{{ indicador("ind-" ~ nome) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro campo_numero(nome, rotulo, unidade, valor=None, casas=2, ajuda=None, erro=None, obrigatorio=False, validar_url=None) -%}
+<div class="mb-3">
+  <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <div class="input-group cl-campo-numero">
+    <input id="campo-{{ nome }}" name="{{ nome }}" type="text" inputmode="decimal"
+           value="{{ valor | numero(casas) if valor is not none else '' }}"
+           class="form-control{{ ' is-invalid' if erro else "" }}" autocomplete="off"
+           aria-describedby="unidade-{{ nome }} {{ _descricao(nome, ajuda) }}"
+           {{- ' required aria-required="true"' | safe if obrigatorio else "" }}
+           {{- ' aria-invalid="true"' | safe if erro else "" }}
+           {{- _validacao(nome, validar_url) }}>
+    <span id="unidade-{{ nome }}" class="input-group-text">{{ unidade }}</span>
+  </div>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+  {{ mensagem_campo(nome, erro) }}
+  {% if validar_url %}{{ indicador("ind-" ~ nome) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro campo_selecao(nome, rotulo, opcoes, selecionado=None, ajuda=None, erro=None, obrigatorio=False, vazio=None) -%}
+<div class="mb-3">
+  <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <select id="campo-{{ nome }}" name="{{ nome }}" class="form-select{{ ' is-invalid' if erro else "" }}"
+          aria-describedby="{{ _descricao(nome, ajuda) }}"
+          {{- ' required aria-required="true"' | safe if obrigatorio else "" }}>
+    {% if vazio %}<option value="">{{ vazio }}</option>{% endif %}
+    {% for valor, texto in opcoes %}
+    <option value="{{ valor }}"{{ ' selected' if valor == selecionado else "" }}>{{ texto }}</option>
+    {% endfor %}
+  </select>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+  {{ mensagem_campo(nome, erro) }}
+</div>
+{%- endmacro %}
+
+{# Caixa de marcacao: envia "sim" quando marcada (e nada quando nao). #}
+{% macro campo_marcacao(nome, rotulo, marcado=False, ajuda=None) -%}
+<div class="mb-3">
+  <label class="form-check">
+    <input id="campo-{{ nome }}" name="{{ nome }}" type="checkbox" value="sim" class="form-check-input"
+           {{- ' checked' if marcado else "" }}{{ (' aria-describedby="ajuda-' ~ nome ~ '"') | safe if ajuda else "" }}>
+    <span class="form-check-label">{{ rotulo }}</span>
+  </label>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Varias opcoes marcaveis com o mesmo nome (o servidor le a lista). #}
+{% macro campo_opcoes(nome, rotulo, opcoes, selecionados=[], ajuda=None) -%}
+<fieldset class="mb-3" aria-describedby="{{ _descricao(nome, ajuda) }}">
+  <legend class="form-label">{{ rotulo }}</legend>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint mt-0 mb-2">{{ ajuda }}</div>{% endif %}
+  {% for valor, texto in opcoes %}
+  <label class="form-check">
+    <input id="campo-{{ nome }}-{{ loop.index }}" name="{{ nome }}" type="checkbox" value="{{ valor }}" class="form-check-input"
+           {{- ' checked' if valor in selecionados else "" }}>
+    <span class="form-check-label">{{ texto }}</span>
+  </label>
+  {% endfor %}
+  {{ mensagem_campo(nome) }}
+</fieldset>
+{%- endmacro %}
+
+{# Navegacao com cara de botao (link de verdade: abre em nova aba, tem endereco). #}
+{% macro link_botao(rotulo, url, variante="primary", icone=None) -%}
+<a href="{{ url }}" class="btn btn-{{ variante }}">
+  {% if icone %}<i class="ti ti-{{ icone }} me-1" aria-hidden="true"></i>{% endif %}{{ rotulo }}
+</a>
+{%- endmacro %}
+
+{#
+  botao: atributos recebe os hx-* (escapados pelo xmlattr). Acao HTMX sempre com indicador.
+#}
+{% macro botao(rotulo, variante="primary", icone=None, tipo="button", atributos={}, indicador_id=None) -%}
+<button type="{{ tipo }}" class="btn btn-{{ variante }}"{{ atributos | xmlattr }}
+        {%- if indicador_id %} hx-indicator="#{{ indicador_id }}"{% endif %}>
+  {% if icone %}<i class="ti ti-{{ icone }} me-1" aria-hidden="true"></i>{% endif %}{{ rotulo }}
+  {% if indicador_id %}{{ indicador(indicador_id) }}{% endif %}
+</button>
+{%- endmacro %}
+
+{#
+  Arquivo: aceitar lista as extensoes (so ajuda o seletor; o servidor confere o conteudo).
+  O formulario que o contem precisa de multipart=True.
+#}
+{% macro campo_arquivo(nome, rotulo, aceitar, ajuda=None, erro=None, obrigatorio=False) -%}
+<div class="mb-3">
+  <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <input id="campo-{{ nome }}" name="{{ nome }}" type="file" accept="{{ aceitar }}"
+         class="form-control{{ ' is-invalid' if erro else "" }}"
+         aria-describedby="{{ _descricao(nome, ajuda) }}"
+         {{- ' required aria-required="true"' | safe if obrigatorio else "" }}
+         {{- ' aria-invalid="true"' | safe if erro else "" }}>
+  {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
+  {{ mensagem_campo(nome, erro) }}
+</div>
+{%- endmacro %}
+
+{#
+  formulario: envio por HTMX com indicador. rascunho guarda o que foi digitado no navegador
+  ate o envio dar certo (nada digitado se perde). multipart: para enviar arquivo (sem
+  rascunho: o navegador nao guarda arquivo). variante: cor do botao de envio.
+#}
+{% macro formulario(id, acao, rotulo_envio, rascunho=None, multipart=False, variante="primary") -%}
+<form id="{{ id }}" hx-post="{{ acao }}" hx-indicator="#ind-{{ id }}" hx-swap="none" novalidate
+      {%- if multipart %} hx-encoding="multipart/form-data"{% endif %}
+      {%- if rascunho and not multipart %} data-rascunho="{{ rascunho }}"{% endif %}>
+  {{ caller() }}
+  <div class="d-flex align-items-center">
+    <button type="submit" class="btn btn-{{ variante }}">{{ rotulo_envio }}</button>
+    {{ indicador("ind-" ~ id) }}
+  </div>
+</form>
+{%- endmacro %}

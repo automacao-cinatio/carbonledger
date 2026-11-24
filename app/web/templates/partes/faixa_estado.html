@@ -1,0 +1,9 @@
+{% from "componentes/layout.html" import estado_inventario %}
+{# Estado do inventario e progresso de coleta e de evidencia: sempre visiveis. #}
+<section class="cl-faixa-estado d-print-none" aria-label="Estado do inventário">
+  <div class="container-xl py-2">
+    <div class="row align-items-center g-3">
+      {{ estado_inventario(portal.inventario) }}
+    </div>
+  </div>
+</section>

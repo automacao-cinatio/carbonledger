@@ -1,0 +1,6 @@
+# FICTICIO: valores inventados, so para testes
+combustivel;componente;percentual;vigencia_inicio;vigencia_fim;fonte
+teste.diesel_comercial;teste.diesel_fossil;90;01/01/2020;31/12/2025;FICTICIO, so para testes
+teste.diesel_comercial;teste.biodiesel;10;01/01/2020;31/12/2025;FICTICIO, so para testes
+teste.diesel_comercial;teste.diesel_fossil;85;01/01/2026;;FICTICIO, so para testes
+teste.diesel_comercial;teste.biodiesel;15;01/01/2026;;FICTICIO, so para testes

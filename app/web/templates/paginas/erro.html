@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import proximo_passo %}
+{% block titulo %}{{ titulo }}{% endblock %}
+{% block conteudo %}
+<div class="empty">
+  <p class="empty-title h1">{{ titulo }}</p>
+  <p class="empty-subtitle text-secondary">{{ mensagem }}</p>
+</div>
+{{ proximo_passo("Volte para o início e siga pelo menu.", "/", "Ir para o início") }}
+{% endblock %}

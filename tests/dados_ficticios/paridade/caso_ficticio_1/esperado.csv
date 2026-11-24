@@ -1,0 +1,8 @@
+# FICTICIO: totais feitos a mao (ver tests/parity/test_paridade.py)
+indicador;valor
+escopo1_tco2e;2,22078
+escopo2_tco2e;25
+biogenico_tco2;0,36
+gas:CO2;27,21
+gas:CH4;0,01078
+categoria:escopo2.energia_eletrica;25

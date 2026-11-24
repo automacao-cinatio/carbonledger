@@ -1,0 +1,5 @@
+# FICTICIO: valores inventados, so para testes
+conjunto;gas;valor;fonte
+TESTE_100;CO2;1;FICTICIO, so para testes
+TESTE_100;CH4;11,5;FICTICIO, so para testes
+TESTE_100;N2O;222;FICTICIO, so para testes

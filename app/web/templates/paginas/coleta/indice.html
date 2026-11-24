@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
+{% from "componentes/formulario.html" import campo_texto, campo_selecao, formulario %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Coleta{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Coleta de dados", pretitulo=empresa.nome if empresa else None) }}
+
+{% if empresa is none %}
+{{ alerta("info", "Nenhuma empresa cadastrada", "A coleta é feita por empresa. Cadastre a empresa e as unidades na Organização.") }}
+{% else %}
+<section class="card mb-3" aria-labelledby="titulo-inventarios">
+  <div class="card-header"><h2 class="card-title" id="titulo-inventarios">Inventários de {{ empresa.nome }}</h2></div>
+  {% if linhas %}
+  {{ tabela("Inventários de " ~ empresa.nome, colunas, linhas, "visually-hidden") }}
+  {% else %}
+  <div class="card-body text-secondary">Esta empresa ainda não tem inventário.</div>
+  {% endif %}
+</section>
+
+{% if pode_abrir %}
+<section class="card" aria-labelledby="titulo-abrir">
+  <div class="card-header"><h2 class="card-title" id="titulo-abrir">Abrir inventário</h2></div>
+  <div class="card-body">
+    <p class="text-secondary">
+      O inventário reúne as emissões de um ano. A
+      {{ glossario("abordagem de consolidação", "Regra que define quanto de cada unidade entra no inventário: por controle operacional, por controle financeiro ou pela participação societária.") }}
+      vale para todas as unidades e usa os dados cadastrados na Organização.
+    </p>
+    {% call formulario("form-inventario", "/coleta/empresas/" ~ empresa.empresa_id ~ "/inventarios", "Abrir inventário", rascunho="inventario-" ~ empresa.empresa_id) %}
+    <div class="row">
+      <div class="col-md-3">
+        {{ campo_texto("ano", "Ano do inventário", valor=valores.ano, obrigatorio=True, validar_url="/coleta/validar/ano", ajuda="Em geral, o ano que acabou.") }}
+      </div>
+      <div class="col-md-5">
+        {{ campo_selecao("abordagem", "Abordagem de consolidação", abordagens, selecionado=valores.abordagem, obrigatorio=True, ajuda="Vale para o inventário inteiro. Escolha conforme a política de relato da empresa.") }}
+      </div>
+    </div>
+    {% endcall %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
+
+{{ proximo_passo(proximo.texto, proximo.url, proximo.rotulo) }}
+{% endblock %}
