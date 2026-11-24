@@ -20,14 +20,14 @@
 - [x] P16 IA
 - [x] P17 Escopo 3 (com dados fictícios)
 - [x] P18 Metas
-- [ ] P19 PDF assinado
+- [x] P19 PDF assinado (PAdES B-B; sem carimbo do tempo nem cadeia ICP-Brasil validada)
 - [x] P20 Integridade
 - [x] P21 Campanhas
 - [ ] P22 Cobrança
 - [x] P23 LGPD
 - [x] P24 Painel
 - [ ] P25 Infra AWS
-- [ ] P26 CI/CD
+- [ ] P26 CI/CD (parcial: CI endurecido e imagem testada; deploy depende do P25)
 - [ ] P27 Backup e go-live
 
 ## P01 Esqueleto (concluído em 2026-11-20)
@@ -258,3 +258,22 @@
 - Runbook docs/runbooks/lgpd.md.
 - Testes: roteiro LGPD no portal (tela, JSON, confirmação, pedido único, anonimização, segunda execução recusada, app_user sem acesso à tabela, trilha sem e-mail, login de volta sem acesso), IA ligada e desligada no roteiro da IA, registro da tabela e das funções na cobertura, axe-core em /meus-dados.
 - Verificação: ruff, mypy, 867 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes. Antes, o uv e o Python 3.12 foram reinstalados e a .venv recriada.
+
+## P19 PDF assinado (concluído em 2026-11-24)
+
+- Migração 0016: certificado_assinatura (certificado A1 por empresa, chave guardada só cifrada e sem senha, um ativo por empresa, só desativa: privilégio por coluna e trigger) e relatorio_inventario (só inserção, com versão e hash do fechamento, SHA-256 do PDF e objeto no S3). RLS de tenant e empresa; o verificador não vê.
+- app/modules/relatorios/certificados.py: abre o .pfx com a senha e confere chave, tipo, validade, uso para assinar e CNPJ ICP-Brasil igual ao da empresa (sem CNPJ, só fora de produção); antivírus; cifra envelope; desativar apaga a chave.
+- app/modules/relatorios/relatorio.py: dados do fechamento atual (sem recalcular), HTML com o tema embutido, PDF no Chromium sem JavaScript e sem rede, assinatura PAdES B-B (SHA-256) com pyHanko, S3 com Object Lock, trilha relatorio.gerado.
+- Tela Relatórios (menu, entre Verificação e Metas): certificado da empresa (enviar, trocar, desativar com confirmação), gerar o relatório do inventário fechado e baixar, com a marca do fechamento que cada PDF retrata.
+- Topo: menu vira botão abaixo de 1200 px e fica compacto até 1599 px (o nono item empurrava o usuário para fora da tela).
+- Dockerfile instala o Chromium do Playwright. Runbook docs/runbooks/relatorio-assinado.md.
+- Testes: leitura do certificado (CNPJ, curva elíptica, senha errada, outro CNPJ, sem CNPJ em produção, vencido, ainda não válido, sem uso para assinar, sem chave, vazio, grande), assinatura validada pelo pyHanko e adulteração detectada, HTML e PDF do relatório; roteiro no portal (recusas, envio, geração, download com assinatura válida e SHA-256 conferido, outro cliente recebe 404, desativação que apaga a chave, trilha); certificado só desativa no banco; tabelas na cobertura de RLS e na suíte de vazamento; axe-core em /relatorios; modelo de PDF só com o tema embutido.
+- Verificação: ruff, mypy, 912 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório; nada fora da .venv) e caracteres verdes.
+
+## Depois do P19: verificador e CI (2026-11-24)
+
+- Migração 0017: o verificador vê os relatórios assinados do inventário da concessão e, do certificado, só as colunas públicas (sem a chave cifrada). Painel do verificador com a lista e o download.
+- CI (.github/workflows/check.yml): cancela rodada velha do mesmo PR, limite de tempo, uv sync --frozen, histórico completo para o gitleaks, cache do Chromium e um job que monta a imagem de produção e gera um PDF dentro dela.
+- Dockerfile: libatomic1 (o Playwright não instalava na imagem slim), só o Chromium headless e sem chown da .venv: código e dependências do root, só leitura para o usuário do app. Imagem de 3,42 GB para 2,2 GB, PDF conferido dentro dela.
+- Testes: roteiro do relatório com o verificador (vê, baixa o mesmo arquivo, não abre a rota do cliente), vazamento com leitura por coluna e recusa da chave cifrada, cobertura de privilégio por coluna.
+- Verificação: ruff, mypy, 913 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes; imagem montada e PDF gerado dentro dela.

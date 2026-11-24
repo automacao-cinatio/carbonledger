@@ -36,6 +36,7 @@ from app.modules.coleta import servico as coleta
 from app.modules.coleta.categorias import periodos, rotulo, rotulo_periodo
 from app.modules.fechamento import servico as fechamento
 from app.modules.organizacao import estrutura
+from app.modules.relatorios import relatorio
 from app.modules.verificacao import servico as verificacao
 from app.web.portal import montar_portal, renderizar
 
@@ -187,7 +188,22 @@ async def abrir(
 @router.get("/painel", response_class=HTMLResponse)
 async def painel(request: Request, sessao: SessaoTenant, atual: Verificador) -> HTMLResponse:
     inventario = await coleta.obter_inventario(sessao, atual.inventario_id)
-    situacao = await fechamento.situacao(await conexao_asyncpg(sessao), atual.inventario_id)
+    conexao = await conexao_asyncpg(sessao)
+    situacao = await fechamento.situacao(conexao, atual.inventario_id)
+    hash_atual = situacao.fechamento_atual.hash_fechamento if situacao.fechamento_atual else None
+    relatorios = [
+        {
+            "gerado_em": _hora(r.gerado_em),
+            "url": f"/verificacao/relatorios/{r.relatorio_id}/arquivo.pdf",
+            "versao": r.versao_fechamento,
+            "assinante": r.titular,
+            "hash": r.sha256.hex(),
+            "situacao": ("Fechamento atual", "success")
+            if r.hash_fechamento == hash_atual
+            else ("Fechamento anterior", "secondary"),
+        }
+        for r in await relatorio.listar(conexao, atual.inventario_id)
+    ]
     calculo_final = situacao.fechamento_atual.calculo_id if situacao.fechamento_atual else None
     calculo = None
     if calculo_final is not None:
@@ -231,6 +247,7 @@ async def painel(request: Request, sessao: SessaoTenant, atual: Verificador) -> 
         conhecido_em=_hora(calculo.conhecido_em) if calculo else None,
         fontes=fontes,
         excluidas=excluidas,
+        relatorios=relatorios,
     )
 
 
@@ -308,6 +325,24 @@ async def baixar_evidencia(
         media_type=evidencia.tipo_conteudo,
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(evidencia.nome_arquivo)}",
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+@router.get("/relatorios/{relatorio_id}/arquivo.pdf")
+async def baixar_relatorio(
+    request: Request, relatorio_id: UUID, sessao: SessaoTenant, _atual: Verificador
+) -> Response:
+    dados, ano, conteudo = await relatorio.ler(
+        await conexao_asyncpg(sessao), relatorio_id, request.app.state.armazem
+    )
+    nome = f"inventario-{ano}-fechamento-v{dados.versao_fechamento}.pdf"
+    return Response(
+        content=conteudo,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(nome)}",
             "Cache-Control": "private, no-store",
         },
     )

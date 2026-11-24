@@ -30,6 +30,8 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "integridade_verificacao": False,
     "campanha": True,
     "campanha_envio": True,
+    "certificado_assinatura": True,
+    "relatorio_inventario": True,
 }
 
 # O que o verificador ve com uma concessao valida (migracao 0010). Fora daqui, nada.
@@ -50,8 +52,18 @@ VISIVEIS_AO_VERIFICADOR = frozenset(
         "calculo_linha",
         "calculo_pendencia",
         "concessao_verificacao",
+        # Migracao 0017: o relatorio assinado do inventario e o certificado que o assinou.
+        "relatorio_inventario",
+        "certificado_assinatura",
     }
 )
+
+# Tabelas em que o verificador so le algumas colunas (privilegio por coluna).
+COLUNAS_DO_VERIFICADOR: dict[str, str] = {
+    "certificado_assinatura": "tenant_id, certificado_id, empresa_id, titular, cnpj, emissor,"
+    " numero_serie, valido_de, valido_ate, impressao_sha256, enviado_por, enviado_em,"
+    " desativado_em, desativado_por",
+}
 
 # Dado de cliente so de insercao (trigger somente_insercao): o app_user so le e insere.
 TABELAS_SO_INSERCAO = (
@@ -65,6 +77,7 @@ TABELAS_SO_INSERCAO = (
     "inventario_evento",
     "integridade_verificacao",
     "campanha_envio",
+    "relatorio_inventario",
 )
 
 # Tabelas sem tenant_id, de proposito. Cada entrada precisa de justificativa.

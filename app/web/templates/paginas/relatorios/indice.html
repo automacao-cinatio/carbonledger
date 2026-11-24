@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/formulario.html" import campo_texto, campo_arquivo, formulario, botao %}
+{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Relatórios{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Relatórios" ~ (" do inventário " ~ inventario.ano if inventario else ""), pretitulo=empresa.nome if empresa else None) %}
+  {% if pode_gerar %}
+  {{ botao("Gerar relatório assinado", "primary", "file-certificate", atributos={"hx-post": "/relatorios/inventarios/" ~ inventario.inventario_id ~ "/gerar", "hx-swap": "none"}, indicador_id="ind-gerar") }}
+  {% endif %}
+{% endcall %}
+
+{% if empresa is none %}
+{{ alerta("info", "Sem empresa", "Os relatórios aparecem depois que a empresa é cadastrada.") }}
+{% else %}
+
+<section class="card mb-3" aria-labelledby="titulo-relatorios">
+  <div class="card-header"><h2 class="card-title" id="titulo-relatorios">Relatório do inventário em PDF</h2></div>
+  <div class="card-body">
+    <p>O relatório retrata o inventário fechado: emissões por escopo, categoria e gás, as unidades incluídas e os hashes que permitem conferir os números. A empresa assina com o próprio {{ glossario("certificado A1", "Certificado digital em arquivo (.pfx ou .p12), como o e-CNPJ ICP-Brasil da empresa.") }}. A assinatura mostra quem emitiu e que o arquivo não mudou; ela não certifica as emissões, o que cabe ao verificador.</p>
+    {% if inventario is none or fechamento_atual is none %}
+    {{ alerta("info", "Inventário ainda não fechado", "O relatório só sai de inventário fechado.") }}
+    {% elif not chaves_configuradas %}
+    {{ alerta("warning", "Assinatura indisponível", "As chaves de cifra do servidor não estão configuradas. Avise a equipe da plataforma.") }}
+    {% elif certificado is none %}
+    {{ alerta("warning", "Falta o certificado", "Para gerar o relatório, o administrador precisa enviar o certificado A1 da empresa, logo abaixo.") }}
+    {% elif situacao_certificado[0] == "Vencido" %}
+    {{ alerta("danger", "Certificado vencido", "Envie um certificado válido para gerar o relatório.") }}
+    {% elif not pode_gerar %}
+    {{ alerta("info", "Pronto para gerar", "Peça ao administrador ou ao gestor que gere o relatório assinado.") }}
+    {% endif %}
+  </div>
+  {% if relatorios %}
+  {{ tabela("Relatórios gerados", colunas_relatorios, relatorios, "visually-hidden") }}
+  {% endif %}
+</section>
+
+<section class="card mb-3" aria-labelledby="titulo-certificado">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-certificado">Certificado da empresa</h2>
+    {% if situacao_certificado %}<div class="card-actions">{{ etiqueta(situacao_certificado[0], situacao_certificado[1]) }}</div>{% endif %}
+  </div>
+  <div class="card-body">
+    {% if certificado %}
+    {{ ficha(certificado_ficha) }}
+    {% else %}
+    <p>Nenhum certificado ativo para {{ empresa.nome }}.</p>
+    {% endif %}
+    {% if pode_certificado and chaves_configuradas %}
+    <h3 class="mt-4">{{ "Trocar o certificado" if certificado else "Enviar o certificado" }}</h3>
+    <p class="text-secondary">O arquivo é aberto com a senha, conferido e guardado cifrado, já sem a senha: a senha não fica na plataforma. O CNPJ do certificado precisa ser o da empresa.{% if certificado %} O certificado atual será desativado e a chave dele, apagada.{% endif %}</p>
+    {% call formulario("form-certificado", "/relatorios/empresas/" ~ empresa.empresa_id ~ "/certificado", "Enviar o certificado", multipart=True) %}
+    {{ campo_arquivo("arquivo", "Arquivo do certificado", ".pfx,.p12", ajuda="Certificado A1 em .pfx ou .p12, exportado com a chave privada. Até 64 KB.", obrigatorio=True) }}
+    {{ campo_texto("senha", "Senha do certificado", tipo="password", ajuda="A senha usada ao exportar o arquivo. Ela só serve para abrir o arquivo agora.", obrigatorio=True) }}
+    {% endcall %}
+    {% if certificado %}
+    <div class="mt-3">
+    {{ confirmacao_irreversivel(
+         "modal-desativar-certificado",
+         "Desativar o certificado",
+         "Desativar o certificado de " ~ empresa.nome,
+         [
+           "A chave privada guardada é apagada; nenhum relatório novo sai com este certificado.",
+           "Os relatórios já assinados continuam válidos e disponíveis.",
+           "Para assinar de novo, será preciso enviar um certificado.",
+         ],
+         "/relatorios/certificados/" ~ certificado.certificado_id ~ "/desativar",
+         "Desativar") }}
+    </div>
+    {% endif %}
+    {% elif not certificado %}
+    <p class="text-secondary mb-0">Só o administrador envia o certificado.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{% endblock %}

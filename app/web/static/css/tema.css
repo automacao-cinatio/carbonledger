@@ -212,3 +212,83 @@ body {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Relatorio do inventario em PDF (app/web/templates/relatorios/inventario_pdf.html).
+   O tema inteiro e embutido no HTML do PDF; estas regras so valem dentro de .cl-relatorio. */
+.cl-relatorio {
+  font-family: var(--cl-fonte);
+  color: var(--cl-texto);
+  background: var(--cl-branco);
+  font-size: 10.5pt;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.cl-relatorio h1 {
+  color: var(--cl-marinho-900);
+  font-size: 18pt;
+  margin: 0 0 2mm;
+}
+
+.cl-relatorio h2 {
+  color: var(--cl-indigo-700);
+  font-size: 12.5pt;
+  margin: 7mm 0 2mm;
+  padding-bottom: 1mm;
+  border-bottom: 1px solid var(--cl-borda-suave);
+}
+
+.cl-relatorio .cl-relatorio-subtitulo {
+  color: var(--cl-texto-suave);
+  margin: 0 0 5mm;
+}
+
+.cl-relatorio table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 2mm 0;
+  page-break-inside: avoid;
+}
+
+.cl-relatorio th,
+.cl-relatorio td {
+  border-bottom: 1px solid var(--cl-borda-suave);
+  padding: 1.5mm 2mm;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cl-relatorio th {
+  background: var(--cl-marinho-100);
+  color: var(--cl-marinho-900);
+}
+
+.cl-relatorio .cl-numero {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cl-relatorio .cl-relatorio-aviso {
+  border-left: 3px solid var(--cl-indigo-700);
+  background: var(--cl-indigo-50);
+  padding: 2mm 3mm;
+  margin: 4mm 0;
+}
+
+.cl-relatorio .cl-hash {
+  font-size: 8.5pt;
+}
+
+/* Menu do topo: abaixo de 1200 px vira o botao de abrir (navbar-expand-xl). Entre 1200 e
+   1599 px, os itens perdem o icone e ficam mais juntos, para o nome do usuario e o seletor de
+   empresa continuarem visiveis. */
+@media (min-width: 1200px) and (max-width: 1599.98px) {
+  .cl-topo #cl-menu .nav-link {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .cl-topo #cl-menu .nav-link .ti {
+    display: none;
+  }
+}

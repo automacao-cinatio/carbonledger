@@ -23,6 +23,10 @@ NOSSOS_ESTATICOS = [
     p for p in PASTA_ESTATICOS.rglob("*") if p.is_file() and "vendor" not in p.parts
 ]
 TEMPLATES = list(PASTA_TEMPLATES.rglob("*.html"))
+# Modelos de PDF (relatorios/): nunca servidos ao navegador. O Chromium os abre sem
+# JavaScript e sem rede, com o tema embutido num bloco de estilo; a CSP nao se aplica.
+TEMPLATES_PDF = [p for p in TEMPLATES if "relatorios" in p.relative_to(PASTA_TEMPLATES).parts[:1]]
+TEMPLATES_SERVIDOS = [p for p in TEMPLATES if p not in TEMPLATES_PDF]
 
 
 @pytest.fixture(scope="module")
@@ -96,7 +100,7 @@ def test_toda_macro_aparece_na_pagina_ui() -> None:
     assert not faltando, f"componente novo entra primeiro em /ui: {faltando}"
 
 
-@pytest.mark.parametrize("arquivo", TEMPLATES, ids=lambda p: p.name)
+@pytest.mark.parametrize("arquivo", TEMPLATES_SERVIDOS, ids=lambda p: p.name)
 def test_template_sem_inline_que_a_csp_bloqueia(arquivo: Path) -> None:
     texto = arquivo.read_text(encoding="utf-8")
     assert not re.search(r"\sstyle\s*=", texto), "estilo inline"
@@ -112,6 +116,14 @@ def test_nada_de_dominio_externo(arquivo: Path) -> None:
     assert not re.search(r"(src|href)\s*=\s*[\"']?(https?:)?//", texto)
     assert not re.search(r"url\(\s*[\"']?(https?:)?//", texto)
     assert not re.search(r"@import", texto)
+
+
+def test_modelo_de_pdf_so_embute_o_tema() -> None:
+    assert TEMPLATES_PDF, "esperado ao menos o modelo do relatorio"
+    for arquivo in TEMPLATES_PDF:
+        texto = arquivo.read_text(encoding="utf-8")
+        assert re.findall(r"<style[^>]*>(.*?)</style>", texto, re.S) == ["{{ tema | safe }}"]
+        assert not re.search(r"<script|\sstyle\s*=|\son[a-z]+\s*=", texto)
 
 
 def test_cor_e_fonte_so_no_tema() -> None:

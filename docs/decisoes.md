@@ -246,3 +246,26 @@
 - lgpd_pedido é global (a pessoa está acima dos clientes), com RLS e FORCE sem política: só as funções do app_identidade leem e gravam.
 - Dados pessoais dentro de evidências e lançamentos são do cliente (controlador); a plataforma não mexe neles por pedido do titular.
 - Retenção das evidências (1825 dias) segue provisória: o Object Lock prevalece sobre o pedido de exclusão até a confirmação do prazo real.
+
+## 2026-11-24: relatório assinado (P19)
+
+- Cada cliente assina com o próprio certificado A1 (decisão do usuário), por empresa: o e-CNPJ é da empresa, e um cliente pode ter várias. Um certificado ativo por empresa; só o administrador envia, troca ou desativa.
+- O .pfx é aberto com a senha só na hora do envio e guardado cifrado, já sem senha (cifra envelope de app/core/keys.py, contexto com tenant, empresa, certificado e finalidade). A senha não é guardada em lugar nenhum.
+- Conferências do certificado: senha, chave privada que combina com o certificado, RSA ou curva elíptica, validade, uso de chave que permite assinar e CNPJ ICP-Brasil (OID 2.16.76.1.3.3) igual ao da empresa. Certificado sem CNPJ é aceito só fora de produção (para testes com certificado autoassinado); em produção, só e-CNPJ.
+- Desativar apaga a chave cifrada (a linha fica, com os dados públicos, porque os relatórios antigos apontam para ela). Trocar o certificado desativa o anterior. O banco só deixa o app desativar (privilégio por coluna e trigger), nunca alterar ou apagar.
+- O relatório retrata um fechamento: versão, hash do fechamento e os números do cálculo daquele fechamento. Nada é recalculado. Fica só por inserção (relatorio_inventario), com o SHA-256 do PDF e o objeto no S3 com Object Lock; pode haver vários por fechamento (por exemplo, depois de trocar o certificado), e a tela marca qual retrata o fechamento atual.
+- O texto do relatório diz que a plataforma calcula e organiza, não certifica, e que a assinatura atesta autoria e integridade do documento, não as emissões.
+- PDF pelo Chromium do Playwright, sem JavaScript e sem rede (todas as requisições abortadas); o tema.css vai embutido no HTML, com regras próprias de .cl-relatorio. A imagem Docker passa a instalar o Chromium.
+- Assinatura PAdES B-B (SHA-256, subfilter ETSI.CAdES.detached) com pyHanko, num campo novo, por atualização incremental. Sem carimbo do tempo nem dados de revogação: PAdES B-T/LTA depende de escolher uma TSA (ICP-Brasil ou outra), e a validação da cadeia precisa das raízes ICP-Brasil em data/. Pendente de decisão.
+- Geração na própria requisição (como a verificação de integridade pedida na tela): leva alguns segundos. Se ficar lento com inventários grandes, vai para o worker.
+- O verificador ainda não vê os relatórios (política restritiva). Dar acesso a ele pelo painel da concessão é o passo seguinte natural.
+- Sem chaves configuradas (PROVEDOR_CHAVES diferente de local até o KMS do P25, ou CHAVES_LOCAIS vazio), a tela avisa e não aceita certificado nem gera relatório.
+- Com "Relatórios" ligado, o menu passou a ter 9 itens e empurrou o nome do usuário e o seletor de empresa para fora da tela em 1280 px (o axe-core acusou contraste no texto cortado). O topo agora vira botão de menu abaixo de 1200 px (navbar-expand-xl) e, entre 1200 e 1599 px, os itens do menu ficam sem ícone e mais juntos. Conferido por captura em 1100, 1200, 1280, 1440 e 600 px.
+- O verificador vê e baixa o relatório assinado do inventário da concessão, no painel dele (migração 0017). Do certificado, vê só as colunas públicas do que assinou esses relatórios: a coluna chave_cifrada sai do SELECT dele por privilégio de coluna, e a suíte de vazamento confere a recusa.
+
+## 2026-11-24: CI e imagem (P26, parte sem conta externa)
+
+- O CI segue em GitHub Actions com make check. Entram: cancelamento de rodada antiga, limite de tempo, dependências exatas do uv.lock, histórico completo para o gitleaks (antes só via o último commit) e cache do Chromium.
+- Job novo "imagem": monta a imagem de produção e gera um PDF dentro dela, com o usuário do app. Nada é publicado: registro de imagem e deploy dependem da conta AWS (P25).
+- Imagem: código e dependências pertencem ao root e o usuário do app só lê; o que precisa escrever vai para /tmp (agenda do beat, perfil do Chromium). Só o Chromium headless (--only-shell), que basta para PDF.
+- Fora por enquanto: Dependabot (abre PRs sozinho; decidir com o usuário) e ações fixadas por hash.

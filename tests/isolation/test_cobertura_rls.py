@@ -8,7 +8,7 @@ import asyncpg
 import pytest
 
 from tests.isolation.conftest import Banco, Dados, migrar
-from tests.isolation.tabelas import TABELAS_COM_TENANT, TABELAS_GLOBAIS
+from tests.isolation.tabelas import COLUNAS_DO_VERIFICADOR, TABELAS_COM_TENANT, TABELAS_GLOBAIS
 
 pytestmark = pytest.mark.integration
 
@@ -170,8 +170,9 @@ async def test_verificador_tem_politica_restritiva_propria(
 
 @pytest.mark.parametrize("tabela", sorted(TABELAS_COM_TENANT))
 async def test_verificador_so_le(conexao_admin: asyncpg.Connection, tabela: str) -> None:
+    por_coluna = tabela in COLUNAS_DO_VERIFICADOR
     for privilegio, esperado in (
-        ("SELECT", True),
+        ("SELECT", not por_coluna),
         ("INSERT", False),
         ("UPDATE", False),
         ("DELETE", False),
@@ -181,6 +182,23 @@ async def test_verificador_so_le(conexao_admin: asyncpg.Connection, tabela: str)
             "SELECT has_table_privilege('app_verificador', $1::regclass, $2)", tabela, privilegio
         )
         assert tem is esperado, f"app_verificador {privilegio} em {tabela}"
+    if por_coluna:
+        # So as colunas publicas, e nada de escrita em coluna nenhuma.
+        legiveis = {
+            linha["attname"]
+            for linha in await conexao_admin.fetch(
+                "SELECT attname FROM pg_attribute WHERE attrelid = $1::regclass AND attnum > 0"
+                " AND NOT attisdropped"
+                " AND has_column_privilege('app_verificador', attrelid, attnum, 'SELECT')",
+                tabela,
+            )
+        }
+        esperadas = {c.strip() for c in COLUNAS_DO_VERIFICADOR[tabela].split(",")}
+        assert legiveis == esperadas, tabela
+        assert not await conexao_admin.fetchval(
+            "SELECT has_any_column_privilege('app_verificador', $1::regclass, 'INSERT, UPDATE')",
+            tabela,
+        )
 
 
 # Tenant e empresa nunca somem (nada some); tabelas futuras decidem os proprios privilegios.

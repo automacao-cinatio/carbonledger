@@ -14,7 +14,7 @@ import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -129,3 +129,15 @@ def obter_provedor(provedor: str, chaves_locais: str | None) -> ProvedorChaves:
             raise ErroChave("defina CHAVES_LOCAIS para o provedor local")
         return ProvedorChavesLocal.da_configuracao(chaves_locais)
     raise ErroChave(f"provedor de chaves {provedor!r} ainda nao existe (o KMS entra no P25)")
+
+
+def provedor_da_configuracao(configuracao: Any) -> ProvedorChaves | None:
+    """Provedor do app, ou None se as chaves nao estao configuradas (sem cifra, sem assinatura).
+
+    Chave configurada errada nao vira None: o app nao sobe, para o erro aparecer cedo.
+    """
+    locais = configuracao.chaves_locais
+    # O KMS entra no P25: ate la, fora do provedor local, nada de cifra (nem de assinatura).
+    if configuracao.provedor_chaves != "local" or locais is None:
+        return None
+    return obter_provedor("local", locais.get_secret_value())

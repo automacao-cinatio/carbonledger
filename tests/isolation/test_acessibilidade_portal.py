@@ -225,6 +225,7 @@ TELAS = [
     "/resultados/calculos/{calculo}",
     "/fechamento",
     "/verificacao",
+    "/relatorios",
     "/usuarios",
     "/metas",
     "/metas/{meta}",

@@ -44,6 +44,21 @@
 </section>
 {% endif %}
 
+<section class="card mb-3" aria-labelledby="titulo-relatorio">
+  <div class="card-header"><h2 class="card-title" id="titulo-relatorio">Relatório assinado pela empresa</h2></div>
+  {% if relatorios %}
+  {{ tabela("Relatórios assinados deste inventário", [
+       {"chave": "gerado_em", "titulo": "Gerado em", "link": "url"},
+       {"chave": "versao", "titulo": "Fechamento", "unidade": "versão", "casas": 0},
+       {"chave": "assinante", "titulo": "Assinado por"},
+       {"chave": "situacao", "titulo": "Retrata", "etiqueta": True},
+       {"chave": "hash", "titulo": "SHA-256 do arquivo"},
+     ], relatorios, "visually-hidden") }}
+  {% else %}
+  <div class="card-body"><p class="mb-0">A empresa ainda não gerou o relatório assinado deste inventário.</p></div>
+  {% endif %}
+</section>
+
 <section class="card mb-3" aria-labelledby="titulo-fontes">
   <div class="card-header"><h2 class="card-title" id="titulo-fontes">Fontes de emissão</h2></div>
   {% if fontes %}

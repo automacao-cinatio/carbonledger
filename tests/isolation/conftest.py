@@ -245,6 +245,30 @@ async def _semear_coleta(conexao: asyncpg.Connection) -> None:
             campanha,
             empresa,
         )
+        certificado = uuid4()
+        await conexao.execute(
+            "INSERT INTO certificado_assinatura (tenant_id, certificado_id, empresa_id, titular,"
+            " emissor, numero_serie, valido_de, valido_ate, impressao_sha256, chave_cifrada,"
+            " enviado_por) VALUES ($1, $2, $3, 'Titular', 'AC', '1', now(),"
+            " now() + interval '1 year', $4, 'cl1.semente', $5)",
+            tenant,
+            certificado,
+            empresa,
+            bytes(32),
+            revisor,
+        )
+        await conexao.execute(
+            "INSERT INTO relatorio_inventario (tenant_id, relatorio_id, empresa_id,"
+            " inventario_id, versao_fechamento, hash_fechamento, certificado_id, sha256,"
+            " tamanho, chave_objeto, gerado_por) VALUES ($1, gen_random_uuid(), $2, $3, 1, $4,"
+            " $5, $4, 100, 'semente', $6)",
+            tenant,
+            empresa,
+            inventario,
+            bytes(32),
+            certificado,
+            revisor,
+        )
         await conexao.execute(
             "INSERT INTO integridade_verificacao (tenant_id, verificacao_id, origem, iniciada_em,"
             " contagens, falhas, integra) VALUES ($1, gen_random_uuid(), 'agendada', now(),"
@@ -457,6 +481,9 @@ def app_cliente(
         "APP_URL_BASE": "http://testserver",
         # Os roteiros entram muitas vezes pelo mesmo IP; o limite tem teste proprio.
         "LOGIN_LIMITE_TENTATIVAS": "100000",
+        # Chave local de teste (32 bytes zero), para o certificado e a assinatura (P19).
+        "PROVEDOR_CHAVES": "local",
+        "CHAVES_LOCAIS": "teste-1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
     }.items():
         monkeypatch.setenv(nome, valor)
     obter_configuracao.cache_clear()

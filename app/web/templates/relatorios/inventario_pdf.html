@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Inventário de emissões {{ ano }}: {{ empresa }}</title>
+{# O tema e arquivo do proprio app (static/css/tema.css), embutido: o PDF nao usa rede. #}
+<style>{{ tema | safe }}</style>
+</head>
+<body class="cl-relatorio">
+<h1>Inventário de emissões de gases de efeito estufa {{ ano }}</h1>
+<p class="cl-relatorio-subtitulo">{{ empresa }}, CNPJ {{ cnpj }}</p>
+
+<table>
+  <tbody>
+    <tr><th scope="row">Ano do inventário</th><td>{{ ano }}</td></tr>
+    <tr><th scope="row">Abordagem de consolidação</th><td>{{ abordagem }}</td></tr>
+    <tr><th scope="row">Fechamento</th><td>Versão {{ versao }}, em {{ fechado_em }}</td></tr>
+    <tr><th scope="row">Método de cálculo</th><td>{{ metodo }}</td></tr>
+    <tr><th scope="row">Potencial de aquecimento global</th><td>{{ gwp }}</td></tr>
+    <tr><th scope="row">Dados conhecidos até</th><td>{{ conhecido_em }}</td></tr>
+  </tbody>
+</table>
+
+<h2>Emissões por escopo</h2>
+<table>
+  <thead><tr><th scope="col">Escopo</th><th scope="col" class="cl-numero">Emissões (tCO₂e)</th></tr></thead>
+  <tbody>
+    <tr><td>Escopo 1: emissões diretas</td><td class="cl-numero">{{ escopo1 | numero(3) }}</td></tr>
+    <tr><td>Escopo 2: energia comprada</td><td class="cl-numero">{{ escopo2 | numero(3) }}</td></tr>
+    <tr><td>Escopo 3: outras emissões indiretas</td><td class="cl-numero">{{ escopo3 | numero(3) }}</td></tr>
+  </tbody>
+</table>
+<table>
+  <thead><tr><th scope="col">Fora dos escopos</th><th scope="col" class="cl-numero">Emissões (tCO₂)</th></tr></thead>
+  <tbody>
+    <tr><td>CO₂ de origem biogênica</td><td class="cl-numero">{{ biogenico | numero(3) }}</td></tr>
+  </tbody>
+</table>
+
+<h2>Emissões por categoria</h2>
+<table>
+  <thead><tr><th scope="col">Categoria</th><th scope="col" class="cl-numero">Emissões (tCO₂e)</th></tr></thead>
+  <tbody>
+    {% for item in por_categoria %}
+    <tr><td>{{ item.nome }}</td><td class="cl-numero">{{ item.valor | numero(3) }}</td></tr>
+    {% else %}
+    <tr><td colspan="2">Sem emissões calculadas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Emissões por gás</h2>
+<table>
+  <thead><tr><th scope="col">Gás</th><th scope="col" class="cl-numero">Emissões (tCO₂e)</th></tr></thead>
+  <tbody>
+    {% for item in por_gas %}
+    <tr><td>{{ item.nome }}</td><td class="cl-numero">{{ item.valor | numero(3) }}</td></tr>
+    {% else %}
+    <tr><td colspan="2">Sem emissões calculadas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Unidades incluídas</h2>
+<table>
+  <thead><tr><th scope="col">Unidade</th><th scope="col">Local</th><th scope="col" class="cl-numero">Participação societária (%)</th></tr></thead>
+  <tbody>
+    {% for unidade in unidades %}
+    <tr><td>{{ unidade.nome }}</td><td>{{ unidade.municipio }} ({{ unidade.uf }})</td><td class="cl-numero">{{ unidade.participacao_societaria | numero(2) }}</td></tr>
+    {% else %}
+    <tr><td colspan="3">Nenhuma unidade ativa.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Rastreabilidade</h2>
+<table>
+  <tbody>
+    <tr><th scope="row">Hash do fechamento</th><td class="cl-hash">{{ hash_fechamento_hex }}</td></tr>
+    <tr><th scope="row">Hash da entrada do cálculo</th><td class="cl-hash">{{ hash_entrada }}</td></tr>
+    <tr><th scope="row">Hash do resultado do cálculo</th><td class="cl-hash">{{ hash_resultado }}</td></tr>
+    <tr><th scope="row">Cálculo</th><td class="cl-hash">{{ calculo_id }}</td></tr>
+  </tbody>
+</table>
+
+<div class="cl-relatorio-aviso">
+  <p>Este relatório foi gerado pela plataforma CarbonLedger a partir do inventário fechado. A plataforma calcula e organiza os dados; ela não certifica. A verificação das emissões cabe a um organismo verificador independente.</p>
+  <p>Documento assinado digitalmente por {{ assinante }}{% if cnpj_assinante %}, CNPJ {{ cnpj_assinante }}{% endif %}. A assinatura atesta quem emitiu o documento e que ele não foi alterado depois da assinatura.</p>
+</div>
+</body>
+</html>

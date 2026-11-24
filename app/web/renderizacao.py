@@ -39,7 +39,7 @@ MENU: tuple[ItemMenu, ...] = (
     ItemMenu("Resultados", "/resultados", "chart-bar", True),
     ItemMenu("Fechamento", "/fechamento", "lock", True),
     ItemMenu("Verificação", "/verificacao", "shield-check", True),
-    ItemMenu("Relatórios", "/relatorios", "file-text", False),
+    ItemMenu("Relatórios", "/relatorios", "file-text", True),
     ItemMenu("Metas", "/metas", "target-arrow", True),
     ItemMenu("Painel", "/painel", "layout-dashboard", True),
 )

@@ -20,6 +20,7 @@ from app.api import (
     organizacao_telas,
     paginas,
     painel_telas,
+    relatorios_telas,
     resultados_telas,
     saude,
     ui,
@@ -31,6 +32,7 @@ from app.core.armazenamento import ArmazemS3
 from app.core.config import obter_configuracao
 from app.core.db import criar_motor
 from app.core.erros import registrar_tratadores
+from app.core.keys import provedor_da_configuracao as provedor_de_chaves
 from app.core.logs import configurar_logs
 from app.core.requisicao import MiddlewareRequestId
 from app.core.security.acesso import MiddlewareSessao
@@ -66,6 +68,8 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
         app.state.armazem = ArmazemS3(configuracao)
     if not hasattr(app.state, "ia"):
         app.state.ia = criar_cliente_ia(configuracao)
+    if not hasattr(app.state, "chaves"):
+        app.state.chaves = provedor_de_chaves(configuracao)
     if not hasattr(app.state, "antivirus"):
         app.state.antivirus = ClienteClamav(
             configuracao.clamav_host, configuracao.clamav_port, configuracao.clamav_tempo_limite_s
@@ -105,6 +109,7 @@ def criar_app() -> FastAPI:
     app.include_router(integridade_telas.router)
     app.include_router(painel_telas.router)
     app.include_router(lgpd_telas.router)
+    app.include_router(relatorios_telas.router)
     app.include_router(auditoria.router)
     return app
 

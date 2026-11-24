@@ -11,7 +11,11 @@ import pytest
 
 from app.core.tenancy import ContextoInvalido, ContextoTenant, Escopo, aplicar_contexto
 from tests.isolation.conftest import Dados
-from tests.isolation.tabelas import TABELAS_COM_TENANT, VISIVEIS_AO_VERIFICADOR
+from tests.isolation.tabelas import (
+    COLUNAS_DO_VERIFICADOR,
+    TABELAS_COM_TENANT,
+    VISIVEIS_AO_VERIFICADOR,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -29,8 +33,11 @@ def _contexto_empresas(tenant_id: UUID, *empresas: UUID) -> ContextoTenant:
     return ContextoTenant(tenant_id=tenant_id, escopo=Escopo.EMPRESAS, empresas=frozenset(empresas))
 
 
-async def _linhas(conexao: asyncpg.Connection, tabela: str) -> list[asyncpg.Record]:
-    return list(await conexao.fetch(f"SELECT * FROM {tabela}"))  # noqa: S608  # nosec B608
+async def _linhas(
+    conexao: asyncpg.Connection, tabela: str, *, verificador: bool = False
+) -> list[asyncpg.Record]:
+    colunas = COLUNAS_DO_VERIFICADOR.get(tabela, "*") if verificador else "*"
+    return list(await conexao.fetch(f"SELECT {colunas} FROM {tabela}"))  # noqa: S608  # nosec B608
 
 
 # ---------------------------------------------------------------- testes genericos
@@ -124,6 +131,7 @@ _DO_INVENTARIO = {
     "calculo",
     "inventario_evento",
     "concessao_verificacao",
+    "relatorio_inventario",
 }
 
 
@@ -134,7 +142,7 @@ async def test_verificador_ve_so_o_inventario_da_concessao_e_nao_escreve(
     async with conexao_app.transaction():
         await aplicar_contexto(conexao_app, _contexto_verificador(dados, dados.concessao_a1))
         assert await conexao_app.fetchval("SELECT current_user") == "app_verificador"
-        linhas = await _linhas(conexao_app, tabela)
+        linhas = await _linhas(conexao_app, tabela, verificador=True)
         if tabela in VISIVEIS_AO_VERIFICADOR:
             assert linhas, f"{tabela}: o verificador deveria ver a parte da concessao"
             assert {linha["tenant_id"] for linha in linhas} == {dados.tenant_a}
@@ -159,7 +167,7 @@ async def test_verificador_sem_concessao_valida_nao_ve_nada(
     for concessao in (uuid4(), dados.concessao_b1):
         async with conexao_app.transaction():
             await aplicar_contexto(conexao_app, _contexto_verificador(dados, concessao))
-            linhas = await _linhas(conexao_app, tabela)
+            linhas = await _linhas(conexao_app, tabela, verificador=True)
         assert linhas == [] or tabela == "tenant", (tabela, concessao)
 
 
@@ -351,3 +359,13 @@ async def test_app_user_nao_desliga_rls_nem_vira_dono(conexao_app: asyncpg.Conne
         await conexao_app.execute("SET ROLE app_owner")
     with pytest.raises(NEGADO):
         await conexao_app.execute("CREATE TABLE intrusa (id int)")
+
+
+async def test_verificador_nunca_le_a_chave_do_certificado(
+    conexao_app: asyncpg.Connection, dados: Dados
+) -> None:
+    async with conexao_app.transaction():
+        await aplicar_contexto(conexao_app, _contexto_verificador(dados, dados.concessao_a1))
+        assert await _linhas(conexao_app, "certificado_assinatura", verificador=True)
+        with pytest.raises(NEGADO):
+            await conexao_app.fetch("SELECT chave_cifrada FROM certificado_assinatura")
