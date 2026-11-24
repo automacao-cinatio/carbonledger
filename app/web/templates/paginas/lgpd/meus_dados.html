@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import link_botao %}
+{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Meus dados{% endblock %}
+{% block conteudo %}
+{% call cabecalho_pagina("Meus dados") %}
+  {{ link_botao("Baixar meus dados (JSON)", "/meus-dados/arquivo.json", "outline-primary", "download") }}
+{% endcall %}
+
+<section class="card mb-3" aria-labelledby="titulo-pessoa">
+  <div class="card-header"><h2 class="card-title" id="titulo-pessoa">O que a plataforma guarda sobre você</h2></div>
+  <div class="card-body">
+    {{ ficha([("Nome", dados.pessoa.nome), ("E-mail", dados.pessoa.email)]) }}
+    <p class="text-secondary mb-0">{{ dados.observacao }}</p>
+  </div>
+  {% if dados.acessos %}
+  {{ tabela("Clientes em que você tem acesso", colunas_acessos, dados.acessos, "visually-hidden") }}
+  {% endif %}
+</section>
+
+<section class="card" aria-labelledby="titulo-exclusao">
+  <div class="card-header"><h2 class="card-title" id="titulo-exclusao">Exclusão dos seus dados</h2></div>
+  <div class="card-body">
+    {% if pedido_aberto %}
+    {{ alerta("info", "Pedido em andamento", "A plataforma executa o pedido em até 15 dias.") }}
+    {% else %}
+    <p>Você pode pedir a exclusão dos seus dados pessoais. Seu nome e seu e-mail serão substituídos por um código, e você perderá o acesso a todos os clientes. Os dados de inventário que você lançou continuam com os clientes, sem o seu nome.</p>
+    {{ confirmacao_irreversivel("modal-exclusao", "Pedir a exclusão dos meus dados", "Pedir a exclusão dos seus dados", ["Seu nome e seu e-mail serão substituídos por um código, sem volta.", "Você perderá o acesso a todos os clientes e às verificações.", "Os registros do que você fez continuam, sem identificar você."], "/meus-dados/exclusao", "Pedir a exclusão", texto_exigido=dados.pessoa.email) }}
+    {% endif %}
+  </div>
+  {% if pedidos %}
+  {{ tabela("Seus pedidos", colunas_pedidos, pedidos, "visually-hidden") }}
+  {% endif %}
+</section>
+
+{{ proximo_passo("Baixe seus dados a qualquer momento. Dúvidas sobre dados dentro de um inventário: fale com o cliente que o mantém.") }}
+{% endblock %}

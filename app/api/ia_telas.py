@@ -12,6 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy import text
 
 from app.api.dependencias import SessaoTenant
 from app.core import audit
@@ -35,8 +36,17 @@ AVISO_INDISPONIVEL = (
 )
 
 
-def _ia(request: Request) -> ClienteIA:
+async def ia_do_cliente(request: Request, sessao: Any) -> ClienteIA | None:
+    """A IA so vale com chave configurada e com o cliente tendo ligado (LGPD, P23)."""
     ia: ClienteIA | None = getattr(request.app.state, "ia", None)
+    if ia is None:
+        return None
+    ligada = await sessao.scalar(text("SELECT ia_habilitada FROM tenant"))
+    return ia if ligada else None
+
+
+async def _ia(request: Request, sessao: Any) -> ClienteIA:
+    ia = await ia_do_cliente(request, sessao)
     if ia is None:
         raise AcessoNegado
     return ia
@@ -65,7 +75,7 @@ async def _registrar(sessao: Any, acesso: Acesso, uso: str, empresa_id: UUID | N
 async def sugerir_categoria(
     request: Request, sessao: SessaoTenant, acesso: Revisor
 ) -> HTMLResponse:
-    ia = _ia(request)
+    ia = await _ia(request, sessao)
     formulario = {k: str(v) for k, v in (await request.form()).items()}
     descricao = formulario.get("descricao", "").strip()
     if not descricao:
@@ -101,7 +111,7 @@ async def sugerir_categoria(
 async def opinar(
     request: Request, lancamento_id: UUID, sessao: SessaoTenant, acesso: Revisor
 ) -> HTMLResponse:
-    ia = _ia(request)
+    ia = await _ia(request, sessao)
     fonte_id, versao = await coleta.obter_lancamento(sessao, lancamento_id)
     fonte = await coleta.obter_fonte(sessao, fonte_id)
     situacao = (await coleta.situacao_das_fontes(sessao, fonte.inventario_id, fonte_id))[0]

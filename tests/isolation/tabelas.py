@@ -77,6 +77,7 @@ TABELAS_GLOBAIS: dict[str, str] = {
     "gwp_versao": "GWP de referencia, global; so insercao",
     "fator_versao": "fatores de emissao de referencia, globais; so insercao",
     "mistura_versao": "misturas de combustivel de referencia, globais; so insercao",
+    "lgpd_pedido": "pedido do titular, acima dos clientes; so as funcoes identidade_lgpd_* leem",
 }
 
 # Referencia global: o app_user so le; so o app_curadoria insere; ninguem altera.
@@ -89,7 +90,7 @@ TABELAS_DE_REFERENCIA = (
 )
 
 # Globais que, mesmo sem tenant_id, tem RLS ligado com FORCE.
-GLOBAIS_COM_RLS = frozenset({"usuario", "identidade"})
+GLOBAIS_COM_RLS = frozenset({"usuario", "identidade", "lgpd_pedido"})
 
 # Unicas funcoes do app_identidade (BYPASSRLS). Funcao nova aqui exige revisao de seguranca.
 FUNCOES_IDENTIDADE = frozenset(
@@ -104,5 +105,10 @@ FUNCOES_IDENTIDADE = frozenset(
         "identidade_concessoes",
         # P20, revisada na migracao 0013: so os ids dos tenants, para o disparo diario.
         "identidade_tenants",
+        # P23, revisadas na migracao 0015: pedidos do titular e anonimizacao.
+        "identidade_lgpd_pedir",
+        "identidade_lgpd_pedidos",
+        "identidade_lgpd_pendentes",
+        "identidade_lgpd_anonimizar",
     }
 )

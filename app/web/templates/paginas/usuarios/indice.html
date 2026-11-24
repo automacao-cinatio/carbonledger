@@ -2,6 +2,7 @@
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo %}
 {% from "componentes/formulario.html" import campo_texto, campo_selecao, campo_opcoes, formulario, botao %}
 {% from "componentes/dados.html" import tabela %}
+{% from "componentes/feedback.html" import alerta %}
 {% block titulo %}Usuários e acessos{% endblock %}
 {% block conteudo %}
 {{ cabecalho_pagina("Usuários e acessos", pretitulo=portal.tenant_nome) }}
@@ -41,6 +42,22 @@
     {% endfor %}
   </div>
   {% endif %}
+</section>
+{% endif %}
+
+{% if ia_configurada %}
+<section class="card mt-3" aria-labelledby="titulo-ia">
+  <div class="card-header"><h2 class="card-title" id="titulo-ia">Sugestões de inteligência artificial</h2></div>
+  <div class="card-body">
+    <p>Com a IA ligada, as telas oferecem sugestões de categoria para fontes novas e uma opinião sobre valores fora do padrão. Para isso, a descrição e a unidade da fonte e os números dos períodos são enviados à Anthropic, operadora externa. Nenhum nome, e-mail ou documento é enviado, e a IA nunca calcula nem aprova nada.</p>
+    {% if ia_habilitada %}
+    {{ alerta("success", "IA ligada para este cliente") }}
+    {{ botao("Desligar a IA", "outline-secondary", "player-pause", atributos={"hx-post": "/usuarios/ia/desligar", "hx-swap": "none"}, indicador_id="ind-ia") }}
+    {% else %}
+    {{ alerta("info", "IA desligada para este cliente") }}
+    {{ botao("Ligar a IA", "outline-primary", "sparkles", atributos={"hx-post": "/usuarios/ia/ligar", "hx-swap": "none"}, indicador_id="ind-ia") }}
+    {% endif %}
+  </div>
 </section>
 {% endif %}
 

@@ -230,6 +230,7 @@ TELAS = [
     "/metas/{meta}",
     "/integridade",
     "/painel",
+    "/meus-dados",
 ]
 
 

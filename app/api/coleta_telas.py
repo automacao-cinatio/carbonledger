@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse
 from starlette.datastructures import UploadFile
 
 from app.api.dependencias import SessaoTenant, conexao_asyncpg
+from app.api.ia_telas import ia_do_cliente
 from app.api.paginas import resposta_com_aviso
 from app.core import email as servico_email
 from app.core.antivirus import Antivirus
@@ -501,7 +502,7 @@ async def nova_fonte(
         periodicidades=OPCOES_PERIODICIDADE,
         atividades=await _opcoes_atividade(sessao, None),
         valores=_valores_fonte(None),
-        ia_disponivel=getattr(request.app.state, "ia", None) is not None,
+        ia_disponivel=await ia_do_cliente(request, sessao) is not None,
     )
 
 
@@ -732,7 +733,7 @@ async def ver_periodo(
         pode_lancar=pode_lancar,
         pode_decidir=pode_decidir,
         autor_e_voce=atual is not None and atual.criado_por == acesso.usuario_id,
-        ia_disponivel=getattr(request.app.state, "ia", None) is not None,
+        ia_disponivel=await ia_do_cliente(request, sessao) is not None,
         proximo=proximo,
     )
 

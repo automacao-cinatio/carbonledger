@@ -20,6 +20,7 @@
           </span>
         </button>
         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+          <a href="/meus-dados" class="dropdown-item"><i class="ti ti-user-shield me-2" aria-hidden="true"></i>Meus dados</a>
           {% if portal.perfil and portal.perfil.value == "administrador" %}
           <a href="/usuarios" class="dropdown-item"><i class="ti ti-users me-2" aria-hidden="true"></i>Usuários e acessos</a>
           {% endif %}

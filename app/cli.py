@@ -12,6 +12,12 @@ habilitado). O operador repassa o link; o convite so vale para quem entrar com e
 
 Curadoria da referencia (fatores, GWP e misturas). Conecta com CURADORIA_DATABASE_URL (papel
 app_curadoria). Nada importado vale para calculo antes de aprovado.
+
+    python -m app.cli lgpd pendentes
+    python -m app.cli lgpd anonimizar USUARIO --por "Nome de quem executa"
+
+Pedidos de exclusao dos titulares (LGPD) e a anonimizacao, irreversivel. Ver
+docs/runbooks/lgpd.md.
 """
 
 import argparse
@@ -127,6 +133,39 @@ async def _curadoria(configuracao: Configuracao, acao: str, args: argparse.Names
     return 0
 
 
+async def _lgpd(configuracao: Configuracao, args: argparse.Namespace) -> int:
+    import asyncpg
+
+    from app.modules.lgpd import servico as lgpd
+
+    conexao = await asyncpg.connect(dsn_asyncpg(configuracao.database_url))
+    try:
+        if args.acao == "pendentes":
+            pedidos = await lgpd.pendentes(conexao)
+            if not pedidos:
+                print("Nenhum pedido de exclusao em aberto.")
+            for pedido in pedidos:
+                print(
+                    f"{pedido['pedido_id']}  pessoa {pedido['usuario_id']}"
+                    f"  pedido em {pedido['solicitado_em']:%d/%m/%Y %H:%M}"
+                )
+            return 0
+        try:
+            usuario = _UUID(args.usuario)
+        except ValueError:
+            print("Informe o id da pessoa (UUID), como aparece em 'lgpd pendentes'.")
+            return 2
+        try:
+            tenants = await lgpd.anonimizar(conexao, usuario, args.por)
+        except lgpd.PessoaJaAnonimizada:
+            print("Nada a fazer: a pessoa ja foi anonimizada.")
+            return 0
+        print(f"Pessoa {usuario} anonimizada. Registrado na trilha de {len(tenants)} cliente(s).")
+        return 0
+    finally:
+        await conexao.close()
+
+
 def main(argumentos: list[str] | None = None) -> int:
     analisador = argparse.ArgumentParser(prog="python -m app.cli")
     comandos = analisador.add_subparsers(dest="comando", required=True)
@@ -148,11 +187,19 @@ def main(argumentos: list[str] | None = None) -> int:
     rejeitar.add_argument("lote")
     rejeitar.add_argument("--responsavel", required=True)
     rejeitar.add_argument("--motivo", required=True)
+    lgpd = comandos.add_parser("lgpd", help="pedidos dos titulares e anonimizacao")
+    acoes_lgpd = lgpd.add_subparsers(dest="acao", required=True)
+    acoes_lgpd.add_parser("pendentes", help="lista os pedidos de exclusao em aberto")
+    anonimizar = acoes_lgpd.add_parser("anonimizar", help="anonimiza a pessoa (irreversivel)")
+    anonimizar.add_argument("usuario")
+    anonimizar.add_argument("--por", required=True, help="quem executa (nome)")
     args = analisador.parse_args(argumentos)
 
     configuracao = obter_configuracao()
     if args.comando == "fatores":
         return asyncio.run(_curadoria(configuracao, args.acao, args))
+    if args.comando == "lgpd":
+        return asyncio.run(_lgpd(configuracao, args))
 
     tenant_id, token = asyncio.run(criar_tenant(configuracao, args.nome, args.email))
     base = configuracao.app_url_base.rstrip("/")

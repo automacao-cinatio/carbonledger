@@ -237,3 +237,12 @@
 - Lembretes a 7, 3 e 1 dia do prazo e no vencimento, cada tipo uma vez só: o registro do envio (só inserção, chave por campanha e tipo) é gravado antes do e-mail, e a chave única impede aviso repetido mesmo com duas rodadas ao mesmo tempo. Se o envio falhar, a transação desfaz o registro e a próxima rodada tenta de novo.
 - A rodada diária (beat, 8h) encerra sozinha a campanha cuja coleta ficou completa ou cujo inventário foi fechado.
 - O disparo diário reusa identidade_tenants (só ids), como o da integridade; é a segunda tarefa global justificada.
+
+## 2026-11-24: LGPD (P23)
+
+- IA por cliente (opt-in): a IA envia descrição, unidade e números a um operador externo, então só funciona no cliente cujo administrador a ligou. Desligada por padrão, inclusive para clientes antigos. Resolve a pendência do P16.
+- Anonimização, não exclusão física (decisão do usuário): nome e e-mail viram código, vínculos de login são removidos, acessos, convites e concessões se encerram. Trilha e dados aprovados ficam com o id, que já não identifica ninguém. Preserva "nada some" e a cadeia de hash da trilha.
+- O pedido é da pessoa, na tela Meus dados; a execução é da plataforma, pela linha de comando, porque a pessoa existe em vários clientes e a ação é irreversível. Prazo operacional de 15 dias.
+- lgpd_pedido é global (a pessoa está acima dos clientes), com RLS e FORCE sem política: só as funções do app_identidade leem e gravam.
+- Dados pessoais dentro de evidências e lançamentos são do cliente (controlador); a plataforma não mexe neles por pedido do titular.
+- Retenção das evidências (1825 dias) segue provisória: o Object Lock prevalece sobre o pedido de exclusão até a confirmação do prazo real.

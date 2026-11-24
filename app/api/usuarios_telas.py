@@ -17,6 +17,7 @@ from sqlalchemy import text
 from app.api.dependencias import SessaoTenant
 from app.api.organizacao import links_do_convite
 from app.api.paginas import resposta_com_aviso
+from app.core import audit
 from app.core import email as servico_email
 from app.core.config import Configuracao, obter_configuracao
 from app.core.erros import AcessoNegado, ErroValidacao
@@ -126,7 +127,27 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Administrador) 
         ajuda_perfil=AJUDA_PERFIL,
         empresas=empresas,
         pendentes=[c for c in convites if c["pendente"]],
+        ia_configurada=getattr(request.app.state, "ia", None) is not None,
+        ia_habilitada=bool(await sessao.scalar(text("SELECT ia_habilitada FROM tenant"))),
     )
+
+
+@router.post("/ia/{acao}")
+async def mudar_ia(acao: str, sessao: SessaoTenant, acesso: Administrador) -> Response:
+    if acao not in ("ligar", "desligar"):
+        raise AcessoNegado
+    ligar = acao == "ligar"
+    await sessao.execute(text("UPDATE tenant SET ia_habilitada = :ligar"), {"ligar": ligar})
+    await audit.registrar(
+        sessao,
+        tenant_id=acesso.tenant_id,
+        usuario_id=acesso.usuario_id,
+        acao="ia.ligada" if ligar else "ia.desligada",
+        entidade="tenant",
+        entidade_id=acesso.tenant_id,
+    )
+    aviso = "IA ligada para este cliente." if ligar else "IA desligada para este cliente."
+    return resposta_com_aviso(aviso, **{"HX-Refresh": "true"})
 
 
 @router.post("/convites")

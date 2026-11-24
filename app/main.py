@@ -14,6 +14,7 @@ from app.api import (
     fechamento_telas,
     ia_telas,
     integridade_telas,
+    lgpd_telas,
     metas_telas,
     organizacao,
     organizacao_telas,
@@ -103,6 +104,7 @@ def criar_app() -> FastAPI:
     app.include_router(ia_telas.router)
     app.include_router(integridade_telas.router)
     app.include_router(painel_telas.router)
+    app.include_router(lgpd_telas.router)
     app.include_router(auditoria.router)
     return app
 

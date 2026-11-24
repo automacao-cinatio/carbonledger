@@ -98,9 +98,22 @@ def test_sugestoes_da_ia(app_cliente: TestClient, banco: Banco) -> None:
         == 404
     )
 
-    # Com IA: sugere entre as opcoes; nada e preenchido.
+    # IA configurada, mas o cliente ainda nao ligou (LGPD): nem botao, nem rota.
     ia = IAFalsa()
     cliente.app.state.ia = ia  # type: ignore[attr-defined]
+    assert "Sugerir categoria com IA" not in cliente.get(url_nova).text
+    assert (
+        cliente.post("/ia/fontes/sugestao", data={"descricao": "x"}, headers=cabecalho).status_code
+        == 404
+    )
+    usuarios = cliente.get("/usuarios").text
+    assert "IA desligada para este cliente" in usuarios and "Anthropic" in usuarios
+    assert cliente.post("/usuarios/ia/qualquer", headers=cabecalho).status_code == 404
+    ligar = cliente.post("/usuarios/ia/ligar", headers=cabecalho)
+    assert ligar.status_code == 204 and ligar.headers["hx-refresh"] == "true"
+    assert "IA ligada para este cliente" in cliente.get("/usuarios").text
+
+    # Com IA ligada: sugere entre as opcoes; nada e preenchido.
     assert "Sugerir categoria com IA" in cliente.get(url_nova).text
     sugestao = cliente.post(
         "/ia/fontes/sugestao",
@@ -145,6 +158,37 @@ def test_sugestoes_da_ia(app_cliente: TestClient, banco: Banco) -> None:
     registros = asyncio.run(_trilha(banco, tenant_id))
     assert len(registros) == 3
     assert all("Caminhões" not in r["dados"] and "Frota" not in r["dados"] for r in registros)
+
+    # Desligar volta a esconder tudo, e a troca fica na trilha.
+    ia.fora_do_ar = False
+    cliente.post("/usuarios/ia/desligar", headers=cabecalho)
+    assert "Sugerir categoria com IA" not in cliente.get(url_nova).text
+    assert (
+        cliente.post("/ia/fontes/sugestao", data={"descricao": "x"}, headers=cabecalho).status_code
+        == 404
+    )
+    assert asyncio.run(_acoes(banco, tenant_id, "ia.%")) == [
+        "ia.ligada",
+        "ia.consultada",
+        "ia.consultada",
+        "ia.consultada",
+        "ia.desligada",
+    ]
+
+
+async def _acoes(banco: Banco, tenant_id: UUID, padrao: str) -> list[str]:
+    conexao = await asyncpg.connect(banco.dsn_admin)
+    try:
+        return [
+            linha["acao"]
+            for linha in await conexao.fetch(
+                "SELECT acao FROM audit_log WHERE tenant_id = $1 AND acao LIKE $2 ORDER BY seq",
+                tenant_id,
+                padrao,
+            )
+        ]
+    finally:
+        await conexao.close()
 
 
 async def _lancamento_de_marco(banco: Banco, fonte: UUID) -> str:

@@ -24,7 +24,7 @@
 - [x] P20 Integridade
 - [x] P21 Campanhas
 - [ ] P22 Cobrança
-- [ ] P23 LGPD
+- [x] P23 LGPD
 - [x] P24 Painel
 - [ ] P25 Infra AWS
 - [ ] P26 CI/CD
@@ -248,3 +248,13 @@
 - Tela do inventário: card da campanha (abrir com prazo e recado; prazo, avisos enviados e encerrar).
 - Testes: regra do lembrete do dia, abertura com e-mail ao responsável e lista do que falta, campanha repetida recusada, lembrete uma vez só e vencimento, encerramento automático, prazo no passado recusado, disparo, roteiro no portal.
 - Verificação: ruff, mypy, 862 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes.
+
+## P23 LGPD (concluído em 2026-11-24)
+
+- Migração 0015: tenant.ia_habilitada (desligada por padrão) e lgpd_pedido (global, RLS com FORCE, sem acesso direto do app_user), com quatro funções novas do app_identidade revisadas na própria migração: identidade_lgpd_pedir, identidade_lgpd_pedidos, identidade_lgpd_pendentes e identidade_lgpd_anonimizar.
+- IA por cliente: só funciona no cliente que a ligou na tela Usuários e acessos (administrador), com o aviso do que vai para a Anthropic. Trilha ia.ligada e ia.desligada.
+- Tela Meus dados (menu do usuário, qualquer pessoa com login): o que a plataforma guarda, download em JSON e pedido de exclusão com o e-mail digitado.
+- Linha de comando: lgpd pendentes e lgpd anonimizar (irreversível, uma vez só), com lgpd.titular_anonimizado na trilha de cada cliente da pessoa.
+- Runbook docs/runbooks/lgpd.md.
+- Testes: roteiro LGPD no portal (tela, JSON, confirmação, pedido único, anonimização, segunda execução recusada, app_user sem acesso à tabela, trilha sem e-mail, login de volta sem acesso), IA ligada e desligada no roteiro da IA, registro da tabela e das funções na cobertura, axe-core em /meus-dados.
+- Verificação: ruff, mypy, 867 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (modo diretório) e caracteres verdes. Antes, o uv e o Python 3.12 foram reinstalados e a .venv recriada.
