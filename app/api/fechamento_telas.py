@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse
+from sqlalchemy import text
 
 from app.api.dependencias import SessaoTenant, conexao_asyncpg
 from app.api.paginas import resposta_com_aviso
@@ -101,10 +102,22 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
         for e in reversed(situacao.eventos)
     ]
     if situacao.estado == "fechado":
+        relatorios = await sessao.scalar(
+            text("SELECT count(*) FROM relatorio_inventario WHERE inventario_id = :i"),
+            {"i": inventario.inventario_id},
+        )
         contexto["proximo"] = (
-            "Inventário fechado. O próximo passo é a verificação por terceiro.",
-            None,
-            "",
+            (
+                "Inventário fechado. Gere o relatório assinado da empresa.",
+                "/relatorios",
+                "Ir para os relatórios",
+            )
+            if not relatorios
+            else (
+                "Inventário fechado e relatório assinado. Dê acesso ao verificador.",
+                "/verificacao",
+                "Ir para a verificação",
+            )
         )
     elif situacao.pode_fechar:
         contexto["proximo"] = (

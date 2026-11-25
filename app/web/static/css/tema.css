@@ -28,6 +28,14 @@
   --cl-perigo: #b42318; /* sobre branco: 6,5:1 */
   --cl-info: #1e4fa8; /* sobre branco: 7,6:1 */
 
+  /* Series dos graficos, em ordem fixa (nunca ciclada). Validadas pelo validador de paleta:
+     luminosidade e croma na faixa, separacao para daltonismo (pior par adjacente 14,4) e
+     contraste de pelo menos 3:1 sobre o fundo claro. */
+  --cl-serie-1: #4338ca;
+  --cl-serie-2: #0f9f8f;
+  --cl-serie-3: #c2410c;
+  --cl-serie-4: #a21caf;
+  --cl-serie-5: #65a30d;
   --cl-fonte: Arial, "Liberation Sans", Helvetica, sans-serif;
 
   /* Tabler: cores e fonte pelas variaveis previstas, sem reescrever componentes */

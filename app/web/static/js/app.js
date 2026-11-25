@@ -151,7 +151,7 @@
 
   function coresDoTema() {
     var estilo = window.getComputedStyle(document.documentElement);
-    return ["--cl-indigo-700", "--cl-marinho-700", "--cl-info", "--cl-sucesso", "--cl-alerta"]
+    return ["--cl-serie-1", "--cl-serie-2", "--cl-serie-3", "--cl-serie-4", "--cl-serie-5"]
       .map(function (nome) {
         return estilo.getPropertyValue(nome).trim();
       })
@@ -192,6 +192,14 @@
             return formatoNumero.format(valor);
           }
         });
+      });
+      // Barras empilhadas: uma linha da cor do fundo entre os segmentos, para nao se fundirem.
+      var fundo = window.getComputedStyle(document.documentElement)
+        .getPropertyValue("--cl-branco").trim();
+      [].concat(opcoes.series || []).forEach(function (serie) {
+        if (serie.type === "bar" && serie.stack && fundo) {
+          serie.itemStyle = Object.assign({ borderColor: fundo, borderWidth: 1 }, serie.itemStyle || {});
+        }
       });
       var grafico = window.echarts.init(alvo, null, { renderer: "canvas" });
       grafico.setOption(opcoes);

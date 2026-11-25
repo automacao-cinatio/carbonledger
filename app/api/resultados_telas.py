@@ -272,11 +272,18 @@ async def _tela_do_calculo(
                 "url": primeira["url"],
                 "rotulo": "Resolver",
             }
+        elif not inventario.em_coleta:
+            contexto["proximo"] = {
+                "texto": "Inventário fechado com este cálculo. Gere o relatório assinado e dê"
+                " acesso ao verificador.",
+                "url": "/relatorios",
+                "rotulo": "Ir para os relatórios",
+            }
         else:
             contexto["proximo"] = {
                 "texto": "Cálculo sem pendências. O próximo passo é o fechamento do inventário.",
-                "url": None,
-                "rotulo": "",
+                "url": "/fechamento",
+                "rotulo": "Ir para o fechamento",
             }
     return renderizar(
         request, "paginas/resultados/indice.html", portal, pagina_atual="/resultados", **contexto

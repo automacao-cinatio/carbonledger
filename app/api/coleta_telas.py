@@ -187,14 +187,26 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
         }
         for i in inventarios
     ]
+    # Sugestao: o ano que acabou; se ja tem inventario, o anterior mais recente sem inventario.
+    anos = {i.ano for i in inventarios}
     ano_sugerido = hoje().year - 1
+    while ano_sugerido in anos:
+        ano_sugerido -= 1
     pode_abrir = acesso.perfil.ve_o_tenant_inteiro and empresa.ativa
-    if inventarios:
+    if inventarios and inventarios[0].em_coleta:
         atual = inventarios[0]
         proximo = ProximoPasso(
             f"Continue a coleta do inventário {atual.ano}.",
             f"/coleta/inventarios/{atual.inventario_id}",
             f"Abrir o inventário {atual.ano}",
+        )
+    elif inventarios:
+        atual = inventarios[0]
+        proximo = ProximoPasso(
+            f"Inventário {atual.ano} fechado: os dados só mudam por reapresentação. Gere o"
+            " relatório assinado e dê acesso ao verificador.",
+            "/relatorios",
+            "Ir para os relatórios",
         )
     elif pode_abrir:
         proximo = ProximoPasso(f"Abra o inventário de {ano_sugerido} no formulário acima.")
