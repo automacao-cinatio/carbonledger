@@ -302,3 +302,9 @@
 - TSA configurada e fora do ar: o relatório não sai. Gerar sem carimbo sem avisar daria um documento mais fraco do que o esperado.
 - A hora do carimbo é lida do token embutido (gen_time) e gravada em relatorio_inventario.carimbo_em na mesma inserção.
 - B-LT (dados de revogação embutidos) fica para quando as raízes ICP-Brasil estiverem em data/.
+
+## 2026-11-25: demonstração local
+
+- Demonstração completa com referência fictícia (escolha do usuário), só no banco local. Códigos demo.* e conjunto DEMO_FICTICIO_100, com FICTICIO na fonte e na descrição, para não se confundir com AR5_100 nem com fatores oficiais. A referência entra pela curadoria, como qualquer lote.
+- O roteiro usa o próprio app (HTTP, login pelo provedor de dev, convite pelo Mailpit), para a demonstração passar pelas mesmas validações, trilha, antivírus e S3 de um uso real. O único atalho é trocar o GWP do inventário da demonstração no banco local, porque a tela não oferece escolha de conjunto.
+- O script recusa rodar contra API em produção.

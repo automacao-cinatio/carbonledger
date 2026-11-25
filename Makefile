@@ -35,8 +35,10 @@ ensaio-producao: .env
 ensaio-producao-parar:
 	uv run python scripts/ensaio_producao.py derrubar
 
-seed:
-	@echo "Sem dados de carga ainda: entram nos prompts P06 e P07."
+# Demonstracao completa com referencia FICTICIA (so na pilha local, com make up antes):
+# docs/runbooks/demonstracao.md.
+seed: .env
+	uv run python scripts/demonstracao.py
 
 test:
 	uv run pytest
@@ -46,10 +48,10 @@ lint:
 	uv run ruff format --check .
 
 tipos:
-	uv run mypy app scripts/backup.py scripts/ensaio_producao.py
+	uv run mypy app scripts/backup.py scripts/ensaio_producao.py scripts/demonstracao.py
 
 seguranca:
-	uv run bandit -q -r app scripts/backup.py scripts/ensaio_producao.py
+	uv run bandit -q -r app scripts/backup.py scripts/ensaio_producao.py scripts/demonstracao.py
 	uv run pip-audit
 	$(GITLEAKS) git /repo --no-banner
 

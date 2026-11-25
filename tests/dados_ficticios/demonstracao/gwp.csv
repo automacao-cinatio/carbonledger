@@ -1,0 +1,4 @@
+# FICTICIO: valores inventados para a demonstracao local (make seed). Nao sao do IPCC.
+conjunto;gas;valor;fonte
+DEMO_FICTICIO_100;CO2;1;FICTICIO, so para a demonstracao local, nunca usar em inventario real
+DEMO_FICTICIO_100;CH4;30;FICTICIO, so para a demonstracao local, nunca usar em inventario real

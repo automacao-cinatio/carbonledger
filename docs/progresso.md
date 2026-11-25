@@ -306,3 +306,11 @@
 - TSA_URL, TSA_USUARIO e TSA_SENHA: com TSA, a assinatura sai PAdES B-T (token RFC 3161 embutido); sem, B-B. TSA configurada que não responde impede a geração, com aviso na tela.
 - Migração 0018: relatorio_inventario.carimbo_em com a hora atestada pela TSA, mostrada na tela Relatórios e no painel do verificador.
 - Testes: assinatura B-T validada pelo pyHanko (token confiável), hora gravada, B-B sem hora, TSA fora do ar, e o caminho HTTP completo contra uma TSA local de teste (RFC 3161).
+
+## Demonstração local (2026-11-25)
+
+- scripts/demonstracao.py (make seed): cliente completo percorrendo o app (curadoria da referência fictícia, organização, coleta com evidências, aprovação por outra pessoa, cálculo, conferência, fechamento, certificado e relatório assinado) e uma segunda empresa com a coleta pela metade.
+- Referência fictícia própria (tests/dados_ficticios/demonstracao, códigos demo.* e GWP DEMO_FICTICIO_100), escolha do usuário; nada fictício sob AR5_100.
+- Rodado na pilha local: totais conferidos à mão. O ensaio de restauração foi repetido com esses dados: 8 objetos restaurados com versões novas e verificação de integridade íntegra nos 3 tenants.
+- Pilha local migrada para 0018.
+- Runbook docs/runbooks/demonstracao.md.
