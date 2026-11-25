@@ -36,6 +36,8 @@ def portal(banco: Banco, redis_url: str, emissor_oidc: str) -> Iterator[str]:
         "OIDC_DEV_EMISSOR": emissor_oidc,
         "COOKIE_SEGURO": "false",
         "APP_URL_BASE": f"http://127.0.0.1:{porta}",
+        "COBRANCA_TABELA": "3:390,00;*:190,00",
+        "COBRANCA_WEBHOOK_TOKEN": "token-de-teste",
     }
     anteriores = {nome: os.environ.get(nome) for nome in ambiente}
     os.environ.update(ambiente)
@@ -232,6 +234,7 @@ TELAS = [
     "/integridade",
     "/painel",
     "/meus-dados",
+    "/cobranca",
 ]
 
 

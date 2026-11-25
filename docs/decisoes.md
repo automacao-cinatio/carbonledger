@@ -308,3 +308,13 @@
 - Demonstração completa com referência fictícia (escolha do usuário), só no banco local. Códigos demo.* e conjunto DEMO_FICTICIO_100, com FICTICIO na fonte e na descrição, para não se confundir com AR5_100 nem com fatores oficiais. A referência entra pela curadoria, como qualquer lote.
 - O roteiro usa o próprio app (HTTP, login pelo provedor de dev, convite pelo Mailpit), para a demonstração passar pelas mesmas validações, trilha, antivírus e S3 de um uso real. O único atalho é trocar o GWP do inventário da demonstração no banco local, porque a tela não oferece escolha de conjunto.
 - O script recusa rodar contra API em produção.
+
+## 2026-11-25: cobrança (P22, com gateway simulado)
+
+- Modelo escolhido pelo usuário: preço por empresa ativa por mês, com faixas. Progressivo (cada faixa com o seu preço por empresa); valores só em configuração (COBRANCA_TABELA), sem padrão no código. Sem tabela, cobrança desligada.
+- Provisórios em configuração, a confirmar com a CINATIO: 30 dias de teste a partir da criação do cliente, vencimento em 10 dias, tolerância de 15 dias, sem proporcionalidade no primeiro mês, mês sem empresa ativa não gera fatura.
+- Empresas ativas contadas no dia da emissão; a fatura guarda a contagem e o detalhamento das faixas. Valor e competência não mudam depois de gravados (privilégio por coluna).
+- Id da fatura derivado do tenant e do mês (uuid5) e gateway idempotente por ele: repetir a rodada nunca cobra duas vezes, nem depois de falha entre o gateway e o banco.
+- Webhook sem sessão, autenticado por token; o tenant é achado pela função cobranca_localizar (app_identidade, revisada na migração 0019, devolve só os ids) e o resto roda com o contexto do tenant. Evento repetido não faz nada (chave primária por cliente, gateway e evento).
+- Gateway simulado com página de pagamento no próprio app, só fora de produção; produção recusa o simulado. O Asaas entra como outra implementação da mesma interface.
+- Inadimplência só avisa por enquanto: o que bloquear é decisão pendente do usuário.

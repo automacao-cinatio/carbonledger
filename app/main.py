@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from app.api import (
     auditoria,
     autenticacao,
+    cobranca_telas,
     coleta_telas,
     fechamento_telas,
     ia_telas,
@@ -110,6 +111,7 @@ def criar_app() -> FastAPI:
     app.include_router(painel_telas.router)
     app.include_router(lgpd_telas.router)
     app.include_router(relatorios_telas.router)
+    app.include_router(cobranca_telas.router)
     app.include_router(auditoria.router)
     return app
 

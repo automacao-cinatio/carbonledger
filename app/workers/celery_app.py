@@ -39,6 +39,7 @@ celery_app = CeleryCarbonLedger(
         "app.workers.calculo",
         "app.workers.integridade",
         "app.workers.campanhas",
+        "app.workers.cobranca",
     ],
 )
 celery_app.conf.update(

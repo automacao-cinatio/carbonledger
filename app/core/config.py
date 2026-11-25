@@ -47,6 +47,15 @@ class Configuracao(BaseSettings):
     tsa_usuario: str | None = None
     tsa_senha: SecretStr | None = None
     tsa_tempo_limite_s: float = 15.0
+    # Cobranca por empresa ativa por mes (P22). Sem COBRANCA_TABELA, a cobranca fica desligada.
+    # Tabela progressiva "ate:preco;...;*:preco", precos em reais com virgula, por exemplo
+    # "3:390,00;10:290,00;*:190,00" (valores ainda provisorios: definidos pela CINATIO).
+    cobranca_tabela: str | None = None
+    cobranca_gateway: str = "simulado"
+    cobranca_webhook_token: SecretStr | None = None
+    cobranca_dias_teste: int = 30
+    cobranca_dias_vencimento: int = 10
+    cobranca_dias_tolerancia: int = 15
 
     smtp_host: str = "mailpit"
     smtp_port: int = 1025
@@ -109,10 +118,16 @@ class Configuracao(BaseSettings):
                 raise ValueError("Em producao as chaves vem do KMS: PROVEDOR_CHAVES=kms.")
             if not self.kms_chave_id:
                 raise ValueError("Em producao defina KMS_CHAVE_ID.")
+            if self.cobranca_tabela and self.cobranca_gateway == "simulado":
+                raise ValueError("Em producao a cobranca nao usa o gateway simulado.")
             if not exige_tls(self.database_url):
                 raise ValueError("Em producao a DATABASE_URL precisa de sslmode=require (TLS).")
             if self.evidencias_modo_retencao != "COMPLIANCE":
                 raise ValueError("Em producao EVIDENCIAS_MODO_RETENCAO precisa ser COMPLIANCE.")
+        if self.cobranca_gateway not in ("simulado", "asaas"):
+            raise ValueError("COBRANCA_GATEWAY aceita simulado ou asaas.")
+        if self.cobranca_tabela and self.cobranca_webhook_token is None:
+            raise ValueError("Com COBRANCA_TABELA, defina COBRANCA_WEBHOOK_TOKEN.")
         if self.provedor_chaves not in ("local", "kms"):
             raise ValueError("PROVEDOR_CHAVES aceita local ou kms.")
         if self.provedor_chaves == "kms" and not self.kms_chave_id:

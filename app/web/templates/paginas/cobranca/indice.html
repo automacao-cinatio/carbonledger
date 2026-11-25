@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
+{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/dados.html" import tabela %}
+{% block titulo %}Cobrança{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Cobrança", pretitulo=portal.tenant_nome) }}
+
+{% if not ligada %}
+{{ alerta("info", "Cobrança desligada", "A tabela de preços não está configurada neste ambiente.") }}
+{% else %}
+{% if assinatura and assinatura.situacao == "inadimplente" %}
+{{ alerta("danger", "Pagamento em atraso", "Há fatura vencida há mais tempo que a tolerância. Pague pelo link na lista abaixo para regularizar.") }}
+{% endif %}
+
+<section class="card mb-3" aria-labelledby="titulo-assinatura">
+  <div class="card-header">
+    <h2 class="card-title" id="titulo-assinatura">Assinatura</h2>
+    {% if situacao %}<div class="card-actions">{{ etiqueta(situacao[0], situacao[1]) }}</div>{% endif %}
+  </div>
+  <div class="card-body">
+    {% if assinatura %}
+    {{ ficha([("Período de teste até", teste_ate), ("Empresas ativas agora", empresas | string), ("Estimativa do próximo mês", "R$ " ~ (estimativa | numero(2)))]) }}
+    {% else %}
+    <p class="mb-0">A assinatura começa na primeira rodada diária de cobrança, com o período de teste.</p>
+    {% endif %}
+    <p class="small text-secondary mt-2 mb-0">O valor do mês é calculado pelas {{ glossario("empresas ativas", "Empresas cadastradas na organização e não desativadas, contadas no dia em que a fatura é emitida.") }}, por faixa: cada faixa tem o seu preço por empresa.</p>
+  </div>
+  {{ tabela("Preço por empresa ativa, por faixa", colunas_faixas, faixas, "visually-hidden") }}
+</section>
+
+<section class="card" aria-labelledby="titulo-faturas">
+  <div class="card-header"><h2 class="card-title" id="titulo-faturas">Faturas</h2></div>
+  {% if faturas %}
+  {{ tabela("Faturas emitidas", colunas_faturas, faturas, "visually-hidden") }}
+  {% else %}
+  <div class="card-body"><p class="mb-0">Nenhuma fatura emitida ainda.</p></div>
+  {% endif %}
+</section>
+{% endif %}
+
+{{ proximo_passo("Mantenha as empresas da organização em dia: só as ativas entram na fatura do mês.", "/organizacao", "Ir para a organização") }}
+{% endblock %}

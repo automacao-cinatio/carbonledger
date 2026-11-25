@@ -314,3 +314,12 @@
 - Rodado na pilha local: totais conferidos à mão. O ensaio de restauração foi repetido com esses dados: 8 objetos restaurados com versões novas e verificação de integridade íntegra nos 3 tenants.
 - Pilha local migrada para 0018.
 - Runbook docs/runbooks/demonstracao.md.
+
+## P22 Cobrança com gateway simulado (2026-11-25)
+
+- Migração 0019: assinatura, fatura e cobranca_evento (RLS de tenant, verificador sem acesso) e a função cobranca_localizar para o webhook.
+- app/modules/cobranca: tabela progressiva (precos.py), interface do gateway e o simulado (gateway.py), rodada diária e pagamento (servico.py). Worker cobranca.rodada_tenant e disparo no beat às 6h.
+- Tela Cobrança (administrador), webhook e simulador de pagamento (só dev). Configuração COBRANCA_* com travas (token obrigatório com tabela; simulado proibido em produção).
+- Testes: cálculo progressivo e tabela inválida; rodada no banco (fatura uma vez, vencida, inadimplente, paga, de novo ativa, evento repetido ignorado, período de teste); privilégio por coluna da fatura; roteiro no portal (tela, simulador, webhook sem token, token errado, cobrança desconhecida, outro gateway, repetição); tabelas e função na cobertura e na suíte de vazamento; axe-core em /cobranca.
+- Runbook docs/runbooks/cobranca.md.
+- Verificação desta leva (backup, ensaio de produção, KMS, carimbo do tempo, demonstração e cobrança): ruff, mypy (app e scripts), 1002 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (nada fora da .venv) e caracteres verdes. Pilha local em 0019 com a imagem reconstruída.

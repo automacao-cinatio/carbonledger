@@ -269,6 +269,29 @@ async def _semear_coleta(conexao: asyncpg.Connection) -> None:
             certificado,
             revisor,
         )
+        # Cobranca: assinatura com o teste ja acabado e uma fatura antiga paga, com um evento.
+        await conexao.execute(
+            "INSERT INTO assinatura (tenant_id, situacao, teste_ate, gateway)"
+            " VALUES ($1, 'ativa', '2020-01-31', 'simulado')",
+            tenant,
+        )
+        fatura = uuid4()
+        await conexao.execute(
+            "INSERT INTO fatura (tenant_id, fatura_id, competencia, empresas_ativas,"
+            " valor_centavos, detalhamento, vencimento, situacao, gateway, gateway_cobranca_id,"
+            " paga_em) VALUES ($1, $2, '2020-01-01', 1, 100, '[]', '2020-01-10', 'paga',"
+            " 'simulado', $3, now())",
+            tenant,
+            fatura,
+            f"semente_{fatura}",
+        )
+        await conexao.execute(
+            "INSERT INTO cobranca_evento (tenant_id, evento_id, gateway, tipo, fatura_id)"
+            " VALUES ($1, $2, 'simulado', 'pagamento_confirmado', $3)",
+            tenant,
+            f"semente_evento_{fatura}",
+            fatura,
+        )
         await conexao.execute(
             "INSERT INTO integridade_verificacao (tenant_id, verificacao_id, origem, iniciada_em,"
             " contagens, falhas, integra) VALUES ($1, gen_random_uuid(), 'agendada', now(),"
@@ -484,6 +507,9 @@ def app_cliente(
         # Chave local de teste (32 bytes zero), para o certificado e a assinatura (P19).
         "PROVEDOR_CHAVES": "local",
         "CHAVES_LOCAIS": "teste-1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        # Cobranca com tabela de teste e o gateway simulado (P22).
+        "COBRANCA_TABELA": "3:390,00;*:190,00",
+        "COBRANCA_WEBHOOK_TOKEN": "token-de-teste",
     }.items():
         monkeypatch.setenv(nome, valor)
     obter_configuracao.cache_clear()
