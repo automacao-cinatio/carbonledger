@@ -277,3 +277,12 @@
 - Dockerfile: libatomic1 (o Playwright não instalava na imagem slim), só o Chromium headless e sem chown da .venv: código e dependências do root, só leitura para o usuário do app. Imagem de 3,42 GB para 2,2 GB, PDF conferido dentro dela.
 - Testes: roteiro do relatório com o verificador (vê, baixa o mesmo arquivo, não abre a rota do cliente), vazamento com leitura por coluna e recusa da chave cifrada, cobertura de privilégio por coluna.
 - Verificação: ruff, mypy, 913 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes; imagem montada e PDF gerado dentro dela.
+
+## P27 parte local: backup e ensaio de restauração (2026-11-24)
+
+- scripts/backup.py (make backup, make ensaio-restauracao): pg_dump do banco e cópia do bucket, cada arquivo cifrado com a chave da plataforma e amarrado ao backup e ao nome; manifesto com revisão do banco e SHA-256; mantém os 7 mais novos.
+- Ensaio: decifra e confere, restaura em banco e bucket descartáveis, compara contagens tabela a tabela, roda a verificação de integridade de todos os tenants na cópia (novo comando python -m app.cli integridade verificar --banco --bucket) e apaga a cópia.
+- Leitura do S3: versão gravada ausente (cópia restaurada) cai na versão atual da mesma chave; o SHA-256 continua conferido em toda leitura.
+- Integridade passa a conferir também os relatórios assinados (tela e runbook).
+- Pilha local migrada de 0005 para 0017 e imagem do app reconstruída (a antiga não tinha o boto3). Ensaio real na pilha local: ok (1 tenant, 35 tabelas; bucket ainda vazio).
+- Runbook docs/runbooks/backup-e-restauracao.md.

@@ -30,8 +30,9 @@ async def test_verificacao_acusa_o_que_nao_confere(
         )
         assert not relatorio.integra
         tipos = {f.tipo for f in relatorio.falhas}
-        # Calculo da semente sem entrada valida; evidencia e planilha com SHA-256 ficticio.
-        assert tipos == {"calculo", "evidencias", "planilhas"}
+        # Calculo da semente sem entrada valida; evidencia, planilha e relatorio com SHA-256
+        # ficticio (o relatorio assinado tambem e conferido desde o ensaio de restauracao).
+        assert tipos == {"calculo", "evidencias", "planilhas", "relatorios"}
         assert relatorio.contagens["eventos_da_trilha"] > 0
         motivos = {f.motivo for f in relatorio.falhas}
         assert "SHA-256 diferente do registrado" in motivos
@@ -63,7 +64,7 @@ async def test_objeto_sumido_tambem_e_falha(conexao_app: asyncpg.Connection, dad
             conexao_app, dados.tenant_b, ArmazemMemoria(), origem="agendada"
         )
         inacessiveis = [f for f in relatorio.falhas if "inacessível" in f.motivo]
-        assert {f.tipo for f in inacessiveis} == {"evidencias", "planilhas"}
+        assert {f.tipo for f in inacessiveis} == {"evidencias", "planilhas", "relatorios"}
     finally:
         await transacao.rollback()
 

@@ -29,6 +29,7 @@ TIPOS = {
     "fechamento": "Fechamento",
     "evidencias": "Evidência",
     "planilhas": "Planilha importada",
+    "relatorios": "Relatório assinado",
 }
 COLUNAS_HISTORICO = [
     {"chave": "quando", "titulo": "Concluída em"},

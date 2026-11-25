@@ -269,3 +269,13 @@
 - Job novo "imagem": monta a imagem de produção e gera um PDF dentro dela, com o usuário do app. Nada é publicado: registro de imagem e deploy dependem da conta AWS (P25).
 - Imagem: código e dependências pertencem ao root e o usuário do app só lê; o que precisa escrever vai para /tmp (agenda do beat, perfil do Chromium). Só o Chromium headless (--only-shell), que basta para PDF.
 - Fora por enquanto: Dependabot (abre PRs sozinho; decidir com o usuário) e ações fixadas por hash.
+
+## 2026-11-24: backup e restauração locais (P27, parte local)
+
+- Tudo roda pela pilha do docker compose, com os segredos dentro dos containers: pg_dump e pg_restore no container do Postgres, mc no do MinIO, a verificação no do app. A linha de comando do host não recebe senha.
+- Backup cifrado arquivo a arquivo com a chave da plataforma (contexto com o id do backup e o nome do arquivo), porque leva dado pessoal; sem a chave não abre. Na nuvem, troca por backup gerenciado com KMS.
+- O manifesto guarda a revisão do Alembic e o SHA-256 de cada original; o ensaio para em qualquer diferença.
+- Restauração sempre ensaiada numa cópia descartável no mesmo servidor (<banco>_ensaio e bucket ensaio-<id> sem Object Lock), com a verificação de integridade de todos os tenants. Diferença de contagem de linhas é aviso (o app pode ter gravado depois do backup).
+- Objetos restaurados ganham novos ids de versão. Em vez de reescrever versao_objeto (tabelas só de inserção), a leitura cai na versão atual da mesma chave quando a gravada não existe: cada chave é escrita uma vez só e o SHA-256 é conferido antes de usar o conteúdo.
+- Os papéis do banco não vão no backup (são do servidor): numa máquina nova, a pilha sobe e cria os papéis antes da restauração.
+- A verificação de integridade passou a incluir os relatórios assinados, que tinham ficado de fora no P19.

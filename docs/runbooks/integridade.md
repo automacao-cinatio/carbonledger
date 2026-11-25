@@ -11,7 +11,7 @@ Para cada cliente, sem confiar em quem gravou:
 | Trilha de auditoria | Refaz a sequência, o encadeamento e o hash v1 de cada evento | Evento alterado, removido ou inserido fora da cadeia |
 | Cálculos | Refaz cada cálculo pela entrada guardada e compara os dois hashes | Entrada alterada, ou o código do método mudou o resultado sem versão nova |
 | Fechamentos | Recalcula o hash do fechamento atual de cada inventário fechado | Dado, lançamento ou evidência mudou depois do fechamento |
-| Evidências e planilhas | Relê cada objeto do S3 e confere o SHA-256 | Objeto sumiu, ficou inacessível ou foi trocado |
+| Evidências, planilhas e relatórios assinados | Relê cada objeto do S3 e confere o SHA-256 | Objeto sumiu, ficou inacessível ou foi trocado |
 
 O resultado fica em `integridade_verificacao` (só inserção) e na trilha (`integridade.verificada`, só com as contagens). Falha gera log de erro `integridade_falhou`, com o tenant e os tipos, sem dado pessoal.
 
