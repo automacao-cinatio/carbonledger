@@ -105,3 +105,19 @@ def test_travas_da_cobranca() -> None:
             cobranca_tabela=TABELA,
             cobranca_webhook_token="t",  # noqa: S106
         )
+
+
+async def test_sem_cobranca_configurada_nunca_bloqueia(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from app.modules.cobranca import bloqueio
+
+    class SessaoQueNaoPodeSerUsada:
+        async def scalar(self, *_: object) -> None:
+            raise AssertionError("sem cobranca, nem consulta o banco")
+
+    monkeypatch.setattr(
+        bloqueio, "obter_configuracao", lambda: SimpleNamespace(cobranca_tabela=None)
+    )
+    assert not await bloqueio.em_atraso(SessaoQueNaoPodeSerUsada())
+    await bloqueio.exigir_em_dia(SessaoQueNaoPodeSerUsada())

@@ -22,6 +22,7 @@ from app.core import email as servico_email
 from app.core.config import Configuracao, obter_configuracao
 from app.core.erros import AcessoNegado, ErroValidacao
 from app.core.security.acesso import Acesso, Perfil, exigir_perfil
+from app.modules.cobranca.bloqueio import exigir_em_dia
 from app.modules.organizacao import acessos
 from app.web.portal import ROTULOS_PERFIL, montar_portal, renderizar
 
@@ -154,6 +155,7 @@ async def mudar_ia(acao: str, sessao: SessaoTenant, acesso: Administrador) -> Re
 async def convidar(
     request: Request, sessao: SessaoTenant, acesso: Administrador, configuracao: Config
 ) -> Response:
+    await exigir_em_dia(sessao)
     campos, empresas = await _dados(request)
     validade = timedelta(days=configuracao.convite_validade_dias)
     token = await acessos.criar_convite(

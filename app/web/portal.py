@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.security.acesso import Acesso, Perfil
 from app.core.security.sessao import Sessao
 from app.core.tenancy import sessao_de_tenant
+from app.modules.cobranca.bloqueio import em_atraso
 from app.web.renderizacao import templates
 
 ROTULOS_PERFIL = {
@@ -53,6 +54,8 @@ class Portal:
     empresa_atual: str | None = None
     inventario: Inventario | None = None
     csrf: str | None = None
+    # Pagamento em atraso: aviso em todas as telas (o bloqueio fica nas acoes novas).
+    em_atraso: bool = False
 
 
 PORTAL_ANONIMO = Portal()
@@ -116,6 +119,7 @@ async def montar_portal(request: Request) -> Portal:
         escolhida = str(sessao.empresa_id) if sessao.empresa_id else None
         atual = escolhida if escolhida in ids else (empresas[0].id if empresas else None)
         inventario = None if atual is None else await _inventario_da_empresa(db, UUID(atual))
+        atraso = await em_atraso(db)
     tenant_nome = next((a.nome for a in acessos if a.tenant_id == str(acesso.tenant_id)), None)
     return Portal(
         usuario_nome=None if usuario is None else usuario.nome,
@@ -126,6 +130,7 @@ async def montar_portal(request: Request) -> Portal:
         empresa_atual=atual,
         inventario=inventario,
         csrf=sessao.csrf,
+        em_atraso=atraso,
     )
 
 

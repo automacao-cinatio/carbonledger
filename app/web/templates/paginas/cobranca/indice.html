@@ -9,9 +9,6 @@
 {% if not ligada %}
 {{ alerta("info", "Cobrança desligada", "A tabela de preços não está configurada neste ambiente.") }}
 {% else %}
-{% if assinatura and assinatura.situacao == "inadimplente" %}
-{{ alerta("danger", "Pagamento em atraso", "Há fatura vencida há mais tempo que a tolerância. Pague pelo link na lista abaixo para regularizar.") }}
-{% endif %}
 
 <section class="card mb-3" aria-labelledby="titulo-assinatura">
   <div class="card-header">

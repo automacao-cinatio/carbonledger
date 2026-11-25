@@ -1,0 +1,9 @@
+{% from "componentes/feedback.html" import alerta %}
+{# Pagamento em atraso: aviso em todas as telas do cliente (app/modules/cobranca/bloqueio.py). #}
+<div class="container-xl pt-3 d-print-none">
+  {% if portal.perfil and portal.perfil.value == "administrador" %}
+  {{ alerta("danger", "Pagamento em atraso", "Abrir inventário, fechar, gerar relatório e convidar pessoas estão bloqueados até a fatura vencida ser paga. Regularize na tela Cobrança, no menu do usuário.") }}
+  {% else %}
+  {{ alerta("danger", "Pagamento em atraso", "Abrir inventário, fechar, gerar relatório e convidar pessoas estão bloqueados. Lançar e aprovar dados continua. Avise o administrador do cliente.") }}
+  {% endif %}
+</div>

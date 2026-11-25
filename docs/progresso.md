@@ -323,3 +323,9 @@
 - Testes: cálculo progressivo e tabela inválida; rodada no banco (fatura uma vez, vencida, inadimplente, paga, de novo ativa, evento repetido ignorado, período de teste); privilégio por coluna da fatura; roteiro no portal (tela, simulador, webhook sem token, token errado, cobrança desconhecida, outro gateway, repetição); tabelas e função na cobertura e na suíte de vazamento; axe-core em /cobranca.
 - Runbook docs/runbooks/cobranca.md.
 - Verificação desta leva (backup, ensaio de produção, KMS, carimbo do tempo, demonstração e cobrança): ruff, mypy (app e scripts), 1002 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (nada fora da .venv) e caracteres verdes. Pilha local em 0019 com a imagem reconstruída.
+
+## Bloqueio por inadimplência (2026-11-25)
+
+- app/modules/cobranca/bloqueio.py: em atraso, recusa abrir inventário, fechar, gerar relatório e convidar pessoas; aviso em todas as telas pelo portal (partes/aviso_cobranca.html).
+- Testes: roteiro no portal (aviso, quatro ações recusadas com a mensagem, lançamento continua, pagamento libera) e cobrança desligada nunca bloqueia.
+- Verificação: ruff, mypy, 1006 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes.
