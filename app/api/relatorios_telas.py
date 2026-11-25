@@ -44,6 +44,7 @@ COLUNAS_RELATORIOS = [
     {"chave": "gerado_em", "titulo": "Gerado em", "link": "url"},
     {"chave": "versao", "titulo": "Fechamento", "unidade": "versão", "casas": 0},
     {"chave": "assinante", "titulo": "Assinado por"},
+    {"chave": "carimbo", "titulo": "Carimbo do tempo"},
     {"chave": "tamanho", "titulo": "Tamanho", "unidade": "KB", "casas": 0},
     {"chave": "hash", "titulo": "SHA-256 (início)"},
     {"chave": "situacao", "titulo": "Retrata", "etiqueta": True},
@@ -128,6 +129,7 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
                 "url": f"/relatorios/{r.relatorio_id}/arquivo.pdf",
                 "versao": r.versao_fechamento,
                 "assinante": r.titular,
+                "carimbo": _hora(r.carimbo_em) if r.carimbo_em else "Sem carimbo",
                 "tamanho": max(1, (r.tamanho + 1023) // 1024),
                 "hash": r.sha256.hex()[:16],
                 "situacao": ("Fechamento atual", "success")
@@ -234,6 +236,7 @@ async def gerar(
         certificado=certificado,
         provedor=provedor,
         armazem=_armazem(request),
+        carimbadora=relatorio.carimbadora_da_configuracao(obter_configuracao()),
     )
     return resposta_com_aviso("Relatório gerado e assinado.", **{"HX-Refresh": "true"})
 

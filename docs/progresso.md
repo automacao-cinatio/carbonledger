@@ -20,7 +20,7 @@
 - [x] P16 IA
 - [x] P17 Escopo 3 (com dados fictícios)
 - [x] P18 Metas
-- [x] P19 PDF assinado (PAdES B-B; sem carimbo do tempo nem cadeia ICP-Brasil validada)
+- [x] P19 PDF assinado (PAdES B-T com TSA configurada; cadeia ICP-Brasil ainda não validada)
 - [x] P20 Integridade
 - [x] P21 Campanhas
 - [ ] P22 Cobrança
@@ -300,3 +300,9 @@
 - scripts/ensaio_producao.py (make ensaio-producao e make ensaio-producao-parar): sobe, espera e confere 12 itens com evidência. Resultado: 12 de 12 ok.
 - Trava nova: em produção, a DATABASE_URL precisa de sslmode=require. O sslmode vira ssl para o SQLAlchemy (o asyncpg direto entende sslmode, o connect via SQLAlchemy não).
 - Runbook docs/runbooks/ensaio-de-producao.md.
+
+## Carimbo do tempo no relatório (2026-11-24)
+
+- TSA_URL, TSA_USUARIO e TSA_SENHA: com TSA, a assinatura sai PAdES B-T (token RFC 3161 embutido); sem, B-B. TSA configurada que não responde impede a geração, com aviso na tela.
+- Migração 0018: relatorio_inventario.carimbo_em com a hora atestada pela TSA, mostrada na tela Relatórios e no painel do verificador.
+- Testes: assinatura B-T validada pelo pyHanko (token confiável), hora gravada, B-B sem hora, TSA fora do ar, e o caminho HTTP completo contra uma TSA local de teste (RFC 3161).

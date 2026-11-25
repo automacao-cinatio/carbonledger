@@ -41,6 +41,12 @@ class Configuracao(BaseSettings):
     clamav_host: str = "clamav"
     clamav_port: int = 3310
     clamav_tempo_limite_s: float = 60.0
+    # Carimbo do tempo do relatorio assinado (PAdES B-T). Sem TSA_URL, a assinatura sai sem
+    # carimbo (B-B). Usuario e senha so se a TSA exigir (as ICP-Brasil costumam exigir).
+    tsa_url: str | None = None
+    tsa_usuario: str | None = None
+    tsa_senha: SecretStr | None = None
+    tsa_tempo_limite_s: float = 15.0
 
     smtp_host: str = "mailpit"
     smtp_port: int = 1025

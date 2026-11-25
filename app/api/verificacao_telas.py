@@ -197,6 +197,7 @@ async def painel(request: Request, sessao: SessaoTenant, atual: Verificador) -> 
             "url": f"/verificacao/relatorios/{r.relatorio_id}/arquivo.pdf",
             "versao": r.versao_fechamento,
             "assinante": r.titular,
+            "carimbo": _hora(r.carimbo_em) if r.carimbo_em else "Sem carimbo",
             "hash": r.sha256.hex(),
             "situacao": ("Fechamento atual", "success")
             if r.hash_fechamento == hash_atual

@@ -295,3 +295,10 @@
 - Contêineres do app com raiz só leitura, /tmp em memória, sem capacidades e com no-new-privileges; o ensaio confere cada um por docker inspect.
 - Uvicorn confia no X-Forwarded-For de qualquer origem dentro da rede do ensaio (FORWARDED_ALLOW_IPS=*), porque a API não tem porta publicada: só o proxy chega nela. Na nuvem, a lista do balanceador.
 - Retenção de 1 dia no ensaio, para o COMPLIANCE do MinIO não prender objetos de teste.
+
+## 2026-11-24: carimbo do tempo
+
+- Carimbo do tempo opcional por configuração (TSA_URL), porque a escolha da autoridade (ICP-Brasil, com contrato) ainda é do usuário. Com TSA, PAdES B-T; sem, B-B, e a tela mostra "Sem carimbo".
+- TSA configurada e fora do ar: o relatório não sai. Gerar sem carimbo sem avisar daria um documento mais fraco do que o esperado.
+- A hora do carimbo é lida do token embutido (gen_time) e gravada em relatorio_inventario.carimbo_em na mesma inserção.
+- B-LT (dados de revogação embutidos) fica para quando as raízes ICP-Brasil estiverem em data/.

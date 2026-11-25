@@ -41,6 +41,10 @@ x-app: &app
     KMS_ENDPOINT: ${KMS_ENDPOINT:-}
     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    # Carimbo do tempo do relatorio assinado (opcional): docs/runbooks/relatorio-assinado.md.
+    TSA_URL: ${TSA_URL:-}
+    TSA_USUARIO: ${TSA_USUARIO:-}
+    TSA_SENHA: ${TSA_SENHA:-}
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ANTHROPIC_MODELO: ${ANTHROPIC_MODELO:-}
     IA_FALLBACKS: ${IA_FALLBACKS:-default}
