@@ -21,8 +21,9 @@ from app.modules.relatorios import certificados, relatorio
 
 log = structlog.get_logger(__name__)
 
-# Pedido que o worker nao pegou nesse tempo (worker parado, fila perdida) sai da fila no
-# proximo pedido, para a pessoa poder pedir de novo; se o worker pegar depois, nao gera.
+# Pedido que o worker nao pegou nesse tempo (worker parado, fila perdida, Redis fora no
+# momento de enfileirar) ja aparece como falhou na leitura, o que devolve o botao de gerar; o
+# proximo pedido grava a falha de verdade. Se o worker pegar depois, nao gera.
 PRAZO_DA_FILA_MIN = 15
 MENSAGEM_PRAZO = (
     "O pedido não foi processado a tempo e saiu da fila. Nada foi gerado; peça de novo."
@@ -31,9 +32,11 @@ MENSAGEM_SEM_CHAVE = (
     "A plataforma está sem a chave que abre o certificado da empresa. Nada foi gerado; avise o"
     " suporte."
 )
+# Sem "nada foi gravado": o PDF pode ja ter ido para o armazenamento (com Object Lock) antes
+# da falha; o que se garante e que nenhum relatorio foi registrado.
 MENSAGEM_FALHA_INESPERADA = (
-    "A geração falhou por um erro interno. Nada foi gravado; tente de novo. Se repetir, avise o"
-    " suporte com a hora do pedido."
+    "A geração falhou por um erro interno e o relatório não foi registrado. Tente de novo; se"
+    " repetir, avise o suporte com a hora do pedido."
 )
 
 
@@ -166,13 +169,28 @@ async def processar(
     return "pronto"
 
 
-_COLUNAS = "pedido_id, inventario_id, situacao, pedido_em, concluido_em, mensagem, relatorio_id"
+_PRESO = (
+    f"situacao = 'na_fila' AND pedido_em < now() - make_interval(mins => {int(PRAZO_DA_FILA_MIN)})"
+)
+
+
+def _colunas(parametro_mensagem: int) -> str:
+    """Colunas com o prazo aplicado: na fila alem do prazo volta como falhou, sem escrever na
+    leitura. A mensagem do prazo vai como parametro ($n), nunca montada no SQL."""
+    return (
+        "pedido_id, inventario_id,"
+        f" CASE WHEN {_PRESO} THEN 'falhou' ELSE situacao END AS situacao,"
+        " pedido_em, concluido_em,"
+        f" CASE WHEN {_PRESO} THEN ${parametro_mensagem}::text ELSE mensagem END AS mensagem,"
+        " relatorio_id"
+    )
 
 
 async def obter(conexao: Any, pedido_id: UUID) -> Pedido:
     linha = await conexao.fetchrow(
-        f"SELECT {_COLUNAS} FROM relatorio_pedido WHERE pedido_id = $1",  # noqa: S608  # nosec B608
+        f"SELECT {_colunas(2)} FROM relatorio_pedido WHERE pedido_id = $1",  # noqa: S608  # nosec B608
         pedido_id,
+        MENSAGEM_PRAZO,
     )
     if linha is None:
         raise AcessoNegado
@@ -181,9 +199,10 @@ async def obter(conexao: Any, pedido_id: UUID) -> Pedido:
 
 async def do_inventario(conexao: Any, inventario_id: UUID, limite: int = 5) -> list[Pedido]:
     linhas = await conexao.fetch(
-        f"SELECT {_COLUNAS} FROM relatorio_pedido WHERE inventario_id = $1"  # noqa: S608  # nosec B608
+        f"SELECT {_colunas(3)} FROM relatorio_pedido WHERE inventario_id = $1"  # noqa: S608  # nosec B608
         " ORDER BY pedido_em DESC LIMIT $2",
         inventario_id,
         limite,
+        MENSAGEM_PRAZO,
     )
     return [Pedido(**dict(linha)) for linha in linhas]

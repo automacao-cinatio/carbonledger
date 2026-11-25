@@ -56,8 +56,9 @@ class Configuracao(BaseSettings):
     cobranca_dias_teste: int = 30
     cobranca_dias_vencimento: int = 10
     cobranca_dias_tolerancia: int = 15
-    # Asaas (COBRANCA_GATEWAY=asaas). Vazio: sandbox. Producao so com a URL de producao, e a
-    # URL de producao so em producao (nada de cobranca real a partir de dev).
+    # Asaas (COBRANCA_GATEWAY=asaas). Vazio: sandbox. Lista permitida, nao proibida: em
+    # producao so a URL de producao; fora dela, so a do sandbox (nenhum outro endereco, como os
+    # antigos de producao, passa: nada de cobranca real a partir de dev).
     asaas_api_key: SecretStr | None = None
     asaas_base_url: str = ""
 
@@ -139,16 +140,15 @@ class Configuracao(BaseSettings):
         if self.cobranca_tabela and self.cobranca_webhook_token is None:
             raise ValueError("Com COBRANCA_TABELA, defina COBRANCA_WEBHOOK_TOKEN.")
         if self.cobranca_tabela and self.cobranca_gateway == "asaas":
-            from app.modules.cobranca.asaas import URL_PRODUCAO
+            from app.modules.cobranca.asaas import URL_PRODUCAO, URL_SANDBOX
 
             if self.asaas_api_key is None or not self.asaas_api_key.get_secret_value():
                 raise ValueError("Com COBRANCA_GATEWAY=asaas, defina ASAAS_API_KEY.")
-            if not self.asaas_url.startswith("https://"):
-                raise ValueError("ASAAS_BASE_URL precisa usar https.")
-            if self.em_producao != (self.asaas_url == URL_PRODUCAO):
+            permitida = URL_PRODUCAO if self.em_producao else URL_SANDBOX
+            if self.asaas_url != permitida:
                 raise ValueError(
-                    "ASAAS_BASE_URL: a URL de producao do Asaas so em producao, e producao so"
-                    " com ela."
+                    f"ASAAS_BASE_URL: {'em producao' if self.em_producao else 'fora de producao'}"
+                    f" so {permitida}."
                 )
         if self.provedor_chaves not in ("local", "kms"):
             raise ValueError("PROVEDOR_CHAVES aceita local ou kms.")

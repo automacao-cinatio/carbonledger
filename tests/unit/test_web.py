@@ -236,6 +236,13 @@ def test_pagina_ui_renderiza_todos_os_componentes(cliente: TestClient) -> None:
     assert 'data-confirmar-texto="Empresa Exemplo Ltda"' in html
     assert '"includeIndicatorStyles": false' in html.replace("&#34;", '"')
     assert 'aria-live="polite"' in html
+    # O exemplo do proximo passo com empresa posta na acao de demonstracao, que funciona
+    # sem sessao; nunca no /sessao/empresa com o id falso da galeria.
+    assert 'hx-post="/ui/acao" hx-swap="none"' in html
+    assert 'hx-post="/sessao/empresa" hx-swap="none"' not in html
+    assert (
+        cliente.post("/ui/acao", data={"empresa_id": "e1", "destino": "/coleta"}).status_code == 204
+    )
 
 
 def test_estaticos_com_versao_pelo_conteudo(cliente: TestClient) -> None:

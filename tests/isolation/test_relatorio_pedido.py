@@ -211,3 +211,28 @@ def test_tela_acompanha_o_pedido(app_cliente: TestClient, banco: Banco) -> None:
         f"/relatorios/pedidos/{pedido}/situacao", headers={"accept": "application/json"}
     )
     assert alheio.status_code == 404
+
+
+def test_pedido_preso_libera_a_tela_sem_novo_pedido(app_cliente: TestClient, banco: Banco) -> None:
+    """Worker que nunca pegou o pedido (Redis fora ao enfileirar, por exemplo): passado o prazo,
+    a tela mostra a falha e devolve o botao, sem ninguem precisar pedir de novo antes."""
+    cliente = app_cliente
+    tenant_id, ids, dono, certificado = _cenario(cliente, banco, "preso")
+    pedido = _pedir(banco, tenant_id, ids, dono, certificado)
+    assert "Relatório sendo gerado" in cliente.get("/relatorios").text
+    asyncio.run(
+        _admin(
+            banco,
+            "UPDATE relatorio_pedido SET pedido_em = now() - interval '20 minutes'"
+            " WHERE pedido_id = $1",
+            pedido,
+        )
+    )
+    pagina = cliente.get("/relatorios").text
+    assert "Relatório sendo gerado" not in pagina
+    assert "A última geração falhou" in pagina and pedidos.MENSAGEM_PRAZO in pagina
+    assert "Gerar relatório assinado" in pagina
+    consulta = cliente.get(f"/relatorios/pedidos/{pedido}/situacao")
+    assert consulta.status_code == 204 and consulta.headers["hx-refresh"] == "true"
+    # A leitura nao escreve: no banco o pedido ainda esta na fila ate o proximo pedido.
+    assert _pedido(banco, pedido)["situacao"] == "na_fila"
