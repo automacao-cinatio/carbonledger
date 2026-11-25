@@ -10,7 +10,7 @@ import pytest
 
 from app.core.tenancy import ContextoTenant, Escopo, aplicar_contexto
 from app.modules.cobranca import precos, servico
-from app.modules.cobranca.gateway import GatewaySimulado, do_simulador
+from app.modules.cobranca.gateway import GatewaySimulado, Pagador, do_simulador
 from tests.isolation.conftest import Dados
 
 pytestmark = pytest.mark.integration
@@ -118,6 +118,73 @@ async def test_periodo_de_teste_nao_fatura(conexao_app: asyncpg.Connection, dado
             conexao_app, dados.tenant_b, date(2026, 3, 5), PARAMETROS, GATEWAY
         )
         assert rodada.fatura_emitida is None and rodada.situacao == "teste"
+
+
+class GatewayQueExigePagador(GatewaySimulado):
+    """Como o Asaas: sem pagador nao ha fatura; guarda o que recebeu."""
+
+    nome = "simulado"
+    exige_pagador = True
+
+    def __init__(self) -> None:
+        super().__init__("http://localhost:8000", "token-de-teste")
+        self.criados: list[Pagador | None] = []
+        self.atualizados: list[tuple[str, Pagador]] = []
+
+    async def criar_cliente(self, tenant_id: str, nome: str, pagador: Pagador | None) -> str:
+        self.criados.append(pagador)
+        return "cli_exige"
+
+    async def atualizar_cliente(self, cliente_id: str, pagador: Pagador) -> None:
+        self.atualizados.append((cliente_id, pagador))
+
+
+async def test_pagador_da_cobranca(conexao_app: asyncpg.Connection, dados: Dados) -> None:
+    gateway = GatewayQueExigePagador()
+    async for _ in _em_tenant(conexao_app, dados.tenant_a):
+        # Sem pagador: nenhuma fatura, com o aviso do que fazer.
+        sem = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 3, 5), PARAMETROS, gateway
+        )
+        assert sem.fatura_emitida is None and sem.avisos == [servico.AVISO_SEM_PAGADOR]
+        assert gateway.criados == []
+
+        primeiro = Pagador("Controladora S.A.", "11222333000181", "financeiro@controladora.example")
+        await servico.salvar_pagador(conexao_app, dados.tenant_a, dados.admin_a, primeiro)
+        marco = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 3, 5), PARAMETROS, gateway
+        )
+        assert marco.fatura_emitida is not None and gateway.criados == [primeiro]
+        assinatura = await conexao_app.fetchrow("SELECT * FROM assinatura")
+        assert assinatura["gateway_cliente_id"] == "cli_exige"
+        assert assinatura["pagador_sincronizado"] is True
+
+        # Pagador novo: o cliente do gateway e atualizado antes da fatura seguinte, uma vez.
+        segundo = Pagador("Outra S.A.", "12ABC34501DE35", "contas@outra.example")
+        await servico.salvar_pagador(conexao_app, dados.tenant_a, dados.admin_a, segundo)
+        assert await conexao_app.fetchval("SELECT pagador_sincronizado FROM assinatura") is False
+        await servico.rodada(conexao_app, dados.tenant_a, date(2026, 4, 2), PARAMETROS, gateway)
+        await servico.rodada(conexao_app, dados.tenant_a, date(2026, 5, 2), PARAMETROS, gateway)
+        assert gateway.atualizados == [("cli_exige", segundo)]
+
+        # A trilha registra a troca, sem os dados do pagador.
+        trilha = await conexao_app.fetch(
+            "SELECT dados::text AS dados FROM audit_log WHERE acao = 'cobranca.pagador_alterado'"
+        )
+        assert len(trilha) == 2
+        assert all("financeiro" not in t["dados"] and "11222333" not in t["dados"] for t in trilha)
+
+
+async def test_pagador_incompleto_ou_cnpj_fora_do_formato(
+    conexao_admin: asyncpg.Connection, dados: Dados
+) -> None:
+    for sql in (
+        "UPDATE assinatura SET pagador_nome = 'So nome' WHERE tenant_id = $1",
+        "UPDATE assinatura SET pagador_nome = 'X', pagador_cnpj = '123',"
+        " pagador_email = 'a@b.example' WHERE tenant_id = $1",
+    ):
+        with pytest.raises(asyncpg.CheckViolationError):
+            await conexao_admin.execute(sql, dados.tenant_a)
 
 
 async def test_fatura_so_muda_situacao_e_gateway(conexao_admin: asyncpg.Connection) -> None:

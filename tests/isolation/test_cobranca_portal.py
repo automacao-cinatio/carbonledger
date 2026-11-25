@@ -1,5 +1,5 @@
 """Cobranca no portal (P22): tela do administrador, fatura emitida pela rodada, pagamento pelo
-simulador e o webhook (token, cobranca desconhecida, repeticao)."""
+simulador, os dados do pagador e o webhook (token, cobranca desconhecida, repeticao)."""
 
 import asyncio
 import json
@@ -88,12 +88,17 @@ def test_roteiro_da_cobranca(app_cliente: TestClient, banco: Banco) -> None:
     assert "Paga" in cliente.get("/cobranca").text
     assert "Fatura paga" in cliente.get(caminho.group(1)).text
 
-    # Webhook (sem sessao): sem token, token errado, cobranca desconhecida, outro gateway: 404.
+    # Webhook (sem sessao): sem token, token errado ou outro gateway: 404.
     evento = {"id": "evt-1", "tipo": "pagamento_confirmado", "cobranca_id": cobranca_id}
     errado = "errado"
     assert _webhook(cliente, evento, token=None).status_code == 404
     assert _webhook(cliente, evento, token=errado).status_code == 404
-    assert _webhook(cliente, {**evento, "cobranca_id": "sim_cob_x"}).status_code == 404
+    # Autentico, mas de cobranca que nao e da plataforma (ou sem cobranca): 200, ignorado. O
+    # Asaas reenvia o que nao recebe 200 e pausa a fila depois de 15 falhas.
+    alheio = _webhook(cliente, {**evento, "id": "evt-x", "cobranca_id": "sim_cob_x"})
+    assert alheio.status_code == 200 and alheio.json() == {"recebido": False}
+    sem_cobranca = _webhook(cliente, {**evento, "id": "evt-y", "cobranca_id": ""})
+    assert sem_cobranca.status_code == 200 and sem_cobranca.json() == {"recebido": False}
     cliente.cookies.clear()
     outro_gateway = cliente.post(
         "/cobranca/webhook/asaas", content=b"{}", headers={"X-Cobranca-Token": TOKEN}
@@ -117,5 +122,57 @@ async def _eventos(banco: Banco, tenant_id: UUID) -> list[str]:
                 "SELECT evento_id FROM cobranca_evento WHERE tenant_id = $1", tenant_id
             )
         ]
+    finally:
+        await conexao.close()
+
+
+def test_dados_do_pagador_na_tela(app_cliente: TestClient, banco: Banco) -> None:
+    cliente = app_cliente
+    tenant_id, token = asyncio.run(
+        criar_tenant(obter_configuracao(), "Cliente Pagador", "dona@pagador.example")
+    )
+    entrar(cliente, f"/convite/{token}/dev", sujeito="dona-pagador", email="dona@pagador.example")
+    pagina = cliente.get("/cobranca").text
+    assert "Dados de cobrança" in pagina and 'hx-post="/cobranca/pagador"' in pagina
+    assert "validar_url" not in pagina and 'hx-post="/organizacao/validar/cnpj"' in pagina
+    # Simulado: nao exige pagador, entao nao avisa que falta.
+    assert "Faltam os dados de cobrança" not in pagina
+
+    # Tudo errado de uma vez: cada campo diz como corrigir.
+    recusado = cliente.post(
+        "/cobranca/pagador",
+        data={"nome": " ", "cnpj": "11.222.333/0001-00", "email": "financeiro"},
+        headers=csrf(cliente),
+    )
+    assert recusado.status_code == 422
+    assert {e["campo"] for e in recusado.json()["erros"]} == {"nome", "cnpj", "email"}
+
+    salvo = cliente.post(
+        "/cobranca/pagador",
+        data={"nome": "  Controladora   Exemplo S.A. ", "cnpj": "11.222.333/0001-81",
+              "email": "Financeiro@Controladora.example"},
+        headers=csrf(cliente),
+    )  # fmt: skip
+    assert salvo.status_code == 204
+    assert unquote(salvo.headers["x-aviso"]).startswith("Dados de cobrança salvos.")
+    pagina = cliente.get("/cobranca").text
+    assert 'value="Controladora Exemplo S.A."' in pagina
+    assert 'value="11.222.333/0001-81"' in pagina
+    assert 'value="financeiro@controladora.example"' in pagina
+    gravado = asyncio.run(_assinatura(banco, tenant_id))
+    assert gravado["pagador_cnpj"] == "11222333000181"
+    assert gravado["pagador_sincronizado"] is False
+
+    # Sem CSRF, nada (404).
+    sem_csrf = cliente.post("/cobranca/pagador", data={"nome": "X"})
+    assert sem_csrf.status_code == 404
+
+
+async def _assinatura(banco: Banco, tenant_id: UUID) -> Any:
+    import asyncpg
+
+    conexao = await asyncpg.connect(banco.dsn_admin)
+    try:
+        return await conexao.fetchrow("SELECT * FROM assinatura WHERE tenant_id = $1", tenant_id)
     finally:
         await conexao.close()

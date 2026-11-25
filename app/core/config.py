@@ -56,6 +56,16 @@ class Configuracao(BaseSettings):
     cobranca_dias_teste: int = 30
     cobranca_dias_vencimento: int = 10
     cobranca_dias_tolerancia: int = 15
+    # Asaas (COBRANCA_GATEWAY=asaas). Vazio: sandbox. Producao so com a URL de producao, e a
+    # URL de producao so em producao (nada de cobranca real a partir de dev).
+    asaas_api_key: SecretStr | None = None
+    asaas_base_url: str = ""
+
+    @property
+    def asaas_url(self) -> str:
+        from app.modules.cobranca.asaas import URL_SANDBOX
+
+        return (self.asaas_base_url or URL_SANDBOX).rstrip("/")
 
     smtp_host: str = "mailpit"
     smtp_port: int = 1025
@@ -128,6 +138,18 @@ class Configuracao(BaseSettings):
             raise ValueError("COBRANCA_GATEWAY aceita simulado ou asaas.")
         if self.cobranca_tabela and self.cobranca_webhook_token is None:
             raise ValueError("Com COBRANCA_TABELA, defina COBRANCA_WEBHOOK_TOKEN.")
+        if self.cobranca_tabela and self.cobranca_gateway == "asaas":
+            from app.modules.cobranca.asaas import URL_PRODUCAO
+
+            if self.asaas_api_key is None or not self.asaas_api_key.get_secret_value():
+                raise ValueError("Com COBRANCA_GATEWAY=asaas, defina ASAAS_API_KEY.")
+            if not self.asaas_url.startswith("https://"):
+                raise ValueError("ASAAS_BASE_URL precisa usar https.")
+            if self.em_producao != (self.asaas_url == URL_PRODUCAO):
+                raise ValueError(
+                    "ASAAS_BASE_URL: a URL de producao do Asaas so em producao, e producao so"
+                    " com ela."
+                )
         if self.provedor_chaves not in ("local", "kms"):
             raise ValueError("PROVEDOR_CHAVES aceita local ou kms.")
         if self.provedor_chaves == "kms" and not self.kms_chave_id:

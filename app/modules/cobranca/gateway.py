@@ -1,11 +1,14 @@
-"""Gateway de cobranca: interface e o simulado (o Asaas entra depois como outra implementacao).
+"""Gateway de cobranca: interface e o simulado (o Asaas esta em asaas.py).
 
 Contrato que toda implementacao cumpre:
 - criar_cobranca e idempotente pela referencia (o id da fatura): chamar de novo com a mesma
   referencia devolve a mesma cobranca, nunca cria outra. Assim, uma tarefa repetida depois de
   falha nunca cobra duas vezes.
+- criar_cliente tambem e idempotente, pelo id do tenant.
 - ler_evento confere a autenticidade do webhook (token) e devolve o evento normalizado; webhook
-  sem token valido vira None (a rota responde 404).
+  sem token valido vira None (a rota responde 404). Evento autentico que nao e de cobranca
+  volta com cobranca_id vazio (a rota responde 200 e ignora).
+- exige_pagador: sem os dados do pagador, a rodada nao emite fatura nesse gateway.
 
 O simulado nao fala com ninguem: o id da cobranca deriva da referencia e o link de pagamento
 leva a uma pagina do proprio app (so fora de producao), que dispara o mesmo processamento de
@@ -23,6 +26,13 @@ EVENTO_PAGO = "pagamento_confirmado"
 
 
 @dataclass(frozen=True)
+class Pagador:
+    nome: str
+    cnpj: str
+    email: str
+
+
+@dataclass(frozen=True)
 class Cobranca:
     cobranca_id: str
     url_pagamento: str
@@ -37,8 +47,11 @@ class Evento:
 
 class Gateway(Protocol):
     nome: str
+    exige_pagador: bool
 
-    async def criar_cliente(self, tenant_id: str, nome: str) -> str: ...
+    async def criar_cliente(self, tenant_id: str, nome: str, pagador: Pagador | None) -> str: ...
+
+    async def atualizar_cliente(self, cliente_id: str, pagador: Pagador) -> None: ...
 
     async def criar_cobranca(
         self, cliente_id: str, referencia: str, valor_centavos: int, vencimento: date,
@@ -50,13 +63,17 @@ class Gateway(Protocol):
 
 class GatewaySimulado:
     nome = "simulado"
+    exige_pagador = False
 
     def __init__(self, url_base: str, token: str) -> None:
         self.url_base = url_base.rstrip("/")
         self.token = token
 
-    async def criar_cliente(self, tenant_id: str, nome: str) -> str:
+    async def criar_cliente(self, tenant_id: str, nome: str, pagador: Pagador | None) -> str:
         return f"sim_cli_{tenant_id}"
+
+    async def atualizar_cliente(self, cliente_id: str, pagador: Pagador) -> None:
+        return None
 
     async def criar_cobranca(
         self, cliente_id: str, referencia: str, valor_centavos: int, vencimento: date,
