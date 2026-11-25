@@ -239,6 +239,20 @@ async def obter(sessao: AsyncSession, certificado_id: UUID) -> Certificado:
     return _do_registro(linha)
 
 
+async def obter_asyncpg(conexao: Any, certificado_id: UUID) -> Certificado:
+    """O mesmo que obter, pela conexao asyncpg do worker."""
+    linha = await conexao.fetchrow(
+        f"SELECT {_COLUNAS} FROM certificado_assinatura"  # noqa: S608  # nosec B608
+        " WHERE certificado_id = $1",
+        certificado_id,
+    )
+    if linha is None:
+        raise AcessoNegado
+    dados = dict(linha)
+    dados["impressao_sha256"] = bytes(dados["impressao_sha256"])
+    return Certificado(**dados)
+
+
 async def cadastrar(
     sessao: AsyncSession,
     acesso: Acesso,

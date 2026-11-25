@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
 {% from "componentes/formulario.html" import campo_texto, campo_arquivo, formulario, botao %}
-{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
+{% from "componentes/feedback.html" import alerta, acompanhamento, confirmacao_irreversivel, glossario %}
 {% from "componentes/dados.html" import tabela %}
 {% block titulo %}Relatórios{% endblock %}
 {% block conteudo %}
@@ -19,7 +19,12 @@
   <div class="card-header"><h2 class="card-title" id="titulo-relatorios">Relatório do inventário em PDF</h2></div>
   <div class="card-body">
     <p>O relatório retrata o inventário fechado: emissões por escopo, categoria e gás, as unidades incluídas e os hashes que permitem conferir os números. A empresa assina com o próprio {{ glossario("certificado A1", "Certificado digital em arquivo (.pfx ou .p12), como o e-CNPJ ICP-Brasil da empresa.") }}. A assinatura mostra quem emitiu e que o arquivo não mudou; ela não certifica as emissões, o que cabe ao verificador.</p>
-    {% if inventario is none or fechamento_atual is none %}
+    {% if pedido_falhou %}
+    {{ alerta("danger", "A última geração falhou", "Pedido às " ~ pedido_falhou.pedido_em ~ ": " ~ pedido_falhou.mensagem) }}
+    {% endif %}
+    {% if pedido_na_fila %}
+    {% with pedido = pedido_na_fila %}{% include "paginas/relatorios/pedido_na_fila.html" %}{% endwith %}
+    {% elif inventario is none or fechamento_atual is none %}
     {{ alerta("info", "Inventário ainda não fechado", "O relatório só sai de inventário fechado.") }}
     {% elif not chaves_configuradas %}
     {{ alerta("warning", "Assinatura indisponível", "As chaves de cifra do servidor não estão configuradas. Avise a equipe da plataforma.") }}

@@ -23,6 +23,7 @@ import re
 import shutil
 import subprocess  # nosec B404  # docker compose com lista de argumentos, sem shell
 import sys
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -143,6 +144,22 @@ class Pessoa:
         if resposta.status_code != 200:
             raise ErroDemonstracao(f"GET {caminho}: {resposta.status_code}")
         return resposta.text
+
+
+def _esperar_relatorio(sessao: Any, limite_s: int = 90) -> None:
+    """O relatorio sai no worker: espera a tela mostrar o resultado (ou a falha)."""
+    fim = time.monotonic() + limite_s
+    while time.monotonic() < fim:
+        pagina = sessao.pagina("/relatorios")
+        if "A última geração falhou" in pagina:
+            raise SystemExit("O worker nao gerou o relatorio; veja make logs (servico worker).")
+        if "Fechamento atual" in pagina:
+            print("   relatorio gerado e assinado pelo worker")
+            return
+        time.sleep(2)
+    raise SystemExit(
+        f"O relatorio nao ficou pronto em {limite_s} s. O worker esta de pe? (make logs)"
+    )
 
 
 def _achar(padrao: str, texto: str) -> str:
@@ -354,6 +371,7 @@ def roteiro(app: str) -> None:
                                                                  CNPJ_EMPRESA),
                                  "application/x-pkcs12")})  # fmt: skip
     dona.post(f"/relatorios/inventarios/{inventario}/gerar")
+    _esperar_relatorio(dona)
 
     print("8. Segunda empresa com a coleta pela metade")
     inventario_2 = dona.criar(f"/coleta/empresas/{segunda}/inventarios",

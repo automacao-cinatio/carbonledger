@@ -17,6 +17,25 @@
 {%- endmacro %}
 
 {#
+  Trabalho em andamento no servidor (fila do worker): o aviso diz o que esta acontecendo e,
+  com url, a tela pergunta de novo a cada `segundos`. Quando terminar, o servidor responde
+  204 com HX-Refresh e a tela recarrega com o resultado. Sem url, so o aviso (pagina /ui).
+#}
+{% macro acompanhamento(id, titulo, mensagem, url=None, segundos=4) -%}
+<div id="{{ id }}" class="alert alert-info" role="status" aria-live="polite"
+     {%- if url %} hx-get="{{ url }}" hx-trigger="every {{ segundos }}s" hx-swap="outerHTML" hx-indicator="#ind-{{ id }}"{% endif %}>
+  <div class="d-flex align-items-start">
+    <div><span class="spinner-border spinner-border-sm me-3 mt-1" aria-hidden="true"></span></div>
+    <div>
+      <h2 class="alert-title h4">{{ titulo }}</h2>
+      <div class="text-secondary">{{ mensagem }}</div>
+    </div>
+    <span id="ind-{{ id }}" class="htmx-indicator visually-hidden">Consultando</span>
+  </div>
+</div>
+{%- endmacro %}
+
+{#
   Acao irreversivel: o modal mostra o efeito antes de confirmar. Com texto_exigido, o botao so
   libera quando a pessoa digita exatamente esse texto (ex.: o nome da empresa ao fechar o
   inventario), e o texto vai junto no envio (campo confirmacao) para o servidor conferir.

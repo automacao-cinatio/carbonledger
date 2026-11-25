@@ -8,7 +8,7 @@
 4. Inventário 2025 da Metalúrgica Exemplo: caldeira a diesel (mensal, com mistura), energia elétrica (mensal) e viagens aéreas (anual), com evidências em PDF passando pelo ClamAV e pelo S3.
 5. Um gestor convidado (convite lido do Mailpit) aprova os dados, porque quem lança não aprova.
 6. Cálculo, conferência e fechamento.
-7. Certificado A1 autoassinado com o CNPJ da empresa (só desenvolvimento aceita sem cadeia ICP-Brasil) e o relatório assinado.
+7. Certificado A1 autoassinado com o CNPJ da empresa (só desenvolvimento aceita sem cadeia ICP-Brasil) e o relatório assinado, gerado pelo worker: o script espera até 90 segundos e para com aviso se o worker não estiver de pé.
 8. Transportes Exemplo com a coleta pela metade, para o painel mostrar progresso.
 
 Para entrar depois: "Entrar" com o provedor de desenvolvimento, usuário `dona-demonstracao` (e-mail dona@demonstracao.example) ou `gestor-demonstracao` (gestor@demonstracao.example).

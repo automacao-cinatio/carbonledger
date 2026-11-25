@@ -7,6 +7,7 @@ import sys
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from uuid import UUID, uuid4
 
 import asyncpg
@@ -269,6 +270,15 @@ async def _semear_coleta(conexao: asyncpg.Connection) -> None:
             certificado,
             revisor,
         )
+        await conexao.execute(
+            "INSERT INTO relatorio_pedido (tenant_id, pedido_id, empresa_id, inventario_id,"
+            " certificado_id, pedido_por) VALUES ($1, gen_random_uuid(), $2, $3, $4, $5)",
+            tenant,
+            empresa,
+            inventario,
+            certificado,
+            revisor,
+        )
         # Cobranca: assinatura com o teste ja acabado e uma fatura antiga paga, com um evento.
         await conexao.execute(
             "INSERT INTO assinatura (tenant_id, situacao, teste_ate, gateway)"
@@ -517,6 +527,20 @@ def app_cliente(
     app.include_router(rotas_teste)
     app.state.armazem = ArmazemMemoria()
     app.state.antivirus = AntivirusFalso()
+
+    # Relatorio: em vez do Celery, a tarefa roda na hora, pelo mesmo codigo do worker (conexao
+    # asyncpg propria, depois do commit da requisicao), com as chaves e o S3 falso do app.
+    from app.api import relatorios_telas
+    from app.workers import relatorios as tarefa_relatorio
+
+    monkeypatch.setattr(
+        tarefa_relatorio, "dependencias", lambda: (app.state.chaves, app.state.armazem, None)
+    )
+
+    def enfileirar_na_hora(*, tenant_id: Any, pedido_id: Any) -> None:
+        tarefa_relatorio.gerar_pedido(tenant_id=str(tenant_id), pedido_id=str(pedido_id))
+
+    monkeypatch.setattr(relatorios_telas, "enfileirar_relatorio", enfileirar_na_hora)
     with TestClient(app, follow_redirects=False) as cliente:
         yield cliente
     obter_configuracao.cache_clear()

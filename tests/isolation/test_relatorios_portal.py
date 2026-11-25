@@ -192,11 +192,21 @@ def test_roteiro_do_relatorio_assinado(
     assert guardado[0]["chave_cifrada"].startswith("cl1.")
     assert SENHA not in guardado[0]["chave_cifrada"]
 
-    # Gera: PDF assinado pela empresa, guardado e registrado.
+    # Gera: o pedido vai para o worker (aqui, na hora); PDF assinado, guardado e registrado.
     gerado = cliente.post(
         f"/relatorios/inventarios/{ids['inventario']}/gerar", headers=csrf(cliente)
     )
-    assert _aviso(gerado) == "Relatório gerado e assinado."
+    assert _aviso(gerado).startswith("Pedido na fila.")
+    pedido = asyncio.run(
+        _consultar(banco, "SELECT pedido_id, situacao, relatorio_id, mensagem FROM"
+                   " relatorio_pedido WHERE tenant_id = $1", tenant_id)
+    )  # fmt: skip
+    assert len(pedido) == 1 and pedido[0]["situacao"] == "pronto", pedido
+    assert pedido[0]["relatorio_id"] is not None and pedido[0]["mensagem"] is None
+    # A consulta da tela, com o pedido pronto, manda recarregar.
+    consulta = cliente.get(f"/relatorios/pedidos/{pedido[0]['pedido_id']}/situacao")
+    assert consulta.status_code == 204 and consulta.headers["hx-refresh"] == "true"
+    assert _aviso(consulta) == "Relatório gerado e assinado."
     pagina = cliente.get("/relatorios").text
     assert "Fechamento atual" in pagina
     link = re.search(r'href="(/relatorios/[0-9a-f-]{36}/arquivo\.pdf)"', pagina).group(1)  # type: ignore[union-attr]
@@ -274,7 +284,12 @@ def test_roteiro_do_relatorio_assinado(
                        " 'certificado.%' OR acao LIKE 'relatorio.%') ORDER BY seq", tenant_id)
         )
     ]  # fmt: skip
-    assert acoes == ["certificado.cadastrado", "relatorio.gerado", "certificado.desativado"]
+    assert acoes == [
+        "certificado.cadastrado",
+        "relatorio.pedido",
+        "relatorio.gerado",
+        "certificado.desativado",
+    ]
 
 
 def test_certificado_so_desativa_no_banco(banco: Banco) -> None:

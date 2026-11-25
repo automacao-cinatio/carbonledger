@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "componentes/formulario.html" import indicador, mensagem_campo, campo_texto, campo_numero, campo_selecao, campo_marcacao, campo_opcoes, campo_arquivo, link_botao, botao, formulario %}
 {% from "componentes/layout.html" import icone, cabecalho_pagina, proximo_passo, barra_progresso, estado_inventario, seletor_empresa, etiqueta, ficha %}
-{% from "componentes/feedback.html" import alerta, confirmacao_irreversivel, glossario %}
+{% from "componentes/feedback.html" import alerta, acompanhamento, confirmacao_irreversivel, glossario %}
 {% from "componentes/dados.html" import tabela, grafico %}
 {% block titulo %}Componentes{% endblock %}
 {% block scripts %}<script src="{{ estatico('vendor/echarts-6.1.0/echarts.min.js') }}" defer></script>{% endblock %}
@@ -90,6 +90,7 @@
   <div class="card-body">
     {{ alerta("success", "Dados salvos", "Os 12 lançamentos de março foram registrados.") }}
     {{ alerta("warning", "Falta evidência", "3 lançamentos ainda não têm nota fiscal anexada.") }}
+    {{ acompanhamento("acompanhamento-exemplo", "Relatório sendo gerado", "Pedido às 10:42. A tela se atualiza sozinha quando ficar pronto.") }}
     {{ alerta("danger", "Não foi possível salvar", "O consumo precisa ser um número. Corrija o campo destacado.") }}
     <p>
       Termo com dica: {{ glossario("CO₂e", "Dióxido de carbono equivalente: soma dos gases de efeito estufa convertidos pelo potencial de aquecimento de cada um.") }}
