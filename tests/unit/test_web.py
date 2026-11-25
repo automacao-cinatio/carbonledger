@@ -277,6 +277,8 @@ def test_ui_some_em_producao(monkeypatch: pytest.MonkeyPatch) -> None:
     for nome, valor in {
         "AMBIENTE": "producao",
         "PROVEDOR_CHAVES": "kms",
+        "KMS_CHAVE_ID": "alias/carbonledger",
+        "DATABASE_URL": "postgresql://app_user:x@banco:5432/carbonledger?sslmode=require",
         "EVIDENCIAS_MODO_RETENCAO": "COMPLIANCE",
         "APP_URL_BASE": "https://carbonledger.example",
     }.items():

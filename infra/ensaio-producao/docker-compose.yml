@@ -1,0 +1,233 @@
+# Ensaio de producao local: a mesma imagem de producao, com AMBIENTE=producao e as travas
+# ligadas, separada da pilha de desenvolvimento (projeto e volumes proprios).
+#
+#   make ensaio-producao          sobe, espera ficar saudavel e roda a lista de conferencia
+#   make ensaio-producao-parar    derruba e apaga os volumes do ensaio
+#
+# Diferencas para a nuvem: KMS local (chave fixa de dev), MinIO no lugar do S3, Caddy com CA
+# interna no lugar do balanceador, Mailpit como SMTP. Sem provedor de login de dev: em
+# producao so Google e Microsoft, entao o ensaio nao tem login interativo.
+# Ver docs/runbooks/ensaio-de-producao.md.
+
+name: carbonledger-ensaio
+
+x-app: &app
+  build:
+    context: ../..
+  image: carbonledger:producao
+  environment:
+    AMBIENTE: producao
+    LOG_NIVEL: INFO
+    DATABASE_URL: postgresql://app_user:${APP_USER_SENHA:?defina no .env}@postgres:5432/${POSTGRES_DB:?defina no .env}?sslmode=require
+    REDIS_URL: redis://redis:6379/0
+    S3_ENDPOINT: http://minio:9000
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?defina no .env}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?defina no .env}
+    S3_BUCKET_EVIDENCIAS: evidencias
+    EVIDENCIAS_MODO_RETENCAO: COMPLIANCE
+    # 1 dia: no ensaio, o que for gravado em COMPLIANCE nao fica preso por anos.
+    EVIDENCIAS_RETENCAO_DIAS: 1
+    CLAMAV_HOST: clamav
+    CLAMAV_PORT: 3310
+    SMTP_HOST: mailpit
+    SMTP_PORT: 1025
+    APP_URL_BASE: https://localhost:8443
+    COOKIE_SEGURO: "true"
+    PROVEDOR_CHAVES: kms
+    KMS_CHAVE_ID: alias/carbonledger
+    KMS_REGIAO: sa-east-1
+    KMS_ENDPOINT: http://kms:8080
+    AWS_ACCESS_KEY_ID: local
+    AWS_SECRET_ACCESS_KEY: local
+    OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+    OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+    OIDC_MICROSOFT_CLIENT_ID: ${OIDC_MICROSOFT_CLIENT_ID:-}
+    OIDC_MICROSOFT_CLIENT_SECRET: ${OIDC_MICROSOFT_CLIENT_SECRET:-}
+    # So o proxy alcanca a API (sem porta publicada): o X-Forwarded-For dele e confiavel.
+    FORWARDED_ALLOW_IPS: "*"
+  # Raiz so leitura, sem privilegios extras; o que escreve vai para /tmp em memoria.
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  restart: unless-stopped
+  depends_on:
+    migrar:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+    minio-init:
+      condition: service_completed_successfully
+    kms:
+      condition: service_started
+
+services:
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_dados:/data
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/saude', timeout=4).status == 200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=INFO"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 20s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+
+  beat:
+    <<: *app
+    command:
+      ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel=INFO",
+       "--schedule=/tmp/celerybeat-schedule"]
+    healthcheck:
+      test: ["CMD-SHELL", "ls /tmp/celerybeat-schedule* > /dev/null 2>&1"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  migrar:
+    image: carbonledger:producao
+    build:
+      context: ../..
+    # As migracoes vem dentro da imagem, como em producao.
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRACAO_DATABASE_URL: postgresql://app_owner:${APP_OWNER_SENHA:?defina no .env}@postgres:5432/${POSTGRES_DB}?sslmode=require
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    # Certificado proprio gerado a cada subida (o snakeoil da imagem e igual para todos).
+    entrypoint:
+      - sh
+      - -c
+      - >
+        openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj /CN=postgres
+        -keyout /var/run/postgresql/servidor.key -out /var/run/postgresql/servidor.crt
+        2>/dev/null &&
+        chown postgres:postgres /var/run/postgresql/servidor.* &&
+        chmod 600 /var/run/postgresql/servidor.key &&
+        exec docker-entrypoint.sh postgres -c ssl=on
+        -c ssl_cert_file=/var/run/postgresql/servidor.crt
+        -c ssl_key_file=/var/run/postgresql/servidor.key
+        -c ssl_min_protocol_version=TLSv1.2
+        -c hba_file=/etc/postgresql/pg_hba.conf
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?defina no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      APP_OWNER_SENHA: ${APP_OWNER_SENHA}
+      APP_USER_SENHA: ${APP_USER_SENHA}
+      CURADORIA_SENHA: ${CURADORIA_SENHA:?defina no .env}
+    # Sem "ports": o banco so existe na rede privada do ensaio.
+    volumes:
+      - postgres_dados:/var/lib/postgresql/data
+      - ../sql/initdb.sh:/docker-entrypoint-initdb.d/00_papeis.sh:ro
+      - ../sql/papeis.sql:/infra/sql/papeis.sql:ro
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest-dev
+    restart: unless-stopped
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - minio_dados:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest-dev
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" &&
+        mc mb --ignore-existing --with-lock local/evidencias
+
+  kms:
+    image: nsmithuk/local-kms:latest
+    restart: unless-stopped
+    environment:
+      KMS_REGION: sa-east-1
+      KMS_SEED_PATH: /init/seed.yaml
+    volumes:
+      - ../kms/seed.yaml:/init/seed.yaml:ro
+
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav_dados:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+
+volumes:
+  postgres_dados:
+  minio_dados:
+  clamav_dados:
+  caddy_dados:

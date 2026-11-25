@@ -3,6 +3,11 @@
 Cada objeto entra com retencao (Object Lock) e com o SHA-256 conferido pelo proprio S3
 (ChecksumSHA256). A chave do objeto so leva identificadores: o nome do arquivo, que pode ter
 dado pessoal, fica no banco.
+
+Leitura: pela versao gravada no banco; se essa versao nao existe no bucket (copia restaurada de
+backup, que ganha versoes novas), le a versao atual da mesma chave. E seguro porque cada chave
+e escrita uma vez so (identificador unico, Object Lock) e quem le sempre confere o SHA-256
+registrado antes de usar o conteudo.
 """
 
 import asyncio
@@ -13,6 +18,7 @@ from typing import Any, Protocol
 
 import boto3
 from botocore.config import Config as ConfigBotocore
+from botocore.exceptions import ClientError
 
 from app.core.config import Configuracao
 
@@ -29,6 +35,10 @@ class ArmazemObjetos(Protocol):
     ) -> ObjetoGuardado: ...
 
     async def ler(self, chave: str, versao: str | None) -> bytes: ...
+
+
+# Respostas do S3 (e do MinIO) para versao que nao existe naquele bucket.
+CODIGOS_VERSAO_AUSENTE = frozenset({"NoSuchVersion", "InvalidArgument"})
 
 
 class ArmazemS3:
@@ -67,8 +77,14 @@ class ArmazemS3:
     def _ler(self, chave: str, versao: str | None) -> bytes:
         argumentos: dict[str, str] = {"Bucket": self.bucket, "Key": chave}
         if versao:
-            argumentos["VersionId"] = versao
-        resposta = self._cliente.get_object(**argumentos)
+            try:
+                resposta = self._cliente.get_object(**argumentos, VersionId=versao)
+            except ClientError as erro:
+                if erro.response.get("Error", {}).get("Code") not in CODIGOS_VERSAO_AUSENTE:
+                    raise
+                resposta = self._cliente.get_object(**argumentos)
+        else:
+            resposta = self._cliente.get_object(**argumentos)
         corpo: bytes = resposta["Body"].read()
         return corpo
 

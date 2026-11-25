@@ -19,9 +19,17 @@ Eventos na trilha: `certificado.cadastrado`, `certificado.desativado`, `relatori
 | Erro ao gerar, com log de Playwright | Chromium ausente na imagem | Reconstruir a imagem (o Dockerfile instala o Chromium); worker e beat exigem rebuild |
 | Download falha com hash diferente | Objeto do S3 trocado | Tratar como incidente: ver o runbook de integridade |
 
+## Carimbo do tempo
+
+Com TSA_URL configurada (e TSA_USUARIO e TSA_SENHA, se a autoridade exigir), cada relatório sai com carimbo do tempo (PAdES B-T): o token da autoridade fica embutido na assinatura e atesta a hora. A hora aparece na coluna "Carimbo do tempo" da tela Relatórios e do painel do verificador.
+
+Se a autoridade não responder, o relatório não é gerado e a tela pede para tentar de novo: nunca sai sem carimbo quando ele está configurado. Sem TSA_URL, a assinatura sai sem carimbo (B-B) e a coluna mostra "Sem carimbo".
+
+Para produção, escolha uma autoridade de carimbo do tempo credenciada na ICP-Brasil (contrato com usuário e senha) ou outra aceita pelo verificador. Teste antes no ensaio de produção.
+
 ## Conferir a assinatura fora da plataforma
 
-Abra o PDF no Adobe Acrobat Reader ou no validador do ITI (validar.iti.gov.br). Com e-CNPJ ICP-Brasil, a cadeia é reconhecida. A assinatura é PAdES B-B: ainda sem carimbo do tempo; depois do vencimento do certificado, a validação depende do validador aceitar a data declarada.
+Abra o PDF no Adobe Acrobat Reader ou no validador do ITI (validar.iti.gov.br). Com e-CNPJ ICP-Brasil, a cadeia é reconhecida. Sem carimbo do tempo (B-B), depois do vencimento do certificado a validação depende do validador aceitar a data declarada; com carimbo (B-T), a hora é atestada pela autoridade.
 
 ## Certificado vencido ou comprometido
 

@@ -35,6 +35,16 @@ x-app: &app
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     PROVEDOR_CHAVES: ${PROVEDOR_CHAVES:-local}
     CHAVES_LOCAIS: ${CHAVES_LOCAIS:-}
+    # PROVEDOR_CHAVES=kms: em dev, o servico "kms" abaixo (local-kms, API do AWS KMS).
+    KMS_CHAVE_ID: ${KMS_CHAVE_ID:-}
+    KMS_REGIAO: ${KMS_REGIAO:-sa-east-1}
+    KMS_ENDPOINT: ${KMS_ENDPOINT:-}
+    AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+    AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+    # Carimbo do tempo do relatorio assinado (opcional): docs/runbooks/relatorio-assinado.md.
+    TSA_URL: ${TSA_URL:-}
+    TSA_USUARIO: ${TSA_USUARIO:-}
+    TSA_SENHA: ${TSA_SENHA:-}
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ANTHROPIC_MODELO: ${ANTHROPIC_MODELO:-}
     IA_FALLBACKS: ${IA_FALLBACKS:-default}
@@ -43,6 +53,10 @@ x-app: &app
     OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
     OIDC_MICROSOFT_CLIENT_ID: ${OIDC_MICROSOFT_CLIENT_ID:-}
     OIDC_MICROSOFT_CLIENT_SECRET: ${OIDC_MICROSOFT_CLIENT_SECRET:-}
+    # Cobranca por empresa ativa por mes (P22): docs/runbooks/cobranca.md.
+    COBRANCA_TABELA: ${COBRANCA_TABELA:-}
+    COBRANCA_GATEWAY: ${COBRANCA_GATEWAY:-simulado}
+    COBRANCA_WEBHOOK_TOKEN: ${COBRANCA_WEBHOOK_TOKEN:-}
     ASAAS_API_KEY: ${ASAAS_API_KEY:-}
     ASAAS_BASE_URL: ${ASAAS_BASE_URL:-}
   restart: unless-stopped
@@ -203,6 +217,17 @@ services:
       - >
         mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY" &&
         mc mb --ignore-existing --with-lock "local/$$S3_BUCKET_EVIDENCIAS"
+
+  # KMS local (API do AWS KMS), para ensaiar PROVEDOR_CHAVES=kms sem nuvem. Chave fixa de dev
+  # em infra/kms/seed.yaml (alias/carbonledger). Sem porta no host: so a rede do compose.
+  kms:
+    image: nsmithuk/local-kms:latest
+    restart: unless-stopped
+    environment:
+      KMS_REGION: sa-east-1
+      KMS_SEED_PATH: /init/seed.yaml
+    volumes:
+      - ./infra/kms/seed.yaml:/init/seed.yaml:ro
 
   clamav:
     image: clamav/clamav:stable

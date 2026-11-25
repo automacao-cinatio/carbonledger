@@ -20,7 +20,7 @@
 - [x] P16 IA
 - [x] P17 Escopo 3 (com dados fictícios)
 - [x] P18 Metas
-- [x] P19 PDF assinado (PAdES B-B; sem carimbo do tempo nem cadeia ICP-Brasil validada)
+- [x] P19 PDF assinado (PAdES B-T com TSA configurada; cadeia ICP-Brasil ainda não validada)
 - [x] P20 Integridade
 - [x] P21 Campanhas
 - [ ] P22 Cobrança
@@ -277,3 +277,49 @@
 - Dockerfile: libatomic1 (o Playwright não instalava na imagem slim), só o Chromium headless e sem chown da .venv: código e dependências do root, só leitura para o usuário do app. Imagem de 3,42 GB para 2,2 GB, PDF conferido dentro dela.
 - Testes: roteiro do relatório com o verificador (vê, baixa o mesmo arquivo, não abre a rota do cliente), vazamento com leitura por coluna e recusa da chave cifrada, cobertura de privilégio por coluna.
 - Verificação: ruff, mypy, 913 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes; imagem montada e PDF gerado dentro dela.
+
+## P27 parte local: backup e ensaio de restauração (2026-11-24)
+
+- scripts/backup.py (make backup, make ensaio-restauracao): pg_dump do banco e cópia do bucket, cada arquivo cifrado com a chave da plataforma e amarrado ao backup e ao nome; manifesto com revisão do banco e SHA-256; mantém os 7 mais novos.
+- Ensaio: decifra e confere, restaura em banco e bucket descartáveis, compara contagens tabela a tabela, roda a verificação de integridade de todos os tenants na cópia (novo comando python -m app.cli integridade verificar --banco --bucket) e apaga a cópia.
+- Leitura do S3: versão gravada ausente (cópia restaurada) cai na versão atual da mesma chave; o SHA-256 continua conferido em toda leitura.
+- Integridade passa a conferir também os relatórios assinados (tela e runbook).
+- Pilha local migrada de 0005 para 0017 e imagem do app reconstruída (a antiga não tinha o boto3). Ensaio real na pilha local: ok (1 tenant, 35 tabelas; bucket ainda vazio).
+- Runbook docs/runbooks/backup-e-restauracao.md.
+
+## Preparo do P25: KMS local (2026-11-24)
+
+- ProvedorChavesKMS (app/core/keys.py) e configuração KMS_CHAVE_ID, KMS_REGIAO e KMS_ENDPOINT; produção exige kms com chave definida.
+- Serviço "kms" (local-kms) no docker compose com chave fixa de dev; testado de dentro do container do app, inclusive envelope que sobrevive ao reinício do serviço.
+- Runbook docs/runbooks/chaves-e-kms.md.
+- Testes: provedor com KMS falso (contexto amarrado, ARN no envelope, KMS fora do ar), travas de produção, e integração contra o local-kms de verdade.
+
+## Ensaio de produção local (2026-11-24)
+
+- infra/ensaio-producao: pilha separada (projeto carbonledger-ensaio) com a imagem de produção, AMBIENTE=producao, Caddy com HTTPS na frente, Postgres só com TLS (pg_hba recusa conexão sem TLS; certificado gerado a cada subida), KMS local, MinIO com COMPLIANCE, ClamAV de verdade, contêineres do app sem root, raiz só leitura, sem capacidades e com no-new-privileges.
+- scripts/ensaio_producao.py (make ensaio-producao e make ensaio-producao-parar): sobe, espera e confere 12 itens com evidência. Resultado: 12 de 12 ok.
+- Trava nova: em produção, a DATABASE_URL precisa de sslmode=require. O sslmode vira ssl para o SQLAlchemy (o asyncpg direto entende sslmode, o connect via SQLAlchemy não).
+- Runbook docs/runbooks/ensaio-de-producao.md.
+
+## Carimbo do tempo no relatório (2026-11-24)
+
+- TSA_URL, TSA_USUARIO e TSA_SENHA: com TSA, a assinatura sai PAdES B-T (token RFC 3161 embutido); sem, B-B. TSA configurada que não responde impede a geração, com aviso na tela.
+- Migração 0018: relatorio_inventario.carimbo_em com a hora atestada pela TSA, mostrada na tela Relatórios e no painel do verificador.
+- Testes: assinatura B-T validada pelo pyHanko (token confiável), hora gravada, B-B sem hora, TSA fora do ar, e o caminho HTTP completo contra uma TSA local de teste (RFC 3161).
+
+## Demonstração local (2026-11-25)
+
+- scripts/demonstracao.py (make seed): cliente completo percorrendo o app (curadoria da referência fictícia, organização, coleta com evidências, aprovação por outra pessoa, cálculo, conferência, fechamento, certificado e relatório assinado) e uma segunda empresa com a coleta pela metade.
+- Referência fictícia própria (tests/dados_ficticios/demonstracao, códigos demo.* e GWP DEMO_FICTICIO_100), escolha do usuário; nada fictício sob AR5_100.
+- Rodado na pilha local: totais conferidos à mão. O ensaio de restauração foi repetido com esses dados: 8 objetos restaurados com versões novas e verificação de integridade íntegra nos 3 tenants.
+- Pilha local migrada para 0018.
+- Runbook docs/runbooks/demonstracao.md.
+
+## P22 Cobrança com gateway simulado (2026-11-25)
+
+- Migração 0019: assinatura, fatura e cobranca_evento (RLS de tenant, verificador sem acesso) e a função cobranca_localizar para o webhook.
+- app/modules/cobranca: tabela progressiva (precos.py), interface do gateway e o simulado (gateway.py), rodada diária e pagamento (servico.py). Worker cobranca.rodada_tenant e disparo no beat às 6h.
+- Tela Cobrança (administrador), webhook e simulador de pagamento (só dev). Configuração COBRANCA_* com travas (token obrigatório com tabela; simulado proibido em produção).
+- Testes: cálculo progressivo e tabela inválida; rodada no banco (fatura uma vez, vencida, inadimplente, paga, de novo ativa, evento repetido ignorado, período de teste); privilégio por coluna da fatura; roteiro no portal (tela, simulador, webhook sem token, token errado, cobrança desconhecida, outro gateway, repetição); tabelas e função na cobertura e na suíte de vazamento; axe-core em /cobranca.
+- Runbook docs/runbooks/cobranca.md.
+- Verificação desta leva (backup, ensaio de produção, KMS, carimbo do tempo, demonstração e cobrança): ruff, mypy (app e scripts), 1002 testes (1 pulado: paridade oficial sem caso), bandit, pip-audit, gitleaks (nada fora da .venv) e caracteres verdes. Pilha local em 0019 com a imagem reconstruída.

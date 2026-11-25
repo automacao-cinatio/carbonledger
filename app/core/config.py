@@ -7,6 +7,8 @@ from typing import Self
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.db import exige_tls
+
 AMBIENTE_PRODUCAO = "producao"
 
 
@@ -39,6 +41,21 @@ class Configuracao(BaseSettings):
     clamav_host: str = "clamav"
     clamav_port: int = 3310
     clamav_tempo_limite_s: float = 60.0
+    # Carimbo do tempo do relatorio assinado (PAdES B-T). Sem TSA_URL, a assinatura sai sem
+    # carimbo (B-B). Usuario e senha so se a TSA exigir (as ICP-Brasil costumam exigir).
+    tsa_url: str | None = None
+    tsa_usuario: str | None = None
+    tsa_senha: SecretStr | None = None
+    tsa_tempo_limite_s: float = 15.0
+    # Cobranca por empresa ativa por mes (P22). Sem COBRANCA_TABELA, a cobranca fica desligada.
+    # Tabela progressiva "ate:preco;...;*:preco", precos em reais com virgula, por exemplo
+    # "3:390,00;10:290,00;*:190,00" (valores ainda provisorios: definidos pela CINATIO).
+    cobranca_tabela: str | None = None
+    cobranca_gateway: str = "simulado"
+    cobranca_webhook_token: SecretStr | None = None
+    cobranca_dias_teste: int = 30
+    cobranca_dias_vencimento: int = 10
+    cobranca_dias_tolerancia: int = 15
 
     smtp_host: str = "mailpit"
     smtp_port: int = 1025
@@ -78,6 +95,11 @@ class Configuracao(BaseSettings):
     # Chaves mestras: "local" (variavel de ambiente) em dev; "kms" em producao (P25).
     provedor_chaves: str = "local"
     chaves_locais: SecretStr | None = None
+    # KMS (PROVEDOR_CHAVES=kms): ARN, id ou alias da chave mestra. Credenciais pela cadeia
+    # padrao da AWS (papel da instancia em producao). KMS_ENDPOINT so em dev (local-kms).
+    kms_chave_id: str | None = None
+    kms_regiao: str = "sa-east-1"
+    kms_endpoint: str | None = None
 
     @property
     def em_producao(self) -> bool:
@@ -92,10 +114,24 @@ class Configuracao(BaseSettings):
                 raise ValueError("O provedor OIDC de desenvolvimento nao pode existir em producao.")
             if not self.app_url_base.startswith("https://"):
                 raise ValueError("Em producao APP_URL_BASE precisa usar https.")
-            if self.provedor_chaves == "local" or self.chaves_locais is not None:
+            if self.provedor_chaves != "kms" or self.chaves_locais is not None:
                 raise ValueError("Em producao as chaves vem do KMS: PROVEDOR_CHAVES=kms.")
+            if not self.kms_chave_id:
+                raise ValueError("Em producao defina KMS_CHAVE_ID.")
+            if self.cobranca_tabela and self.cobranca_gateway == "simulado":
+                raise ValueError("Em producao a cobranca nao usa o gateway simulado.")
+            if not exige_tls(self.database_url):
+                raise ValueError("Em producao a DATABASE_URL precisa de sslmode=require (TLS).")
             if self.evidencias_modo_retencao != "COMPLIANCE":
                 raise ValueError("Em producao EVIDENCIAS_MODO_RETENCAO precisa ser COMPLIANCE.")
+        if self.cobranca_gateway not in ("simulado", "asaas"):
+            raise ValueError("COBRANCA_GATEWAY aceita simulado ou asaas.")
+        if self.cobranca_tabela and self.cobranca_webhook_token is None:
+            raise ValueError("Com COBRANCA_TABELA, defina COBRANCA_WEBHOOK_TOKEN.")
+        if self.provedor_chaves not in ("local", "kms"):
+            raise ValueError("PROVEDOR_CHAVES aceita local ou kms.")
+        if self.provedor_chaves == "kms" and not self.kms_chave_id:
+            raise ValueError("Com PROVEDOR_CHAVES=kms, defina KMS_CHAVE_ID.")
         if self.evidencias_modo_retencao not in ("GOVERNANCE", "COMPLIANCE"):
             raise ValueError("EVIDENCIAS_MODO_RETENCAO aceita GOVERNANCE ou COMPLIANCE.")
         if self.evidencias_retencao_dias < 1 or not 1 <= self.upload_limite_mb <= 100:

@@ -4,7 +4,8 @@ Confere, sem confiar em quem gravou:
 1. a trilha de auditoria: sequencia, encadeamento e hash de cada evento (formato v1);
 2. cada calculo: refeito pela entrada guardada, com os dois hashes;
 3. cada inventario fechado: o hash do fechamento atual recalculado;
-4. cada evidencia e cada planilha importada: o objeto relido do S3 com o SHA-256 conferido.
+4. cada evidencia, planilha importada e relatorio assinado: o objeto relido do S3 com o
+   SHA-256 conferido.
 
 O resultado e gravado (so insercao) e vai para a trilha so com as contagens. Falha vira log de
 erro (sem dado pessoal) e aparece na tela de integridade. Nada e corrigido aqui: integridade
@@ -158,6 +159,13 @@ async def verificar(
         "planilhas",
         "SELECT planilha_id AS id, chave_objeto, NULL::text AS versao_objeto, sha256"
         " FROM planilha_importacao",
+    )
+    await _arquivos(
+        conexao,
+        armazem,
+        relatorio,
+        "relatorios",
+        "SELECT relatorio_id AS id, chave_objeto, versao_objeto, sha256 FROM relatorio_inventario",
     )
     falhas = [f.__dict__ for f in relatorio.falhas]
     await conexao.execute(

@@ -269,3 +269,52 @@
 - Job novo "imagem": monta a imagem de produção e gera um PDF dentro dela, com o usuário do app. Nada é publicado: registro de imagem e deploy dependem da conta AWS (P25).
 - Imagem: código e dependências pertencem ao root e o usuário do app só lê; o que precisa escrever vai para /tmp (agenda do beat, perfil do Chromium). Só o Chromium headless (--only-shell), que basta para PDF.
 - Fora por enquanto: Dependabot (abre PRs sozinho; decidir com o usuário) e ações fixadas por hash.
+
+## 2026-11-24: backup e restauração locais (P27, parte local)
+
+- Tudo roda pela pilha do docker compose, com os segredos dentro dos containers: pg_dump e pg_restore no container do Postgres, mc no do MinIO, a verificação no do app. A linha de comando do host não recebe senha.
+- Backup cifrado arquivo a arquivo com a chave da plataforma (contexto com o id do backup e o nome do arquivo), porque leva dado pessoal; sem a chave não abre. Na nuvem, troca por backup gerenciado com KMS.
+- O manifesto guarda a revisão do Alembic e o SHA-256 de cada original; o ensaio para em qualquer diferença.
+- Restauração sempre ensaiada numa cópia descartável no mesmo servidor (<banco>_ensaio e bucket ensaio-<id> sem Object Lock), com a verificação de integridade de todos os tenants. Diferença de contagem de linhas é aviso (o app pode ter gravado depois do backup).
+- Objetos restaurados ganham novos ids de versão. Em vez de reescrever versao_objeto (tabelas só de inserção), a leitura cai na versão atual da mesma chave quando a gravada não existe: cada chave é escrita uma vez só e o SHA-256 é conferido antes de usar o conteúdo.
+- Os papéis do banco não vão no backup (são do servidor): numa máquina nova, a pilha sobe e cria os papéis antes da restauração.
+- A verificação de integridade passou a incluir os relatórios assinados, que tinham ficado de fora no P19.
+
+## 2026-11-24: KMS (preparo do P25)
+
+- ProvedorChavesKMS em app/core/keys.py: Encrypt e Decrypt da chave de dados no AWS KMS, com o contexto canônico como EncryptionContext (o KMS amarra e registra). O envelope guarda o ARN devolvido, para a rotação continuar abrindo os antigos. Erros de rede ou permissão viram ErroChave: nunca se cifra sem KMS.
+- Emulador local: local-kms (MIT, 36 MB) em vez do LocalStack, por licença e peso. Serviço "kms" no docker compose, sem porta no host, chave fixa de dev em infra/kms/seed.yaml (fixa porque o local-kms não guarda estado e envelopes precisam sobreviver ao reinício).
+- Configuração: KMS_CHAVE_ID, KMS_REGIAO (padrão sa-east-1) e KMS_ENDPOINT (só dev). PROVEDOR_CHAVES aceita só local ou kms; em produção exige kms e KMS_CHAVE_ID.
+- Migração: certificados cifrados com a chave local são reenviados pelos administradores (não há recifragem automática, porque a tabela só permite desativar); backups locais seguem precisando da chave local.
+- Chamada ao KMS é síncrona (alguns ms); se pesar, vai para thread como o S3.
+
+## 2026-11-24: ensaio de produção local
+
+- O ensaio usa a mesma imagem de produção e AMBIENTE=producao, com todas as travas; o que muda é só a infraestrutura de apoio (KMS local, MinIO, Caddy com CA interna, Mailpit). Sem login interativo, porque produção só aceita Google e Microsoft.
+- Banco só com TLS no ensaio: pg_hba recusa conexão sem TLS pela rede. A URL usa sslmode=require (padrão do libpq); na nuvem, sslmode=verify-full com a CA do banco gerenciado.
+- Contêineres do app com raiz só leitura, /tmp em memória, sem capacidades e com no-new-privileges; o ensaio confere cada um por docker inspect.
+- Uvicorn confia no X-Forwarded-For de qualquer origem dentro da rede do ensaio (FORWARDED_ALLOW_IPS=*), porque a API não tem porta publicada: só o proxy chega nela. Na nuvem, a lista do balanceador.
+- Retenção de 1 dia no ensaio, para o COMPLIANCE do MinIO não prender objetos de teste.
+
+## 2026-11-24: carimbo do tempo
+
+- Carimbo do tempo opcional por configuração (TSA_URL), porque a escolha da autoridade (ICP-Brasil, com contrato) ainda é do usuário. Com TSA, PAdES B-T; sem, B-B, e a tela mostra "Sem carimbo".
+- TSA configurada e fora do ar: o relatório não sai. Gerar sem carimbo sem avisar daria um documento mais fraco do que o esperado.
+- A hora do carimbo é lida do token embutido (gen_time) e gravada em relatorio_inventario.carimbo_em na mesma inserção.
+- B-LT (dados de revogação embutidos) fica para quando as raízes ICP-Brasil estiverem em data/.
+
+## 2026-11-25: demonstração local
+
+- Demonstração completa com referência fictícia (escolha do usuário), só no banco local. Códigos demo.* e conjunto DEMO_FICTICIO_100, com FICTICIO na fonte e na descrição, para não se confundir com AR5_100 nem com fatores oficiais. A referência entra pela curadoria, como qualquer lote.
+- O roteiro usa o próprio app (HTTP, login pelo provedor de dev, convite pelo Mailpit), para a demonstração passar pelas mesmas validações, trilha, antivírus e S3 de um uso real. O único atalho é trocar o GWP do inventário da demonstração no banco local, porque a tela não oferece escolha de conjunto.
+- O script recusa rodar contra API em produção.
+
+## 2026-11-25: cobrança (P22, com gateway simulado)
+
+- Modelo escolhido pelo usuário: preço por empresa ativa por mês, com faixas. Progressivo (cada faixa com o seu preço por empresa); valores só em configuração (COBRANCA_TABELA), sem padrão no código. Sem tabela, cobrança desligada.
+- Provisórios em configuração, a confirmar com a CINATIO: 30 dias de teste a partir da criação do cliente, vencimento em 10 dias, tolerância de 15 dias, sem proporcionalidade no primeiro mês, mês sem empresa ativa não gera fatura.
+- Empresas ativas contadas no dia da emissão; a fatura guarda a contagem e o detalhamento das faixas. Valor e competência não mudam depois de gravados (privilégio por coluna).
+- Id da fatura derivado do tenant e do mês (uuid5) e gateway idempotente por ele: repetir a rodada nunca cobra duas vezes, nem depois de falha entre o gateway e o banco.
+- Webhook sem sessão, autenticado por token; o tenant é achado pela função cobranca_localizar (app_identidade, revisada na migração 0019, devolve só os ids) e o resto roda com o contexto do tenant. Evento repetido não faz nada (chave primária por cliente, gateway e evento).
+- Gateway simulado com página de pagamento no próprio app, só fora de produção; produção recusa o simulado. O Asaas entra como outra implementação da mesma interface.
+- Inadimplência só avisa por enquanto: o que bloquear é decisão pendente do usuário.

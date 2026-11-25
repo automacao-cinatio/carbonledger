@@ -75,3 +75,24 @@ def gerar_pfx(senha: str = SENHA, **opcoes: object) -> tuple[bytes, x509.Certifi
         serialization.BestAvailableEncryption(senha.encode("utf-8")),
     )
     return pfx, certificado
+
+
+def gerar_tsa(nome: str = "TSA DE TESTE") -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
+    """Certificado de autoridade de carimbo do tempo (uso estendido timeStamping, critico)."""
+    chave = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    sujeito = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, nome)])
+    agora = datetime.now(UTC) - timedelta(days=1)
+    certificado = (
+        x509.CertificateBuilder()
+        .subject_name(sujeito)
+        .issuer_name(sujeito)
+        .public_key(chave.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(agora)
+        .not_valid_after(agora + timedelta(days=365))
+        .add_extension(
+            x509.ExtendedKeyUsage([x509.oid.ExtendedKeyUsageOID.TIME_STAMPING]), critical=True
+        )
+        .sign(chave, hashes.SHA256())
+    )
+    return certificado, chave

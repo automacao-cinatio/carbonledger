@@ -32,6 +32,9 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "campanha_envio": True,
     "certificado_assinatura": True,
     "relatorio_inventario": True,
+    "assinatura": False,
+    "fatura": False,
+    "cobranca_evento": False,
 }
 
 # O que o verificador ve com uma concessao valida (migracao 0010). Fora daqui, nada.
@@ -78,6 +81,7 @@ TABELAS_SO_INSERCAO = (
     "integridade_verificacao",
     "campanha_envio",
     "relatorio_inventario",
+    "cobranca_evento",
 )
 
 # Tabelas sem tenant_id, de proposito. Cada entrada precisa de justificativa.
@@ -123,5 +127,7 @@ FUNCOES_IDENTIDADE = frozenset(
         "identidade_lgpd_pedidos",
         "identidade_lgpd_pendentes",
         "identidade_lgpd_anonimizar",
+        # P22, revisada na migracao 0019: tenant e fatura de uma cobranca, para o webhook.
+        "cobranca_localizar",
     }
 )

@@ -1,0 +1,4 @@
+# FICTICIO: mistura inventada para a demonstracao local (make seed). Nao e do CNPE.
+combustivel;componente;percentual;vigencia_inicio;vigencia_fim;fonte
+demo.diesel_comercial;demo.diesel_fossil;85;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real
+demo.diesel_comercial;demo.biodiesel;15;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real

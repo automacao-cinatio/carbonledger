@@ -1,0 +1,8 @@
+# FICTICIO: valores inventados para a demonstracao local (make seed). Nao sao do Programa.
+codigo;descricao;categoria;gas;biogenico;valor;unidade;vigencia_inicio;vigencia_fim;fonte;referencia
+demo.diesel_fossil;Diesel fossil (FICTICIO);escopo1.combustao_estacionaria;CO2;nao;2,6;kg/L;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real;
+demo.diesel_fossil;Diesel fossil (FICTICIO);escopo1.combustao_estacionaria;CH4;nao;0,0004;kg/L;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real;
+demo.biodiesel;Biodiesel (FICTICIO);escopo1.combustao_estacionaria;CO2;sim;2,4;kg/L;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real;
+demo.biodiesel;Biodiesel (FICTICIO);escopo1.combustao_estacionaria;CH4;nao;0,0003;kg/L;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real;
+demo.energia_rede;Energia da rede (FICTICIO);escopo2.energia_eletrica;CO2;nao;0,0444;t/MWh;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real;
+demo.voo;Viagem aerea (FICTICIO);escopo3.cat06_viagens;CO2;nao;0,15;kg/km;01/01/2020;;FICTICIO, so para a demonstracao local, nunca usar em inventario real;

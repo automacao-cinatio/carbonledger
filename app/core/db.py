@@ -32,9 +32,24 @@ def dsn_asyncpg(database_url: str) -> str:
     return urlunsplit((esquema, partes.netloc, partes.path, urlencode(consulta), partes.fragment))
 
 
+MODOS_TLS = frozenset({"require", "verify-ca", "verify-full"})
+
+
+def exige_tls(database_url: str) -> bool:
+    """A URL pede TLS ate o banco (sslmode=require, verify-ca ou verify-full)?"""
+    parametros = dict(parse_qsl(urlsplit(database_url).query))
+    return parametros.get("sslmode", parametros.get("ssl", "")) in MODOS_TLS
+
+
 def url_sqlalchemy_asyncpg(database_url: str) -> str:
-    """URL para o SQLAlchemy com o driver asyncpg (postgresql+asyncpg://...)."""
-    dsn = dsn_asyncpg(database_url)
+    """URL para o SQLAlchemy com o driver asyncpg (postgresql+asyncpg://...).
+
+    O asyncpg direto entende sslmode (como o libpq); pelo SQLAlchemy o parametro chega ao
+    asyncpg.connect, que so aceita ssl. Aqui sslmode vira ssl.
+    """
+    partes = urlsplit(dsn_asyncpg(database_url))
+    consulta = [("ssl" if k == "sslmode" else k, v) for k, v in parse_qsl(partes.query)]
+    dsn = urlunsplit((partes.scheme, partes.netloc, partes.path, urlencode(consulta), ""))
     return "postgresql+asyncpg" + dsn[dsn.index(":") :]
 
 

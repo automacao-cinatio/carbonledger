@@ -18,6 +18,13 @@ app_curadoria). Nada importado vale para calculo antes de aprovado.
 
 Pedidos de exclusao dos titulares (LGPD) e a anonimizacao, irreversivel. Ver
 docs/runbooks/lgpd.md.
+
+    python -m app.cli integridade verificar [--banco NOME] [--bucket NOME]
+
+Verificacao de integridade de todos os tenants, na hora. --banco e --bucket apontam para uma
+copia restaurada (ensaio de restauracao, docs/runbooks/backup-e-restauracao.md): trocam so o
+nome do banco da DATABASE_URL e o bucket, sem senha na linha de comando. Sai com 1 se algum
+tenant tiver falha.
 """
 
 import argparse
@@ -25,6 +32,7 @@ import asyncio
 import sys
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID, uuid4
 from uuid import UUID as _UUID
 
@@ -166,6 +174,48 @@ async def _lgpd(configuracao: Configuracao, args: argparse.Namespace) -> int:
         await conexao.close()
 
 
+def trocar_banco(database_url: str, banco: str | None) -> str:
+    """A mesma URL com outro nome de banco (para verificar uma copia restaurada)."""
+    if not banco:
+        return database_url
+    if not banco.replace("_", "").isalnum():
+        raise ValueError("nome de banco invalido")
+    partes = urlsplit(database_url)
+    return urlunsplit(partes._replace(path=f"/{banco}"))
+
+
+async def _integridade(configuracao: Configuracao, args: argparse.Namespace) -> int:
+    import asyncpg
+
+    from app.core.armazenamento import ArmazemS3
+    from app.modules.integridade import servico as integridade
+
+    if args.bucket:
+        configuracao = configuracao.model_copy(update={"s3_bucket_evidencias": args.bucket})
+    url = trocar_banco(configuracao.database_url, args.banco)
+    armazem = ArmazemS3(configuracao)
+    conexao = await asyncpg.connect(dsn_asyncpg(url))
+    try:
+        tenants = [linha[0] for linha in await conexao.fetch("SELECT identidade_tenants()")]
+    finally:
+        await conexao.close()
+    com_falha = 0
+    for tenant_id in tenants:
+        contexto = ContextoTenant(tenant_id=tenant_id, escopo=Escopo.TENANT)
+        async with conexao_de_tenant(url, contexto) as conexao_tenant:
+            resultado = await integridade.verificar(
+                conexao_tenant, tenant_id, armazem, origem="manual"
+            )
+        contagens = ", ".join(f"{k}={v}" for k, v in sorted(resultado.contagens.items()))
+        situacao = "integro" if resultado.integra else f"{len(resultado.falhas)} falha(s)"
+        print(f"{tenant_id}  {situacao}  ({contagens})")
+        for falha in resultado.falhas:
+            print(f"    {falha.tipo} {falha.referencia}: {falha.motivo}")
+        com_falha += 0 if resultado.integra else 1
+    print(f"{len(tenants)} tenant(s) verificado(s); {com_falha} com falha.")
+    return 1 if com_falha else 0
+
+
 def main(argumentos: list[str] | None = None) -> int:
     analisador = argparse.ArgumentParser(prog="python -m app.cli")
     comandos = analisador.add_subparsers(dest="comando", required=True)
@@ -193,6 +243,11 @@ def main(argumentos: list[str] | None = None) -> int:
     anonimizar = acoes_lgpd.add_parser("anonimizar", help="anonimiza a pessoa (irreversivel)")
     anonimizar.add_argument("usuario")
     anonimizar.add_argument("--por", required=True, help="quem executa (nome)")
+    verificacao = comandos.add_parser("integridade", help="verificacao de integridade na hora")
+    acoes_integridade = verificacao.add_subparsers(dest="acao", required=True)
+    verificar = acoes_integridade.add_parser("verificar", help="verifica todos os tenants")
+    verificar.add_argument("--banco", help="outro banco no mesmo servidor (copia restaurada)")
+    verificar.add_argument("--bucket", help="outro bucket (copia restaurada)")
     args = analisador.parse_args(argumentos)
 
     configuracao = obter_configuracao()
@@ -200,6 +255,8 @@ def main(argumentos: list[str] | None = None) -> int:
         return asyncio.run(_curadoria(configuracao, args.acao, args))
     if args.comando == "lgpd":
         return asyncio.run(_lgpd(configuracao, args))
+    if args.comando == "integridade":
+        return asyncio.run(_integridade(configuracao, args))
 
     tenant_id, token = asyncio.run(criar_tenant(configuracao, args.nome, args.email))
     base = configuracao.app_url_base.rstrip("/")

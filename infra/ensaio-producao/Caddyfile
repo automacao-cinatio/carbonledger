@@ -1,0 +1,10 @@
+# Ensaio de producao: HTTPS com a CA interna do Caddy (o navegador avisa que nao confia;
+# em producao o certificado e publico). So 443 dentro do container, publicado em 8443.
+{
+	auto_https disable_redirects
+}
+
+https://localhost:8443 {
+	tls internal
+	reverse_proxy api:8000
+}

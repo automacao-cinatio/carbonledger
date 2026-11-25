@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
+{% from "componentes/formulario.html" import botao %}
+{% from "componentes/feedback.html" import alerta %}
+{% block titulo %}Pagamento simulado{% endblock %}
+{% block conteudo %}
+{{ cabecalho_pagina("Pagamento simulado", pretitulo="Só em desenvolvimento") }}
+{{ alerta("warning", "Gateway simulado", "Nenhum dinheiro é movimentado. Esta página faz o papel do gateway de pagamento para testar a cobrança.") }}
+<section class="card" aria-labelledby="titulo-fatura">
+  <div class="card-header"><h2 class="card-title" id="titulo-fatura">Fatura de {{ competencia }}</h2></div>
+  <div class="card-body">
+    {{ ficha([("Valor", "R$ " ~ (valor | numero(2))), ("Vencimento", vencimento), ("Cobrança no gateway", cobranca_id)]) }}
+    {% if paga %}
+    {{ alerta("success", "Fatura paga") }}
+    {% else %}
+    {{ botao("Pagar (simulado)", "primary", "credit-card", atributos={"hx-post": "/cobranca/simulador/" ~ cobranca_id ~ "/pagar", "hx-swap": "none"}, indicador_id="ind-pagar") }}
+    {% endif %}
+  </div>
+</section>
+{{ proximo_passo("Volte para a cobrança para ver a situação das faturas.", "/cobranca", "Ir para a cobrança") }}
+{% endblock %}

@@ -6,7 +6,10 @@ emitiu e que o arquivo nao mudou; nao e verificacao nem certificacao das emissoe
 
 Roda na requisicao, com a conexao asyncpg da sessao (contexto do tenant aplicado). O Chromium
 abre o HTML sem JavaScript e sem rede: tudo o que a pagina usa vem embutido.
-Nivel da assinatura: PAdES B-B (sem carimbo do tempo nem dados de revogacao embutidos).
+Nivel da assinatura: PAdES B-T quando ha autoridade de carimbo do tempo configurada (TSA_URL):
+o token da TSA atesta a hora da assinatura e fica embutido nela. Sem TSA, B-B. Se a TSA esta
+configurada e nao responde, o relatorio nao sai (nunca sai sem carimbo sem avisar). Dados de
+revogacao (B-LT) ficam para quando as raizes ICP-Brasil estiverem em data/.
 """
 
 import hashlib
@@ -18,9 +21,13 @@ from typing import Any
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
+import aiohttp
 from playwright.async_api import Route, async_playwright
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
-from pyhanko.sign import fields, signers
+from pyhanko.pdf_utils.reader import PdfFileReader
+from pyhanko.sign import fields, signers, timestamps
+from pyhanko.sign.general import find_unique_cms_attribute
+from pyhanko.sign.timestamps.common_utils import TimestampRequestError
 
 from app.core import audit, keys
 from app.core.armazenamento import ArmazemObjetos
@@ -53,6 +60,7 @@ class Relatorio:
     sha256: bytes
     tamanho: int
     gerado_em: datetime
+    carimbo_em: datetime | None = None
 
 
 def _hora(valor: datetime) -> str:
@@ -163,8 +171,51 @@ async def gerar_pdf(html: str) -> bytes:
             await navegador.close()
 
 
-async def assinar_pdf(pdf: bytes, pkcs12_sem_senha: bytes, *, titular: str, motivo: str) -> bytes:
-    """Assinatura PAdES (B-B) com SHA-256, num campo novo, por atualizacao incremental."""
+class CarimboIndisponivel(RuntimeError):
+    """A TSA configurada nao respondeu: o relatorio nao sai sem o carimbo."""
+
+
+def carimbadora_da_configuracao(configuracao: Any) -> timestamps.TimeStamper | None:
+    """Cliente HTTP da TSA (RFC 3161), ou None sem TSA_URL."""
+    if not configuracao.tsa_url:
+        return None
+    autenticacao = None
+    if configuracao.tsa_usuario and configuracao.tsa_senha is not None:
+        autenticacao = (configuracao.tsa_usuario, configuracao.tsa_senha.get_secret_value())
+    return timestamps.HTTPTimeStamper(
+        configuracao.tsa_url,
+        https=configuracao.tsa_url.startswith("https://"),
+        timeout=int(configuracao.tsa_tempo_limite_s),
+        auth=autenticacao,
+    )
+
+
+def carimbo_do_pdf(assinado: bytes) -> datetime | None:
+    """Hora atestada pela TSA no token embutido na assinatura, ou None sem carimbo."""
+    assinatura = PdfFileReader(BytesIO(assinado)).embedded_signatures[0]
+    atributos = assinatura.signer_info["unsigned_attrs"]
+    if not atributos or atributos.native is None:
+        return None
+    try:
+        token = find_unique_cms_attribute(atributos, "signature_time_stamp_token")
+    except Exception:  # sem o atributo (assinatura B-B)
+        return None
+    momento: datetime = token["content"]["encap_content_info"]["content"].parsed["gen_time"].native
+    return momento
+
+
+async def assinar_pdf(
+    pdf: bytes,
+    pkcs12_sem_senha: bytes,
+    *,
+    titular: str,
+    motivo: str,
+    carimbadora: timestamps.TimeStamper | None = None,
+) -> bytes:
+    """Assinatura PAdES com SHA-256, num campo novo, por atualizacao incremental.
+
+    Com carimbadora, B-T (token da TSA embutido); sem, B-B.
+    """
     assinante = signers.SimpleSigner.load_pkcs12_data(pkcs12_sem_senha, other_certs=[])
     if assinante is None:
         raise ValueError("certificado sem chave para assinar")
@@ -177,7 +228,13 @@ async def assinar_pdf(pdf: bytes, pkcs12_sem_senha: bytes, *, titular: str, moti
         location="Brasil",
         name=titular,
     )
-    saida = await signers.async_sign_pdf(escritor, metadados, signer=assinante)
+    try:
+        saida = await signers.async_sign_pdf(
+            escritor, metadados, signer=assinante, timestamper=carimbadora
+        )
+    except (TimestampRequestError, aiohttp.ClientError, TimeoutError) as erro:
+        # So chega aqui com carimbadora: sem TSA nao ha pedido de rede.
+        raise CarimboIndisponivel(type(erro).__name__) from erro
     return bytes(saida.getvalue())
 
 
@@ -190,6 +247,7 @@ async def gerar(
     certificado: certificados.Certificado,
     provedor: keys.ProvedorChaves,
     armazem: ArmazemObjetos,
+    carimbadora: timestamps.TimeStamper | None = None,
 ) -> UUID:
     """Gera, assina, guarda no S3 (Object Lock) e registra. So de inventario fechado."""
     dados = await dados_do_relatorio(conexao, inventario_id)
@@ -203,12 +261,21 @@ async def gerar(
     pkcs12 = await certificados.pkcs12_para_assinar(
         conexao, provedor, tenant_id, certificado.certificado_id
     )
-    assinado = await assinar_pdf(
-        pdf,
-        pkcs12,
-        titular=certificado.titular,
-        motivo=f"Inventário de emissões {dados['ano']}, fechamento versão {dados['versao']}",
-    )
+    try:
+        assinado = await assinar_pdf(
+            pdf,
+            pkcs12,
+            titular=certificado.titular,
+            motivo=f"Inventário de emissões {dados['ano']}, fechamento versão {dados['versao']}",
+            carimbadora=carimbadora,
+        )
+    except CarimboIndisponivel as erro:
+        raise ErroValidacao(
+            "relatorio",
+            "O serviço de carimbo do tempo não respondeu. Nada foi gerado; tente de novo em"
+            " alguns minutos.",
+        ) from erro
+    carimbo_em = carimbo_do_pdf(assinado)
     sha256 = hashlib.sha256(assinado).digest()
     relatorio_id = uuid4()
     guardado = await armazem.guardar(
@@ -220,7 +287,8 @@ async def gerar(
     await conexao.execute(
         "INSERT INTO relatorio_inventario (tenant_id, relatorio_id, empresa_id, inventario_id,"
         " versao_fechamento, hash_fechamento, certificado_id, sha256, tamanho, chave_objeto,"
-        " versao_objeto, gerado_por) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+        " versao_objeto, gerado_por, carimbo_em)"
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
         tenant_id,
         relatorio_id,
         dados["empresa_id"],
@@ -233,6 +301,7 @@ async def gerar(
         guardado.chave,
         guardado.versao,
         usuario_id,
+        carimbo_em,
     )
     await audit.registrar_asyncpg(
         conexao,
@@ -248,6 +317,7 @@ async def gerar(
             "hash_fechamento": dados["hash_fechamento"].hex(),
             "certificado_id": str(certificado.certificado_id),
             "sha256": sha256.hex(),
+            "carimbo_em": carimbo_em.isoformat() if carimbo_em else None,
         },
     )
     return relatorio_id
@@ -255,7 +325,7 @@ async def gerar(
 
 _SQL_RELATORIOS = (
     "SELECT r.relatorio_id, r.inventario_id, r.versao_fechamento, r.hash_fechamento,"
-    " r.certificado_id, c.titular, r.sha256, r.tamanho, r.gerado_em"
+    " r.certificado_id, c.titular, r.sha256, r.tamanho, r.gerado_em, r.carimbo_em"
     " FROM relatorio_inventario r JOIN certificado_assinatura c"
     "   ON c.tenant_id = r.tenant_id AND c.certificado_id = r.certificado_id"
 )
@@ -272,6 +342,7 @@ def _relatorio(linha: Any) -> Relatorio:
         sha256=bytes(linha["sha256"]),
         tamanho=linha["tamanho"],
         gerado_em=linha["gerado_em"],
+        carimbo_em=linha["carimbo_em"],
     )
 
 

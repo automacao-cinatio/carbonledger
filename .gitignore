@@ -32,3 +32,5 @@ data/local/
 .idea/
 .DS_Store
 Thumbs.db
+# Backups locais (cifrados, mas fora do git)
+backups/
