@@ -122,6 +122,11 @@ body {
   border-color: var(--cl-marinho-100);
 }
 
+/* Nome da pessoa e do cliente no topo: uma linha so, o resto no title */
+.cl-topo-cliente {
+  max-width: 14rem;
+}
+
 .cl-marca {
   font-weight: 700;
   letter-spacing: 0.02em;

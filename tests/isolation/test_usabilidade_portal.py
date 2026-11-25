@@ -4,6 +4,7 @@ escopo 3, e o formulario sugere um ano que ainda nao tem inventario."""
 
 import asyncio
 import re
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -49,3 +50,28 @@ def test_telas_sabem_que_o_inventario_fechou(app_cliente: TestClient, banco: Ban
 def test_menu_poe_relatorios_antes_da_verificacao() -> None:
     urls = [item.url for item in MENU]
     assert urls.index("/fechamento") < urls.index("/relatorios") < urls.index("/verificacao")
+
+
+def test_topo_e_grafico_sem_repeticao(app_cliente: TestClient, banco: Banco) -> None:
+    cliente = app_cliente
+    nome = "Cooperativa Agroindustrial de Produtores Rurais do Vale do Rio Doce"
+    tenant_id, token = asyncio.run(criar_tenant(obter_configuracao(), nome, "dona@longo.example"))
+    entrar(cliente, f"/convite/{token}/dev", sujeito="dona-longo", email="dona@longo.example")
+    asyncio.run(_inventario_fechado(banco, tenant_id))
+
+    # Nome longo: uma linha cortada no topo, o nome inteiro no title.
+    inicio = cliente.get("/").text
+    assert f'class="d-block small mt-1 text-truncate cl-topo-cliente" title="{nome}"' in inicio
+
+
+def test_legenda_do_grafico_nao_repete_o_titulo_do_cartao() -> None:
+    # A legenda diz o que o grafico mostra; repetir o titulo do cartao logo acima nao ajuda.
+    raiz = Path(__file__).resolve().parents[2] / "app" / "web" / "templates" / "paginas"
+    vistos = 0
+    for arquivo in raiz.rglob("*.html"):
+        texto = arquivo.read_text(encoding="utf-8")
+        titulos = set(re.findall(r"<h2[^>]*>([^<]+)</h2>", texto))
+        for legenda in re.findall(r'grafico\("[^"]+", "([^"]+)"', texto):
+            vistos += 1
+            assert legenda not in titulos, f"{arquivo.name}: {legenda}"
+    assert vistos >= 4

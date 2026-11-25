@@ -15,8 +15,8 @@
         <button type="button" class="nav-link d-flex lh-1 p-1 border-0 bg-transparent" data-bs-toggle="dropdown" aria-expanded="false">
           <i class="ti ti-user-circle me-1" aria-hidden="true"></i>
           <span class="text-start">
-            <span class="d-block">{{ portal.usuario_nome }}</span>
-            {% if portal.tenant_nome %}<span class="d-block small mt-1">{{ portal.tenant_nome }}</span>{% endif %}
+            <span class="d-block text-truncate cl-topo-cliente" title="{{ portal.usuario_nome }}">{{ portal.usuario_nome }}</span>
+            {% if portal.tenant_nome %}<span class="d-block small mt-1 text-truncate cl-topo-cliente" title="{{ portal.tenant_nome }}">{{ portal.tenant_nome }}</span>{% endif %}
           </span>
         </button>
         <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">

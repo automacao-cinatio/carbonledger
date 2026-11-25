@@ -30,7 +30,12 @@ Conferência automática: todas as telas têm h1, próximo passo, seletor de emp
 
 ### Ficou para depois
 
-- Resultados: o cartão "Emissões por categoria" repete o título do gráfico logo abaixo.
-- Topo: nome de cliente longo quebra em duas linhas ao lado do nome da pessoa.
 - Seletor de arquivo: o texto do botão segue o idioma do navegador da pessoa (em inglês só no navegador de teste sem idioma).
-- O link do próximo passo do Painel poderia já trocar a empresa selecionada.
+
+## 2026-11-25: pendências da revisão
+
+| Tela | Achado | Correção |
+| --- | --- | --- |
+| Resultados | O cartão "Emissões por categoria" repetia o título do gráfico logo abaixo | A legenda do gráfico diz o que ele mostra: total de cada categoria, da maior para a menor, em tCO₂e |
+| Topo | Nome de cliente longo quebrava em duas linhas ao lado do nome da pessoa | Nome da pessoa e do cliente em uma linha, com largura máxima; o nome inteiro fica no title |
+| Painel | O próximo passo mandava escolher a empresa no seletor do topo antes de ir para a coleta | O botão "Ir para a coleta de (empresa)" põe a empresa citada em foco e abre a coleta (destino aceito só entre as telas do menu) |

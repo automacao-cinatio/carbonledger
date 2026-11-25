@@ -336,3 +336,10 @@
 - Corrigidos: jornada do Início (estado da coleta, etapa do relatório, escopo 3), ordem do menu, próximos passos com o inventário fechado (Coleta, Resultados, Fechamento), ano sugerido do inventário, texto do Painel e paleta dos gráficos.
 - Teste novo tests/isolation/test_usabilidade_portal.py.
 - Verificação: ruff, mypy, 1008 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes.
+
+## Pendências da revisão de usabilidade (2026-11-25)
+
+- Resultados: a legenda do gráfico por categoria diz o que ele mostra, sem repetir o título do cartão; regra estática nova vale para todos os gráficos das telas.
+- Topo: nome da pessoa e do cliente em uma linha, com largura máxima e o nome inteiro no title.
+- Painel: o próximo passo põe a empresa citada em foco e abre a coleta. POST /sessao/empresa aceita destino opcional, só entre as URLs do menu; a macro proximo_passo ganhou empresa_id (exemplo na /ui).
+- Testes: test_usabilidade_portal (topo e regra da legenda), test_painel_portal (botão) e test_autenticacao (destino do menu e destino externo ignorado).

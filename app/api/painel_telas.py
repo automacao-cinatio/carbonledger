@@ -126,16 +126,18 @@ async def indice(
         }
         for a in serie
     ]
-    pendentes = [linha.empresa for linha in linhas if linha.estado != "fechado"]
+    pendentes = [linha for linha in linhas if linha.estado != "fechado"]
+    proximo: tuple[str, ...]
     if not linhas:
         proximo = ("Cadastre as empresas na Organização.", "/organizacao", "Ir para a organização")
     elif pendentes:
+        primeira = pendentes[0]
         proximo = (
             f"{len(pendentes)} empresa(s) ainda sem inventário fechado. Comece por"
-            f" {pendentes[0].rstrip('.')}: escolha a empresa no seletor do topo e siga para a"
-            " coleta.",
+            f" {primeira.empresa.rstrip('.')}.",
             "/coleta",
-            "Ir para a coleta",
+            f"Ir para a coleta de {primeira.empresa.rstrip('.')}",
+            str(primeira.empresa_id),
         )
     else:
         proximo = (

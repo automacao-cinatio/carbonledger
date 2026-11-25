@@ -55,6 +55,9 @@ def test_painel_consolidado(app_cliente: TestClient, banco: Banco) -> None:
     # O inventario 2024 da semente esta em coleta e sem calculo: nao entra na serie anual.
     assert "2024" not in texto.split("Evolução por ano", 1)[1].split("Próximo passo", 1)[0]
     assert "1 empresa(s) ainda sem inventário fechado" in texto
+    # O botao do proximo passo poe a empresa citada em foco e vai para a coleta.
+    assert "Ir para a coleta de Empresa Nova Ltda" in texto
+    assert 'hx-post="/sessao/empresa"' in texto and '"destino": "/coleta"' in texto
 
     # So o conteudo da pagina: o seletor de empresa do topo lista todas.
     filtrado = cliente.get(f"/painel?grupo={grupo}").text.split('id="conteudo"', 1)[1]
