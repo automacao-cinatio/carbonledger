@@ -354,3 +354,8 @@
 - Testes: test_relatorio_pedido (fila única, sem chave, erro interno, recusa da regra, prazo, repetição, tela que acompanha, 404 para outro cliente), roteiro do relatório pela fila, tabela na cobertura de RLS e na suíte de vazamento; nos testes a tarefa roda na hora pelo mesmo código do worker.
 - Runbooks relatorio-assinado e demonstracao atualizados.
 - Achado à parte: o healthcheck do worker (celery inspect ping) leva uns 9 s na pilha local, perto do limite de 10 s, e marca o worker como unhealthy; o tempo é do import do Celery e da configuração, não deste trabalho.
+
+## Checagem de saúde do worker (2026-11-25)
+
+- O celery inspect ping carrega o app Celery inteiro e levava uns 9 s na pilha local, perto do limite de 10 s: o worker aparecia como unhealthy mesmo funcionando.
+- Limite e intervalo de 30 s e início de 60 s, no docker-compose.yml e no ensaio de produção. Na pilha local, o worker recriado ficou healthy.

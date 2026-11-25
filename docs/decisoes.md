@@ -348,3 +348,7 @@
 - Um pedido na fila por inventário (índice único parcial). Pedido não processado em 15 minutos sai da fila no próximo pedido, para ninguém ficar travado com o worker parado.
 - Falha não derruba a transação do worker: a geração roda num savepoint e o pedido sai como falhou; erro inesperado vai para o log só com ids e para a tela com mensagem genérica.
 - A tela consulta a cada 4 segundos (htmx every 4s) enquanto houver pedido na fila, em vez de WebSocket ou SSE: mais simples e dentro da CSP.
+
+## 2026-11-25: checagem de saúde do worker
+
+- Folga no limite (30 s) em vez de trocar o comando: o inspect ping confirma que o worker responde pelo broker, o que um teste de processo vivo não mostra. O intervalo acompanha o limite para as checagens não se sobreporem.

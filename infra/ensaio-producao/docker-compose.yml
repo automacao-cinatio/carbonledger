@@ -92,11 +92,12 @@ services:
     <<: *app
     command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=INFO"]
     healthcheck:
+      # O ping carrega o app Celery inteiro (uns 9 s na pilha local): limite com folga.
       test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME"]
-      interval: 20s
-      timeout: 10s
+      interval: 30s
+      timeout: 30s
       retries: 6
-      start_period: 30s
+      start_period: 60s
 
   beat:
     <<: *app
