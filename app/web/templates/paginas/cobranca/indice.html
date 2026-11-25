@@ -2,6 +2,7 @@
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha, etiqueta %}
 {% from "componentes/feedback.html" import alerta, glossario %}
 {% from "componentes/dados.html" import tabela %}
+{% from "componentes/formulario.html" import campo_texto, formulario %}
 {% block titulo %}Cobrança{% endblock %}
 {% block conteudo %}
 {{ cabecalho_pagina("Cobrança", pretitulo=portal.tenant_nome) }}
@@ -24,6 +25,21 @@
     <p class="small text-secondary mt-2 mb-0">O valor do mês é calculado pelas {{ glossario("empresas ativas", "Empresas cadastradas na organização e não desativadas, contadas no dia em que a fatura é emitida.") }}, por faixa: cada faixa tem o seu preço por empresa.</p>
   </div>
   {{ tabela("Preço por empresa ativa, por faixa", colunas_faixas, faixas, "visually-hidden") }}
+</section>
+
+<section class="card mb-3" aria-labelledby="titulo-pagador">
+  <div class="card-header"><h2 class="card-title" id="titulo-pagador">Dados de cobrança</h2></div>
+  <div class="card-body">
+    {% if falta_pagador %}
+    {{ alerta("warning", "Faltam os dados de cobrança", "Sem eles a fatura do mês não é emitida. Preencha logo abaixo quem paga a assinatura.") }}
+    {% endif %}
+    <p class="text-secondary">Quem recebe o boleto, que também traz o QR Code Pix. Pode ser uma das empresas do inventário ou outra, como a controladora do grupo. Mudanças valem a partir da próxima fatura.</p>
+    {% call formulario("form-pagador", "/cobranca/pagador", "Salvar os dados de cobrança") %}
+    {{ campo_texto("nome", "Razão social", valor=pagador.nome, obrigatorio=True, autocomplete="organization") }}
+    {{ campo_texto("cnpj", "CNPJ", valor=pagador.cnpj, obrigatorio=True, validar_url="/organizacao/validar/cnpj", ajuda="Com ou sem pontuação. Aceita o CNPJ alfanumérico.") }}
+    {{ campo_texto("email", "E-mail de cobrança", valor=pagador.email, tipo="email", obrigatorio=True, autocomplete="email", ajuda="Para onde vão o boleto e os avisos de vencimento. De preferência um e-mail do financeiro, não pessoal.") }}
+    {% endcall %}
+  </div>
 </section>
 
 <section class="card" aria-labelledby="titulo-faturas">

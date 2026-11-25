@@ -359,3 +359,14 @@
 
 - O celery inspect ping carrega o app Celery inteiro e levava uns 9 s na pilha local, perto do limite de 10 s: o worker aparecia como unhealthy mesmo funcionando.
 - Limite e intervalo de 30 s e início de 60 s, no docker-compose.yml e no ensaio de produção. Na pilha local, o worker recriado ficou healthy.
+
+## Gateway Asaas e dados de cobrança (2026-11-25)
+
+- Decisões do usuário: o pagador são dados próprios de cobrança, preenchidos pelo administrador; a fatura aceita boleto e Pix.
+- Migração 0021: assinatura com razão social, CNPJ (numérico ou alfanumérico) e e-mail de cobrança do pagador, todos ou nenhum, e a marca de sincronização com o gateway.
+- app/modules/cobranca/asaas.py pela documentação pública da API v3: cliente e cobrança idempotentes por externalReference, BOLETO (com Pix), valor exato a partir dos centavos, erro sem dado do pagador e webhook pelo cabeçalho asaas-access-token. Configuração ASAAS_API_KEY e ASAAS_BASE_URL com travas de ambiente.
+- Rodada: no Asaas, sem pagador não há fatura (aviso); pagador novo atualiza o cliente antes da próxima fatura.
+- Tela Cobrança com o formulário dos dados de cobrança (validação de cada campo, CNPJ na hora) e aviso quando faltam.
+- Webhook: evento autêntico de cobrança que não é da plataforma recebe 200 e é ignorado (antes, 404), para a fila do Asaas não pausar.
+- Testes: test_asaas (servidor falso: cabeçalhos, corpo, idempotência, cobrança removida, valores, erro, webhook, travas), rodada com gateway que exige pagador, restrições da tabela, formulário no portal e o webhook novo.
+- Não rodado contra o sandbox do Asaas: pede conta.

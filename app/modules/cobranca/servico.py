@@ -19,7 +19,7 @@ from uuid import UUID, uuid5
 
 from app.core import audit
 from app.modules.cobranca import precos
-from app.modules.cobranca.gateway import EVENTO_PAGO, Evento, Gateway
+from app.modules.cobranca.gateway import EVENTO_PAGO, Evento, Gateway, Pagador
 
 # Namespace fixo: o id da fatura de um tenant num mes e sempre o mesmo.
 NAMESPACE_FATURA = UUID("6f1c2b0e-8d4a-5e3b-9c7f-2a1d0b4e5c60")
@@ -39,6 +39,17 @@ class Rodada:
     fatura_emitida: UUID | None = None
     vencidas: int = 0
     avisos: list[str] = field(default_factory=list)
+
+
+AVISO_SEM_PAGADOR = "sem os dados do pagador: preencha na tela Cobrança para emitir a fatura"
+
+
+def pagador_de(assinatura: Any) -> Pagador | None:
+    if assinatura["pagador_cnpj"] is None:
+        return None
+    return Pagador(
+        assinatura["pagador_nome"], assinatura["pagador_cnpj"], assinatura["pagador_email"]
+    )
 
 
 def competencia_de(dia: date) -> date:
@@ -113,13 +124,26 @@ async def rodada(
     if empresas == 0:
         resultado.avisos.append("sem empresa ativa: nada a cobrar neste mes")
         return resultado
+    pagador = pagador_de(assinatura)
+    if pagador is None and gateway.exige_pagador:
+        resultado.avisos.append(AVISO_SEM_PAGADOR)
+        return resultado
     valor, linhas = precos.calcular(parametros.faixas, empresas)
     cliente_id = assinatura["gateway_cliente_id"]
     if cliente_id is None:
         nome = await conexao.fetchval("SELECT nome FROM tenant")
-        cliente_id = await gateway.criar_cliente(str(tenant_id), nome)
+        cliente_id = await gateway.criar_cliente(str(tenant_id), nome, pagador)
         await conexao.execute(
-            "UPDATE assinatura SET gateway_cliente_id = $1, atualizada_em = now()", cliente_id
+            "UPDATE assinatura SET gateway_cliente_id = $1, pagador_sincronizado = $2,"
+            " atualizada_em = now()",
+            cliente_id,
+            pagador is not None,
+        )
+    elif pagador is not None and not assinatura["pagador_sincronizado"]:
+        # O pagador mudou na tela: o boleto novo ja sai com os dados novos.
+        await gateway.atualizar_cliente(cliente_id, pagador)
+        await conexao.execute(
+            "UPDATE assinatura SET pagador_sincronizado = true, atualizada_em = now()"
         )
     vencimento = hoje + timedelta(days=parametros.dias_vencimento)
     cobranca = await gateway.criar_cobranca(
@@ -210,6 +234,27 @@ async def registrar_evento(
     return True
 
 
+async def salvar_pagador(conexao: Any, tenant_id: UUID, usuario_id: UUID, pagador: Pagador) -> None:
+    """Grava o pagador (a assinatura ja existe) e marca para atualizar no gateway."""
+    await conexao.execute(
+        "UPDATE assinatura SET pagador_nome = $1, pagador_cnpj = $2, pagador_email = $3,"
+        " pagador_sincronizado = false, atualizada_em = now()",
+        pagador.nome,
+        pagador.cnpj,
+        pagador.email,
+    )
+    # Sem os dados na trilha: o e-mail de cobranca pode ser de uma pessoa.
+    await audit.registrar_asyncpg(
+        conexao,
+        tenant_id=tenant_id,
+        usuario_id=usuario_id,
+        acao="cobranca.pagador_alterado",
+        entidade="assinatura",
+        entidade_id=tenant_id,
+        dados={},
+    )
+
+
 def parametros_da_configuracao(configuracao: Any) -> Parametros | None:
     if not configuracao.cobranca_tabela:
         return None
@@ -230,4 +275,13 @@ def gateway_da_configuracao(configuracao: Any) -> Gateway | None:
         return GatewaySimulado(
             configuracao.app_url_base, configuracao.cobranca_webhook_token.get_secret_value()
         )
-    raise NotImplementedError("o gateway Asaas entra quando houver conta e sandbox")
+    from app.modules.cobranca.asaas import GatewayAsaas
+
+    chave = configuracao.asaas_api_key
+    if chave is None:
+        return None
+    return GatewayAsaas(
+        configuracao.asaas_url,
+        chave.get_secret_value(),
+        configuracao.cobranca_webhook_token.get_secret_value(),
+    )

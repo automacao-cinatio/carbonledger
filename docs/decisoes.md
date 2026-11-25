@@ -352,3 +352,14 @@
 ## 2026-11-25: checagem de saúde do worker
 
 - Folga no limite (30 s) em vez de trocar o comando: o inspect ping confirma que o worker responde pelo broker, o que um teste de processo vivo não mostra. O intervalo acompanha o limite para as checagens não se sobreporem.
+
+## 2026-11-25: gateway Asaas
+
+- Pagador com dados próprios de cobrança na assinatura (escolha do usuário), e não a primeira empresa: em grupo, quem paga pode ser a controladora.
+- Boleto e Pix (escolha do usuário): billingType BOLETO, que traz o QR Code Pix quando a conta tem Pix. UNDEFINED deixaria o pagador escolher entre as formas habilitadas na conta, e a documentação não diz se inclui cartão.
+- Idempotência por busca do externalReference antes de criar, porque a API do Asaas aceita cliente e cobrança duplicados.
+- Valor escrito no JSON a partir dos centavos, sem float.
+- Webhook com token válido e cobrança desconhecida responde 200 e ignora: o Asaas reenvia o que não recebe 200 e pausa a fila depois de 15 falhas seguidas, e a conta pode ter cobranças que não são da plataforma.
+- PAYMENT_RECEIVED e PAYMENT_CONFIRMED contam como pago. Estorno e remoção só ficam registrados; desfazer um pagamento é decisão humana.
+- A URL de produção do Asaas só em produção, e produção só com ela: nada de cobrança real a partir de dev.
+- O e-mail de cobrança não vai para a trilha de auditoria (pode ser de pessoa); a trilha registra só que o pagador mudou.
