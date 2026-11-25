@@ -208,8 +208,8 @@ def test_menu_na_ordem_do_trabalho() -> None:
         "/coleta",
         "/resultados",
         "/fechamento",
-        "/verificacao",
         "/relatorios",
+        "/verificacao",
         "/metas",
         "/painel",
     ]

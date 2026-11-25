@@ -29,7 +29,8 @@ class ItemMenu:
     disponivel: bool
 
 
-# Ordem do trabalho: organizar, coletar, calcular, fechar, verificar, relatar, planejar e,
+# Ordem do trabalho: organizar, coletar, calcular, fechar, relatar (relatorio assinado, que vai
+# para o verificador), verificar, planejar e,
 # por fim, acompanhar o consolidado (painel).
 # Item entra no menu quando a tela existe (disponivel=True); a ordem nao muda.
 MENU: tuple[ItemMenu, ...] = (
@@ -38,8 +39,8 @@ MENU: tuple[ItemMenu, ...] = (
     ItemMenu("Coleta", "/coleta", "clipboard-data", True),
     ItemMenu("Resultados", "/resultados", "chart-bar", True),
     ItemMenu("Fechamento", "/fechamento", "lock", True),
-    ItemMenu("Verificação", "/verificacao", "shield-check", True),
     ItemMenu("Relatórios", "/relatorios", "file-text", True),
+    ItemMenu("Verificação", "/verificacao", "shield-check", True),
     ItemMenu("Metas", "/metas", "target-arrow", True),
     ItemMenu("Painel", "/painel", "layout-dashboard", True),
 )

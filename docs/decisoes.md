@@ -324,3 +324,12 @@
 - Escolha do usuário: só ações novas. Com a assinatura em pagamento em atraso, ficam bloqueados abrir inventário, fechar, gerar relatório assinado e convidar pessoas. O trabalho em andamento (lançar e aprovar dados), as consultas, os downloads, o verificador, a cobrança e a LGPD continuam: o cliente não perde acesso ao que já é dele, nem o verificador fica parado.
 - A recusa vem do servidor, com a mensagem que diz como resolver; o aviso aparece em todas as telas do cliente (texto diferente para o administrador, que regulariza, e para os demais).
 - Sem cobrança configurada, nunca bloqueia (nem consulta a assinatura).
+
+## 2026-11-25: revisão de usabilidade
+
+- Menu: Relatórios passa para antes de Verificação. A ordem do trabalho é fechar, gerar o relatório assinado e dar acesso ao verificador, que recebe o relatório.
+- A jornada do Início ganha a etapa "Relatório assinado" e o escopo 3 no resumo.
+- Próximos passos dependem do estado: com o inventário fechado, Coleta, Resultados e Fechamento levam ao relatório (e, com relatório, ao verificador).
+- O formulário de inventário sugere o ano anterior mais recente sem inventário, em vez de um ano que já existe.
+- Gráficos com paleta própria de séries no tema (--cl-serie-1 a 5), validada para daltonismo e contraste; antes eram três azuis do tema. Segmentos empilhados separados por uma linha da cor do fundo.
+- Registro completo em docs/usabilidade.md.

@@ -329,3 +329,10 @@
 - app/modules/cobranca/bloqueio.py: em atraso, recusa abrir inventário, fechar, gerar relatório e convidar pessoas; aviso em todas as telas pelo portal (partes/aviso_cobranca.html).
 - Testes: roteiro no portal (aviso, quatro ações recusadas com a mensagem, lançamento continua, pagamento libera) e cobrança desligada nunca bloqueia.
 - Verificação: ruff, mypy, 1006 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes.
+
+## Revisão de usabilidade (2026-11-25)
+
+- Roteiro no navegador sobre a demonstração, com conferência automática por tela e leitura das capturas; achados e correções em docs/usabilidade.md.
+- Corrigidos: jornada do Início (estado da coleta, etapa do relatório, escopo 3), ordem do menu, próximos passos com o inventário fechado (Coleta, Resultados, Fechamento), ano sugerido do inventário, texto do Painel e paleta dos gráficos.
+- Teste novo tests/isolation/test_usabilidade_portal.py.
+- Verificação: ruff, mypy, 1008 testes (1 pulado: paridade oficial sem caso), bandit e caracteres verdes.

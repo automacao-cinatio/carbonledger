@@ -131,7 +131,9 @@ async def indice(
         proximo = ("Cadastre as empresas na Organização.", "/organizacao", "Ir para a organização")
     elif pendentes:
         proximo = (
-            f"{len(pendentes)} empresa(s) ainda sem inventário fechado. Comece por {pendentes[0]}.",
+            f"{len(pendentes)} empresa(s) ainda sem inventário fechado. Comece por"
+            f" {pendentes[0].rstrip('.')}: escolha a empresa no seletor do topo e siga para a"
+            " coleta.",
             "/coleta",
             "Ir para a coleta",
         )

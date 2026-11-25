@@ -20,7 +20,7 @@
   {{ tabela("Etapas do inventário de " ~ empresa_nome, colunas_jornada, linhas_jornada, "visually-hidden") }}
   {% if jornada.escopo1 is not none %}
   <div class="card-body">
-    {{ ficha([("Escopo 1 (último cálculo)", (jornada.escopo1 | numero(3)) ~ " tCO₂e"), ("Escopo 2 (último cálculo)", (jornada.escopo2 | numero(3)) ~ " tCO₂e")]) }}
+    {{ ficha([("Escopo 1 (último cálculo)", (jornada.escopo1 | numero(3)) ~ " tCO₂e"), ("Escopo 2 (último cálculo)", (jornada.escopo2 | numero(3)) ~ " tCO₂e"), ("Escopo 3 (último cálculo)", (jornada.escopo3 | numero(3)) ~ " tCO₂e")]) }}
   </div>
   {% endif %}
 </section>

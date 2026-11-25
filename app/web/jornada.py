@@ -1,7 +1,8 @@
 """Jornada do inventario na tela inicial: onde a empresa em foco esta e o proximo passo.
 
-Etapas na ordem do trabalho: organizacao, coleta, resultados, fechamento e verificacao. A
-primeira etapa nao concluida e o proximo passo. Tudo lido com o RLS de quem esta logado.
+Etapas na ordem do trabalho: organizacao, coleta, resultados, fechamento, relatorio assinado e
+verificacao. A primeira etapa nao concluida e o proximo passo. Tudo lido com o RLS de quem
+esta logado.
 """
 
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ class Jornada:
     etapas: list[Etapa]
     escopo1: Decimal | None
     escopo2: Decimal | None
+    escopo3: Decimal | None = None
 
     @property
     def proxima(self) -> Etapa | None:
@@ -46,11 +48,12 @@ async def montar_jornada(sessao: AsyncSession, empresa_id: UUID) -> Jornada:
     ).first()
     calculo = None
     concessoes = 0
+    relatorios = 0
     if inventario is not None:
         calculo = (
             await sessao.execute(
                 text(
-                    "SELECT escopo1_tco2e, escopo2_tco2e, pendencias FROM calculo"
+                    "SELECT escopo1_tco2e, escopo2_tco2e, escopo3_tco2e, pendencias FROM calculo"
                     " WHERE inventario_id = :i ORDER BY calculado_em DESC LIMIT 1"
                 ),
                 {"i": inventario.inventario_id},
@@ -66,7 +69,20 @@ async def montar_jornada(sessao: AsyncSession, empresa_id: UUID) -> Jornada:
             )
             or 0
         )
+        relatorios = (
+            await sessao.scalar(
+                text("SELECT count(*) FROM relatorio_inventario WHERE inventario_id = :i"),
+                {"i": inventario.inventario_id},
+            )
+            or 0
+        )
     fechado = inventario is not None and inventario.estado == "fechado"
+    if inventario is None:
+        coleta = "Abra o inventário do ano."
+    elif fechado:
+        coleta = f"Inventário {inventario.ano} fechado."
+    else:
+        coleta = f"Inventário {inventario.ano} em coleta."
     etapas = [
         Etapa(
             "Organização",
@@ -78,7 +94,7 @@ async def montar_jornada(sessao: AsyncSession, empresa_id: UUID) -> Jornada:
             "Coleta",
             "/coleta",
             inventario is not None and (fechado or (calculo is not None)),
-            f"Inventário {inventario.ano} aberto." if inventario else "Abra o inventário do ano.",
+            coleta,
         ),
         Etapa(
             "Resultados",
@@ -95,6 +111,12 @@ async def montar_jornada(sessao: AsyncSession, empresa_id: UUID) -> Jornada:
             "Inventário fechado." if fechado else "Feche o inventário sem pendências.",
         ),
         Etapa(
+            "Relatório assinado",
+            "/relatorios",
+            bool(relatorios),
+            "Relatório assinado gerado." if relatorios else "Gere o relatório assinado.",
+        ),
+        Etapa(
             "Verificação",
             "/verificacao",
             bool(concessoes),
@@ -105,4 +127,5 @@ async def montar_jornada(sessao: AsyncSession, empresa_id: UUID) -> Jornada:
         etapas,
         None if calculo is None else calculo.escopo1_tco2e,
         None if calculo is None else calculo.escopo2_tco2e,
+        None if calculo is None else calculo.escopo3_tco2e,
     )
