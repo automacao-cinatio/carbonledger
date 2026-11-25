@@ -343,3 +343,14 @@
 - Topo: nome da pessoa e do cliente em uma linha, com largura máxima e o nome inteiro no title.
 - Painel: o próximo passo põe a empresa citada em foco e abre a coleta. POST /sessao/empresa aceita destino opcional, só entre as URLs do menu; a macro proximo_passo ganhou empresa_id (exemplo na /ui).
 - Testes: test_usabilidade_portal (topo e regra da legenda), test_painel_portal (botão) e test_autenticacao (destino do menu e destino externo ignorado).
+
+## Relatório gerado no worker (2026-11-25)
+
+- Migração 0020: relatorio_pedido (RLS de tenant e de empresa, verificador sem acesso, app só muda o desfecho por privilégio de coluna, um pedido na fila por inventário).
+- A tela valida (inventário fechado, cobrança em dia, certificado vigente, chaves do servidor) e grava o pedido; a tarefa relatorios.gerar_pedido é enfileirada depois do commit (BackgroundTask) e gera, assina e guarda no worker.
+- Desfechos no pedido: pronto (com o relatório) ou falhou (com o motivo na tela). Pedido preso há mais de 15 minutos sai da fila no próximo pedido; tarefa repetida não gera de novo.
+- Componente novo acompanhamento (componentes/feedback.html, exemplo na /ui): aviso com aria-live que consulta a cada 4 segundos e recarrega a tela quando termina.
+- Demonstração espera o worker. Pilha local migrada para 0020 com a imagem reconstruída: o worker real gerou o relatório da demonstração em 15,4 s.
+- Testes: test_relatorio_pedido (fila única, sem chave, erro interno, recusa da regra, prazo, repetição, tela que acompanha, 404 para outro cliente), roteiro do relatório pela fila, tabela na cobertura de RLS e na suíte de vazamento; nos testes a tarefa roda na hora pelo mesmo código do worker.
+- Runbooks relatorio-assinado e demonstracao atualizados.
+- Achado à parte: o healthcheck do worker (celery inspect ping) leva uns 9 s na pilha local, perto do limite de 10 s, e marca o worker como unhealthy; o tempo é do import do Celery e da configuração, não deste trabalho.

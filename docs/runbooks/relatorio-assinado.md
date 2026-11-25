@@ -3,10 +3,14 @@
 ## Como funciona
 
 1. O administrador envia o certificado A1 da empresa (.pfx ou .p12) e a senha na tela Relatórios. O arquivo é conferido e guardado cifrado, sem a senha.
-2. Com o inventário fechado, administrador ou gestor clica em "Gerar relatório assinado". O PDF sai do Chromium, é assinado (PAdES) com o certificado da empresa, guardado no S3 com Object Lock e registrado com o SHA-256.
-3. Qualquer pessoa com acesso à empresa baixa o PDF. O download confere o SHA-256 antes de entregar.
+2. Com o inventário fechado, administrador ou gestor clica em "Gerar relatório assinado". A tela confere o inventário, a cobrança e o certificado e grava um pedido (relatorio_pedido) na fila.
+3. O worker (tarefa `relatorios.gerar_pedido`) gera o PDF no Chromium, assina (PAdES) com o certificado da empresa, guarda no S3 com Object Lock, registra com o SHA-256 e marca o pedido como pronto. Leva uns 15 segundos na pilha local. A tela consulta a cada 4 segundos e recarrega quando termina.
+4. Se algo dá errado, o pedido sai como falhou e a tela mostra o motivo (certificado desativado, carimbo do tempo fora do ar, chave da plataforma ausente ou erro interno). Nada é gravado; basta pedir de novo.
+5. Qualquer pessoa com acesso à empresa baixa o PDF. O download confere o SHA-256 antes de entregar.
 
-Eventos na trilha: `certificado.cadastrado`, `certificado.desativado`, `relatorio.gerado`.
+Eventos na trilha: `certificado.cadastrado`, `certificado.desativado`, `relatorio.pedido`, `relatorio.gerado`.
+
+Só um pedido por inventário fica na fila. Pedido que o worker não pegou em 15 minutos (worker parado, fila perdida) sai da fila como falhou no próximo pedido; se o worker pegar depois, não gera nada.
 
 ## Problemas comuns
 
@@ -17,13 +21,15 @@ Eventos na trilha: `certificado.cadastrado`, `certificado.desativado`, `relatori
 | "outro CNPJ" | O e-CNPJ não é da empresa cadastrada | Conferir o CNPJ da empresa na organização ou usar o certificado certo |
 | "Use o e-CNPJ ICP-Brasil" | Em produção, certificado sem CNPJ | Usar o e-CNPJ A1 da empresa |
 | Erro ao gerar, com log de Playwright | Chromium ausente na imagem | Reconstruir a imagem (o Dockerfile instala o Chromium); worker e beat exigem rebuild |
+| "Relatório sendo gerado" não termina | Worker parado ou sem a imagem nova | `make logs` (serviço worker); depois de mudar código, reconstruir a imagem do worker, não só reiniciar. Passados 15 minutos, peça de novo |
+| "A geração falhou por um erro interno" | Exceção inesperada no worker | O log do worker tem `relatorio.pedido_falhou` com o pedido_id (sem dado pessoal) |
 | Download falha com hash diferente | Objeto do S3 trocado | Tratar como incidente: ver o runbook de integridade |
 
 ## Carimbo do tempo
 
 Com TSA_URL configurada (e TSA_USUARIO e TSA_SENHA, se a autoridade exigir), cada relatório sai com carimbo do tempo (PAdES B-T): o token da autoridade fica embutido na assinatura e atesta a hora. A hora aparece na coluna "Carimbo do tempo" da tela Relatórios e do painel do verificador.
 
-Se a autoridade não responder, o relatório não é gerado e a tela pede para tentar de novo: nunca sai sem carimbo quando ele está configurado. Sem TSA_URL, a assinatura sai sem carimbo (B-B) e a coluna mostra "Sem carimbo".
+Se a autoridade não responder, o relatório não é gerado: o pedido sai como falhou e a tela pede para tentar de novo: nunca sai sem carimbo quando ele está configurado. Sem TSA_URL, a assinatura sai sem carimbo (B-B) e a coluna mostra "Sem carimbo".
 
 Para produção, escolha uma autoridade de carimbo do tempo credenciada na ICP-Brasil (contrato com usuário e senha) ou outra aceita pelo verificador. Teste antes no ensaio de produção.
 

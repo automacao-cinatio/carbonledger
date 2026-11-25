@@ -32,6 +32,7 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "campanha_envio": True,
     "certificado_assinatura": True,
     "relatorio_inventario": True,
+    "relatorio_pedido": True,
     "assinatura": False,
     "fatura": False,
     "cobranca_evento": False,

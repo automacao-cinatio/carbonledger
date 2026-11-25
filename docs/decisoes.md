@@ -339,3 +339,12 @@
 - O próximo passo pode trocar a empresa em foco: reaproveita POST /sessao/empresa (mesma checagem de visibilidade e CSRF) com um destino opcional. O destino só vale se for uma das URLs do menu; qualquer outro valor é ignorado e a tela só recarrega, para não abrir redirecionamento para fora do portal.
 - Legenda de gráfico não repete o título do cartão: o título diz o tema, a legenda diz o que o gráfico mostra (medida, ordem, unidade). Um teste estático cobre todas as telas.
 - Nome longo no topo: corte em uma linha com o nome inteiro no title, em vez de abreviar no servidor.
+
+## 2026-11-25: relatório gerado no worker
+
+- A geração sai da requisição: Chromium, assinatura e carimbo do tempo levam uns 15 segundos e dependem de serviço externo. A tela valida e grava um pedido; o worker gera.
+- Pedido em tabela própria (relatorio_pedido), e não só no resultado do Celery: o desfecho fica no banco, com RLS, e a tela mostra o motivo da falha. O app só altera as colunas do desfecho.
+- Enfileirar depois do commit (BackgroundTask da resposta), para o worker sempre encontrar o pedido.
+- Um pedido na fila por inventário (índice único parcial). Pedido não processado em 15 minutos sai da fila no próximo pedido, para ninguém ficar travado com o worker parado.
+- Falha não derruba a transação do worker: a geração roda num savepoint e o pedido sai como falhou; erro inesperado vai para o log só com ids e para a tela com mensagem genérica.
+- A tela consulta a cada 4 segundos (htmx every 4s) enquanto houver pedido na fila, em vez de WebSocket ou SSE: mais simples e dentro da CSP.

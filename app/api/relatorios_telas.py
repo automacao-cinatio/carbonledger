@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse
+from starlette.background import BackgroundTask
 from starlette.datastructures import UploadFile
 
 from app.api.dependencias import SessaoTenant, conexao_asyncpg
@@ -29,7 +30,7 @@ from app.modules.coleta import servico as coleta
 from app.modules.fechamento import servico as fechamento
 from app.modules.organizacao import estrutura
 from app.modules.organizacao.validacao import formatar_cnpj
-from app.modules.relatorios import certificados, relatorio
+from app.modules.relatorios import certificados, pedidos, relatorio
 from app.web.portal import montar_portal, renderizar
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"], include_in_schema=False)
@@ -99,6 +100,8 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
         "chaves_configuradas": _chaves(request) is not None,
         "pode_certificado": acesso.perfil == Perfil.ADMINISTRADOR,
         "pode_gerar": False,
+        "pedido_na_fila": None,
+        "pedido_falhou": None,
     }
     if portal.empresa_atual is None:
         contexto["proximo"] = ("Cadastre a empresa na organização.", "/organizacao", "Ir")
@@ -139,8 +142,15 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
             }
             for r in await relatorio.listar(conexao, inventario.inventario_id)
         ]
+        # So o pedido mais recente importa: na fila (a tela acompanha) ou falhou (o motivo).
+        recentes = await pedidos.do_inventario(conexao, inventario.inventario_id, limite=1)
+        if recentes and recentes[0].situacao == "na_fila":
+            contexto["pedido_na_fila"] = _pedido_na_tela(recentes[0])
+        elif recentes and recentes[0].situacao == "falhou":
+            contexto["pedido_falhou"] = _pedido_na_tela(recentes[0])
     contexto["pode_gerar"] = (
-        acesso.perfil.ve_o_tenant_inteiro
+        contexto["pedido_na_fila"] is None
+        and acesso.perfil.ve_o_tenant_inteiro
         and atual is not None
         and certificado is not None
         and certificado.vigente()
@@ -151,6 +161,12 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
             "O relatório sai do inventário fechado. Feche o inventário primeiro.",
             "/fechamento",
             "Ir para o fechamento",
+        )
+    elif contexto["pedido_na_fila"] is not None:
+        contexto["proximo"] = (
+            "Aguarde o relatório ficar pronto; depois envie ao verificador.",
+            None,
+            "",
         )
     elif certificado is None or not certificado.vigente():
         contexto["proximo"] = (
@@ -230,17 +246,68 @@ async def gerar(
     certificado = await certificados.ativo_da_empresa(sessao, inventario.empresa_id)
     if certificado is None:
         raise ErroValidacao("certificado", "Envie o certificado A1 da empresa antes de gerar.")
-    await relatorio.gerar(
-        await conexao_asyncpg(sessao),
+    if not certificado.vigente():
+        raise ErroValidacao(
+            "certificado", "O certificado da empresa está vencido. Envie outro antes de gerar."
+        )
+    conexao = await conexao_asyncpg(sessao)
+    if (await fechamento.situacao(conexao, inventario_id)).fechamento_atual is None:
+        raise ErroValidacao("relatorio", "O relatório só sai de inventário fechado. Feche antes.")
+    pedido_id = await pedidos.pedir(
+        conexao,
         tenant_id=acesso.tenant_id,
         usuario_id=acesso.usuario_id,
         inventario_id=inventario_id,
-        certificado=certificado,
-        provedor=provedor,
-        armazem=_armazem(request),
-        carimbadora=relatorio.carimbadora_da_configuracao(obter_configuracao()),
+        empresa_id=inventario.empresa_id,
+        certificado_id=certificado.certificado_id,
     )
-    return resposta_com_aviso("Relatório gerado e assinado.", **{"HX-Refresh": "true"})
+    resposta = resposta_com_aviso(
+        "Pedido na fila. O relatório leva alguns segundos; a tela avisa quando ficar pronto.",
+        **{"HX-Refresh": "true"},
+    )
+    # Depois da resposta: a sessao ja fez o commit, entao o worker encontra o pedido.
+    resposta.background = BackgroundTask(
+        enfileirar_relatorio, tenant_id=acesso.tenant_id, pedido_id=pedido_id
+    )
+    return resposta
+
+
+def enfileirar_relatorio(*, tenant_id: UUID, pedido_id: UUID) -> None:
+    """Manda o pedido para o worker. Os testes trocam esta funcao para rodar a tarefa na hora."""
+    from app.workers.relatorios import gerar_pedido  # importa o Celery so quando precisa
+
+    gerar_pedido.delay(tenant_id=str(tenant_id), pedido_id=str(pedido_id))
+
+
+@router.get("/pedidos/{pedido_id}/situacao")
+async def situacao_do_pedido(
+    request: Request, pedido_id: UUID, sessao: SessaoTenant, _acesso: Leitor
+) -> Response:
+    """Consultado pela tela a cada poucos segundos enquanto o pedido esta na fila."""
+    pedido = await pedidos.obter(await conexao_asyncpg(sessao), pedido_id)
+    if pedido.situacao == "na_fila":
+        return renderizar(
+            request,
+            "paginas/relatorios/pedido_na_fila.html",
+            await montar_portal(request),
+            pedido=_pedido_na_tela(pedido),
+        )
+    aviso = (
+        "Relatório gerado e assinado."
+        if pedido.situacao == "pronto"
+        else "A geração do relatório falhou. O motivo está na tela."
+    )
+    return resposta_com_aviso(aviso, **{"HX-Refresh": "true"})
+
+
+def _pedido_na_tela(pedido: pedidos.Pedido) -> dict[str, Any]:
+    return {
+        "pedido_id": pedido.pedido_id,
+        "situacao": pedido.situacao,
+        "pedido_em": _hora(pedido.pedido_em),
+        "concluido_em": _hora(pedido.concluido_em) if pedido.concluido_em else None,
+        "mensagem": pedido.mensagem,
+    }
 
 
 @router.get("/{relatorio_id}/arquivo.pdf")

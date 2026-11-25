@@ -1,0 +1,2 @@
+{% from "componentes/feedback.html" import acompanhamento %}
+{{ acompanhamento("pedido-relatorio", "Relatório sendo gerado", "Pedido às " ~ pedido.pedido_em ~ ". Leva alguns segundos; a tela se atualiza sozinha quando ficar pronto.", "/relatorios/pedidos/" ~ pedido.pedido_id ~ "/situacao") }}
