@@ -24,7 +24,7 @@ Endereço: https://localhost:8443 (o navegador avisa que não confia no certific
 | Banco na última migração | alembic_version contra a última migração do código |
 | Cifra pelo KMS | Cifra e decifra pelo provedor KMS de dentro da API |
 | Object Lock em COMPLIANCE | Objeto gravado com retenção COMPLIANCE; apagar a versão é recusado |
-| PDF | Chromium gera PDF dentro da API, com raiz só leitura |
+| PDF | Chromium gera PDF dentro do worker (onde o relatório sai), com raiz só leitura |
 | Antivírus | ClamAV barra a assinatura de teste EICAR |
 
 ## Diferenças para a nuvem

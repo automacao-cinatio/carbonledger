@@ -370,3 +370,8 @@
 - Webhook: evento autêntico de cobrança que não é da plataforma recebe 200 e é ignorado (antes, 404), para a fila do Asaas não pausar.
 - Testes: test_asaas (servidor falso: cabeçalhos, corpo, idempotência, cobrança removida, valores, erro, webhook, travas), rodada com gateway que exige pagador, restrições da tabela, formulário no portal e o webhook novo.
 - Não rodado contra o sandbox do Asaas: pede conta.
+
+## Ensaio de produção depois do relatório no worker (2026-11-25)
+
+- O item do PDF passou a gerar dentro do worker, onde o relatório sai desde a migração 0020 (antes, gerava na API).
+- Ensaio completo: 12 de 12 itens ok, com o banco em 0021, o worker saudável pela checagem nova e o Chromium rodando no worker sem root e com a raiz só leitura.
