@@ -70,9 +70,9 @@ def docker_inspect(servico: str, formato: str) -> str:
     )
 
 
-def no_app(codigo: str) -> str:
-    """Roda Python dentro do container da API (com a configuracao de producao dele)."""
-    return compose("exec", "-T", "api", "python", "-c", codigo).strip()
+def no_app(codigo: str, servico: str = "api") -> str:
+    """Roda Python dentro de um container do app (com a configuracao de producao dele)."""
+    return compose("exec", "-T", servico, "python", "-c", codigo).strip()
 
 
 # ---------------------------------------------------------------- itens
@@ -221,15 +221,17 @@ def _object_lock() -> Resultado:
 
 
 def _pdf() -> Resultado:
+    # O relatorio sai no worker (relatorios.gerar_pedido): e la que o Chromium precisa rodar.
     saida = no_app(
         "import asyncio\n"
         "from app.modules.relatorios.relatorio import gerar_pdf\n"
         "html = '<!DOCTYPE html><html lang=\"pt-BR\"><body>ok</body></html>'\n"
         "pdf = asyncio.run(gerar_pdf(html))\n"
-        "print(pdf[:5].decode(), len(pdf))\n"
+        "print(pdf[:5].decode(), len(pdf))\n",
+        servico="worker",
     )
     return Resultado(
-        "PDF gerado na API (Chromium, raiz so leitura)", saida.startswith("%PDF-"), saida
+        "PDF gerado no worker (Chromium, raiz so leitura)", saida.startswith("%PDF-"), saida
     )
 
 
