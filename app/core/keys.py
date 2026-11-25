@@ -1,4 +1,4 @@
-"""Cifra envelope com chaves mestras do KeyProvider (local em dev; KMS em producao, no P25).
+"""Cifra envelope com chaves mestras do KeyProvider (local em dev; KMS da AWS em producao).
 
 Cada valor ganha uma chave de dados nova (AES-256-GCM). A chave de dados vai cifrada pela
 chave mestra, e o contexto (com o tenant) entra como dado associado nas duas cifras: um
@@ -6,6 +6,11 @@ envelope de um tenant nao abre com o contexto de outro.
 
 Formato do envelope (texto): "cl1." + base64url(JSON {"k": id da chave mestra,
 "dk": chave de dados cifrada, "n": nonce, "c": dados cifrados}).
+
+KMS: a chave de dados e cifrada pelo KMS (Encrypt/Decrypt) com o contexto canonico como
+EncryptionContext, que o KMS amarra ao ciphertext e registra no CloudTrail. O id da mestra no
+envelope e o ARN da chave que cifrou, para a rotacao continuar abrindo envelopes antigos. Em
+dev, o mesmo codigo fala com o local-kms do docker compose (KMS_ENDPOINT).
 """
 
 import base64
@@ -123,12 +128,63 @@ def decifrar(provedor: ProvedorChaves, envelope: str, contexto: Mapping[str, str
         raise ErroChave("dados nao conferem com o contexto") from erro
 
 
+class ProvedorChavesKMS:
+    """Chave mestra no AWS KMS (ou no local-kms em dev). A chave nunca sai do KMS."""
+
+    def __init__(self, chave_id: str, cliente: Any) -> None:
+        if not chave_id:
+            raise ErroChave("defina KMS_CHAVE_ID (ARN, id ou alias da chave)")
+        self.chave_id = chave_id
+        self._cliente = cliente
+
+    @classmethod
+    def da_configuracao(
+        cls, chave_id: str, regiao: str, endpoint: str | None = None
+    ) -> "ProvedorChavesKMS":
+        import boto3
+        from botocore.config import Config as ConfigBotocore
+
+        cliente = boto3.client(
+            "kms",
+            region_name=regiao,
+            endpoint_url=endpoint or None,
+            config=ConfigBotocore(connect_timeout=5, read_timeout=10, retries={"max_attempts": 3}),
+        )
+        return cls(chave_id, cliente)
+
+    @staticmethod
+    def _contexto_kms(contexto: bytes) -> dict[str, str]:
+        return {"carbonledger": contexto.decode("utf-8")}
+
+    def cifrar_chave(self, chave: bytes, contexto: bytes) -> tuple[str, bytes]:
+        try:
+            resposta = self._cliente.encrypt(
+                KeyId=self.chave_id,
+                Plaintext=chave,
+                EncryptionContext=self._contexto_kms(contexto),
+            )
+        except Exception as erro:  # erro de rede, permissao ou chave: nunca cifra sem KMS
+            raise ErroChave(f"KMS recusou cifrar ({type(erro).__name__})") from erro
+        return str(resposta["KeyId"]), bytes(resposta["CiphertextBlob"])
+
+    def decifrar_chave(self, id_mestra: str, cifrada: bytes, contexto: bytes) -> bytes:
+        try:
+            resposta = self._cliente.decrypt(
+                KeyId=id_mestra,
+                CiphertextBlob=cifrada,
+                EncryptionContext=self._contexto_kms(contexto),
+            )
+        except Exception as erro:  # contexto diferente cai aqui (InvalidCiphertextException)
+            raise ErroChave(f"KMS recusou decifrar ({type(erro).__name__})") from erro
+        return bytes(resposta["Plaintext"])
+
+
 def obter_provedor(provedor: str, chaves_locais: str | None) -> ProvedorChaves:
     if provedor == "local":
         if not chaves_locais:
             raise ErroChave("defina CHAVES_LOCAIS para o provedor local")
         return ProvedorChavesLocal.da_configuracao(chaves_locais)
-    raise ErroChave(f"provedor de chaves {provedor!r} ainda nao existe (o KMS entra no P25)")
+    raise ErroChave(f"provedor de chaves {provedor!r} desconhecido (use local ou kms)")
 
 
 def provedor_da_configuracao(configuracao: Any) -> ProvedorChaves | None:
@@ -136,8 +192,13 @@ def provedor_da_configuracao(configuracao: Any) -> ProvedorChaves | None:
 
     Chave configurada errada nao vira None: o app nao sobe, para o erro aparecer cedo.
     """
+    if configuracao.provedor_chaves == "kms":
+        return ProvedorChavesKMS.da_configuracao(
+            configuracao.kms_chave_id or "",
+            configuracao.kms_regiao,
+            configuracao.kms_endpoint,
+        )
     locais = configuracao.chaves_locais
-    # O KMS entra no P25: ate la, fora do provedor local, nada de cifra (nem de assinatura).
     if configuracao.provedor_chaves != "local" or locais is None:
         return None
     return obter_provedor("local", locais.get_secret_value())

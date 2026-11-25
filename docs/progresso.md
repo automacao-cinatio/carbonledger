@@ -286,3 +286,17 @@
 - Integridade passa a conferir também os relatórios assinados (tela e runbook).
 - Pilha local migrada de 0005 para 0017 e imagem do app reconstruída (a antiga não tinha o boto3). Ensaio real na pilha local: ok (1 tenant, 35 tabelas; bucket ainda vazio).
 - Runbook docs/runbooks/backup-e-restauracao.md.
+
+## Preparo do P25: KMS local (2026-11-24)
+
+- ProvedorChavesKMS (app/core/keys.py) e configuração KMS_CHAVE_ID, KMS_REGIAO e KMS_ENDPOINT; produção exige kms com chave definida.
+- Serviço "kms" (local-kms) no docker compose com chave fixa de dev; testado de dentro do container do app, inclusive envelope que sobrevive ao reinício do serviço.
+- Runbook docs/runbooks/chaves-e-kms.md.
+- Testes: provedor com KMS falso (contexto amarrado, ARN no envelope, KMS fora do ar), travas de produção, e integração contra o local-kms de verdade.
+
+## Ensaio de produção local (2026-11-24)
+
+- infra/ensaio-producao: pilha separada (projeto carbonledger-ensaio) com a imagem de produção, AMBIENTE=producao, Caddy com HTTPS na frente, Postgres só com TLS (pg_hba recusa conexão sem TLS; certificado gerado a cada subida), KMS local, MinIO com COMPLIANCE, ClamAV de verdade, contêineres do app sem root, raiz só leitura, sem capacidades e com no-new-privileges.
+- scripts/ensaio_producao.py (make ensaio-producao e make ensaio-producao-parar): sobe, espera e confere 12 itens com evidência. Resultado: 12 de 12 ok.
+- Trava nova: em produção, a DATABASE_URL precisa de sslmode=require. O sslmode vira ssl para o SQLAlchemy (o asyncpg direto entende sslmode, o connect via SQLAlchemy não).
+- Runbook docs/runbooks/ensaio-de-producao.md.

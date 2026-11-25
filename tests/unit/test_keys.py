@@ -1,9 +1,17 @@
 import base64
+import json
 import os
 
 import pytest
 
-from app.core.keys import ErroChave, ProvedorChavesLocal, cifrar, decifrar, obter_provedor
+from app.core.keys import (
+    ErroChave,
+    ProvedorChavesKMS,
+    ProvedorChavesLocal,
+    cifrar,
+    decifrar,
+    obter_provedor,
+)
 
 CONTEXTO = {"tenant_id": "aaaaaaaa-0000-4000-8000-000000000000", "finalidade": "certificado"}
 
@@ -85,8 +93,47 @@ def test_chave_repetida_e_recusada() -> None:
         ProvedorChavesLocal.da_configuracao(f"k1:{chave},k1:{chave}")
 
 
-def test_kms_ainda_nao_existe() -> None:
-    with pytest.raises(ErroChave, match="P25"):
-        obter_provedor("kms", None)
+def test_provedor_desconhecido_ou_sem_chave() -> None:
+    with pytest.raises(ErroChave, match="desconhecido"):
+        obter_provedor("cofre", None)
     with pytest.raises(ErroChave):
         obter_provedor("local", None)
+
+
+class KMSFalso:
+    """Imita o Encrypt/Decrypt do KMS: o EncryptionContext precisa ser o mesmo."""
+
+    def __init__(self) -> None:
+        self.guardado: dict[bytes, tuple[bytes, dict[str, str]]] = {}
+        self.fora_do_ar = False
+
+    def encrypt(self, KeyId: str, Plaintext: bytes, EncryptionContext: dict[str, str]) -> dict:
+        if self.fora_do_ar:
+            raise ConnectionError("sem rede")
+        blob = os.urandom(16)
+        self.guardado[blob] = (Plaintext, EncryptionContext)
+        return {"KeyId": "arn:aws:kms:sa-east-1:111122223333:key/abc", "CiphertextBlob": blob}
+
+    def decrypt(self, KeyId: str, CiphertextBlob: bytes, EncryptionContext: dict[str, str]) -> dict:
+        claro, contexto = self.guardado[CiphertextBlob]
+        if contexto != EncryptionContext:
+            raise ValueError("InvalidCiphertextException")
+        return {"Plaintext": claro, "KeyId": KeyId}
+
+
+def test_kms_ida_e_volta_e_contexto_amarrado() -> None:
+    kms = KMSFalso()
+    provedor = ProvedorChavesKMS("alias/carbonledger", kms)
+    contexto = {"tenant_id": "t1", "finalidade": "teste"}
+    envelope = cifrar(provedor, b"segredo", contexto)
+    assert decifrar(provedor, envelope, contexto) == b"segredo"
+    # O id da mestra no envelope e o ARN devolvido pelo KMS (rotacao continua abrindo).
+    corpo = json.loads(base64.urlsafe_b64decode(envelope[4:] + "=="))
+    assert corpo["k"].startswith("arn:aws:kms:")
+    with pytest.raises(ErroChave, match="decifrar"):
+        decifrar(provedor, envelope, {"tenant_id": "t2", "finalidade": "teste"})
+    kms.fora_do_ar = True
+    with pytest.raises(ErroChave, match="cifrar"):
+        cifrar(provedor, b"x", contexto)
+    with pytest.raises(ErroChave, match="KMS_CHAVE_ID"):
+        ProvedorChavesKMS("", kms)

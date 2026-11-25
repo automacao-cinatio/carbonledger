@@ -202,7 +202,9 @@ def test_provedor_de_dev_some_sem_emissor_e_e_proibido_em_producao() -> None:
 PRODUCAO = {
     "ambiente": "producao",
     "provedor_chaves": "kms",
+    "kms_chave_id": "alias/carbonledger",
     "evidencias_modo_retencao": "COMPLIANCE",
+    "database_url": "postgresql://app_user:x@banco:5432/carbonledger?sslmode=require",
 }
 
 
@@ -218,4 +220,12 @@ def test_travas_de_producao() -> None:
         _configuracao(evidencias_modo_retencao="NENHUM")
     with pytest.raises(ValueError, match="limite de upload"):
         _configuracao(upload_limite_mb=0)
+    with pytest.raises(ValueError, match="KMS_CHAVE_ID"):
+        _configuracao(**{**PRODUCAO, "kms_chave_id": None})
+    with pytest.raises(ValueError, match="PROVEDOR_CHAVES=kms"):
+        _configuracao(**{**PRODUCAO, "provedor_chaves": "local"})
+    with pytest.raises(ValueError, match="local ou kms"):
+        _configuracao(provedor_chaves="cofre")
+    with pytest.raises(ValueError, match="sslmode=require"):
+        _configuracao(**{**PRODUCAO, "database_url": "postgresql://u:p@banco/carbonledger"})
     assert _configuracao(**PRODUCAO).em_producao

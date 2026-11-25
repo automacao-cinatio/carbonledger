@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test check lint tipos seguranca caracteres backup ensaio-restauracao
+.PHONY: up down logs migrate seed test check lint tipos seguranca caracteres backup ensaio-restauracao ensaio-producao ensaio-producao-parar
 
 COMPOSE ?= docker compose
 # Modo git: varre o historico de commits (rapido e sem o .venv).
@@ -27,6 +27,14 @@ backup: .env
 ensaio-restauracao: .env
 	uv run python scripts/backup.py ensaio
 
+# Ensaio de producao local (imagem de producao, AMBIENTE=producao, TLS, KMS local):
+# docs/runbooks/ensaio-de-producao.md.
+ensaio-producao: .env
+	uv run python scripts/ensaio_producao.py subir
+
+ensaio-producao-parar:
+	uv run python scripts/ensaio_producao.py derrubar
+
 seed:
 	@echo "Sem dados de carga ainda: entram nos prompts P06 e P07."
 
@@ -38,10 +46,10 @@ lint:
 	uv run ruff format --check .
 
 tipos:
-	uv run mypy app scripts/backup.py
+	uv run mypy app scripts/backup.py scripts/ensaio_producao.py
 
 seguranca:
-	uv run bandit -q -r app scripts/backup.py
+	uv run bandit -q -r app scripts/backup.py scripts/ensaio_producao.py
 	uv run pip-audit
 	$(GITLEAKS) git /repo --no-banner
 

@@ -1,0 +1,16 @@
+# Chave mestra do local-kms (servico "kms" do docker compose). SO PARA DESENVOLVIMENTO:
+# material fixo e conhecido (zeros), como a CHAVES_LOCAIS de dev. Fixo de proposito: o
+# local-kms nao guarda estado entre subidas, e envelopes antigos precisam continuar abrindo.
+# Em producao a chave e do AWS KMS e nunca sai dele.
+Keys:
+  Symmetric:
+    Aes:
+      - Metadata:
+          KeyId: 00000000-0000-4000-8000-000000000001
+          Description: carbonledger-dev
+        BackingKeys:
+          - "0000000000000000000000000000000000000000000000000000000000000000"
+
+Aliases:
+  - AliasName: alias/carbonledger
+    TargetKeyId: 00000000-0000-4000-8000-000000000001
