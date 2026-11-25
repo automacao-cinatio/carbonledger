@@ -333,3 +333,9 @@
 - O formulário de inventário sugere o ano anterior mais recente sem inventário, em vez de um ano que já existe.
 - Gráficos com paleta própria de séries no tema (--cl-serie-1 a 5), validada para daltonismo e contraste; antes eram três azuis do tema. Segmentos empilhados separados por uma linha da cor do fundo.
 - Registro completo em docs/usabilidade.md.
+
+## 2026-11-25: pendências da revisão de usabilidade
+
+- O próximo passo pode trocar a empresa em foco: reaproveita POST /sessao/empresa (mesma checagem de visibilidade e CSRF) com um destino opcional. O destino só vale se for uma das URLs do menu; qualquer outro valor é ignorado e a tela só recarrega, para não abrir redirecionamento para fora do portal.
+- Legenda de gráfico não repete o título do cartão: o título diz o tema, a legenda diz o que o gráfico mostra (medida, ordem, unidade). Um teste estático cobre todas as telas.
+- Nome longo no topo: corte em uma linha com o nome inteiro no title, em vez de abreviar no servidor.

@@ -43,5 +43,5 @@
 {{ alerta("info", "Sem cálculos ainda", "Os gráficos aparecem quando houver pelo menos um cálculo.") }}
 {% endif %}
 
-{{ proximo_passo(proximo[0], proximo[1], proximo[2]) }}
+{{ proximo_passo(*proximo) }}
 {% endblock %}

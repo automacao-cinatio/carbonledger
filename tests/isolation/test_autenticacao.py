@@ -79,6 +79,13 @@ def test_roteiro_completo_de_acesso(
     assert escolha.status_code == 204
     assert escolha.headers["hx-refresh"] == "true"
     assert f'value="{sul}" selected' in cliente.get("/").text
+    # Com destino do menu, vai direto para a tela; destino de fora do menu e ignorado.
+    para_coleta = {"empresa_id": str(norte), "destino": "/coleta"}
+    indo = cliente.post("/sessao/empresa", data=para_coleta, headers=csrf)
+    assert indo.headers["hx-redirect"] == "/coleta" and "hx-refresh" not in indo.headers
+    fora = {"empresa_id": str(sul), "destino": "https://exemplo.invalid/"}
+    ignorado = cliente.post("/sessao/empresa", data=fora, headers=csrf)
+    assert "hx-redirect" not in ignorado.headers and ignorado.headers["hx-refresh"] == "true"
     alheia = cliente.post("/sessao/empresa", data={"empresa_id": str(uuid4())}, headers=csrf)
     assert alheia.status_code == 404
 

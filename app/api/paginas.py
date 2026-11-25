@@ -20,6 +20,7 @@ from app.core.security.sessao import ArmazemSessoes, Sessao
 from app.core.tenancy import sessao_de_tenant
 from app.web.jornada import montar_jornada
 from app.web.portal import empresa_visivel, montar_portal, renderizar
+from app.web.renderizacao import MENU
 
 router = APIRouter(tags=["paginas"], include_in_schema=False)
 
@@ -135,7 +136,11 @@ async def abrir_cliente(request: Request, tenant_id: UUID) -> Response:
 
 
 @router.post("/sessao/empresa")
-async def escolher_empresa(request: Request, empresa_id: Annotated[UUID, Form()]) -> Response:
+async def escolher_empresa(
+    request: Request,
+    empresa_id: Annotated[UUID, Form()],
+    destino: Annotated[str | None, Form()] = None,
+) -> Response:
     sessao = _sessao(request)
     if sessao is None or getattr(request.state, "acesso", None) is None:
         raise AcessoNegado
@@ -144,4 +149,8 @@ async def escolher_empresa(request: Request, empresa_id: Annotated[UUID, Form()]
         raise AcessoNegado
     armazem: ArmazemSessoes = request.app.state.sessoes
     await armazem.trocar_empresa(sessao, empresa_id)
-    return resposta_com_aviso(f"Empresa em foco: {empresa.nome}.", **{"HX-Refresh": "true"})
+    aviso = f"Empresa em foco: {empresa.nome}."
+    # Destino so entre as telas do menu: nada de redirecionar para fora do portal.
+    if destino is not None and destino in {item.url for item in MENU}:
+        return resposta_com_aviso(aviso, **{"HX-Redirect": destino})
+    return resposta_com_aviso(aviso, **{"HX-Refresh": "true"})

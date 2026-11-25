@@ -22,14 +22,21 @@
 {%- endmacro %}
 
 {# Toda tela termina com o proximo passo. Sem url, o passo ainda nao tem tela. #}
-{% macro proximo_passo(texto, url=None, rotulo="Continuar") -%}
+{# Com empresa_id, o botao poe a empresa em foco (como o seletor do topo) e vai para a url. #}
+{% macro proximo_passo(texto, url=None, rotulo="Continuar", empresa_id=None) -%}
 <section class="card cl-proximo-passo mt-4" aria-labelledby="titulo-proximo-passo">
   <div class="card-body d-flex flex-wrap align-items-center gap-3">
     <div class="flex-fill">
       <h2 id="titulo-proximo-passo" class="h3 mb-1">Próximo passo</h2>
       <p class="mb-0">{{ texto }}</p>
     </div>
-    {% if url %}
+    {% if url and empresa_id %}
+    <button type="button" class="btn btn-primary" hx-post="/sessao/empresa" hx-swap="none"
+            hx-vals='{{ {"empresa_id": empresa_id, "destino": url} | tojson }}' hx-indicator="#ind-proximo-passo">
+      {{ rotulo }}<i class="ti ti-arrow-right ms-1" aria-hidden="true"></i>
+      <span id="ind-proximo-passo" class="htmx-indicator spinner-border spinner-border-sm ms-2" role="status"><span class="visually-hidden">Carregando</span></span>
+    </button>
+    {% elif url %}
     <a href="{{ url }}" class="btn btn-primary">{{ rotulo }}<i class="ti ti-arrow-right ms-1" aria-hidden="true"></i></a>
     {% endif %}
   </div>
