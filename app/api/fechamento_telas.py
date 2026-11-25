@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse
 from app.api.dependencias import SessaoTenant, conexao_asyncpg
 from app.api.paginas import resposta_com_aviso
 from app.core.security.acesso import Acesso, Perfil, exigir_perfil
+from app.modules.cobranca.bloqueio import exigir_em_dia
 from app.modules.coleta import servico as coleta
 from app.modules.fechamento import servico as fechamento
 from app.modules.organizacao import estrutura
@@ -129,6 +130,7 @@ async def fechar(
     request: Request, inventario_id: UUID, sessao: SessaoTenant, acesso: Gestao
 ) -> Response:
     inventario = await coleta.obter_inventario(sessao, inventario_id)
+    await exigir_em_dia(sessao)
     empresa = await estrutura.obter_empresa(sessao, inventario.empresa_id)
     evento = await fechamento.fechar(
         await conexao_asyncpg(sessao),

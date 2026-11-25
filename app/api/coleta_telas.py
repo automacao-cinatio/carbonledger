@@ -27,6 +27,7 @@ from app.core.armazenamento import ArmazemObjetos
 from app.core.config import obter_configuracao
 from app.core.erros import AcessoNegado, ErroValidacao
 from app.core.security.acesso import Acesso, Perfil, exigir_perfil
+from app.modules.cobranca.bloqueio import exigir_em_dia
 from app.modules.coleta import campanhas, evidencias, planilha, servico
 from app.modules.coleta.categorias import CATEGORIAS, periodos, rotulo, rotulo_periodo
 from app.modules.organizacao import estrutura
@@ -218,6 +219,7 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
 async def criar_inventario(
     request: Request, empresa_id: UUID, sessao: SessaoTenant, acesso: Gestao
 ) -> Response:
+    await exigir_em_dia(sessao)
     formulario = await _formulario(request)
     inventario_id = await servico.criar_inventario(sessao, acesso, empresa_id, formulario, hoje())
     return resposta_com_aviso(

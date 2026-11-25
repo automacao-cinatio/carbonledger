@@ -24,6 +24,7 @@ from app.core.armazenamento import ArmazemObjetos
 from app.core.config import obter_configuracao
 from app.core.erros import AcessoNegado, ErroValidacao
 from app.core.security.acesso import Acesso, Perfil, exigir_perfil
+from app.modules.cobranca.bloqueio import exigir_em_dia
 from app.modules.coleta import servico as coleta
 from app.modules.fechamento import servico as fechamento
 from app.modules.organizacao import estrutura
@@ -225,6 +226,7 @@ async def gerar(
     if provedor is None:
         raise AcessoNegado
     inventario = await coleta.obter_inventario(sessao, inventario_id)
+    await exigir_em_dia(sessao)
     certificado = await certificados.ativo_da_empresa(sessao, inventario.empresa_id)
     if certificado is None:
         raise ErroValidacao("certificado", "Envie o certificado A1 da empresa antes de gerar.")

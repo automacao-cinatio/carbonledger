@@ -10,6 +10,10 @@
 
 Trilha: `cobranca.fatura_emitida`, `cobranca.fatura_paga`, `cobranca.situacao_alterada`.
 
+## Pagamento em atraso
+
+Com a assinatura em "pagamento em atraso" (fatura vencida além da tolerância), todas as telas do cliente mostram o aviso e ficam bloqueadas só as ações novas: abrir inventário, fechar inventário, gerar relatório assinado e convidar pessoas. Lançar e aprovar dados, consultar, baixar relatórios, o acesso do verificador, a cobrança e a LGPD continuam. O pagamento confirmado libera na hora. Sem COBRANCA_TABELA, nada é bloqueado.
+
 ## Gateway simulado (desenvolvimento)
 
 Com COBRANCA_GATEWAY=simulado, o link de pagamento abre uma página do próprio app ("Pagar (simulado)"), que confirma o pagamento como um webhook faria. Nenhum dinheiro se move. Em produção, o simulado é recusado na configuração.
@@ -25,7 +29,6 @@ Durante o período de teste, nada é faturado.
 ## O que ainda falta
 
 - Gateway Asaas (P22 com conta): cliente, cobrança idempotente pela referência (o id da fatura) e webhook com o token do Asaas.
-- Bloqueio por inadimplência: hoje é só aviso na tela de cobrança. O que bloquear (novos inventários, relatório, tudo menos pagamento e LGPD) é decisão pendente.
 - Proporcionalidade no primeiro mês e cancelamento pela tela.
 
 ## Problemas

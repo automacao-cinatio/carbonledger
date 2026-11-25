@@ -318,3 +318,9 @@
 - Webhook sem sessão, autenticado por token; o tenant é achado pela função cobranca_localizar (app_identidade, revisada na migração 0019, devolve só os ids) e o resto roda com o contexto do tenant. Evento repetido não faz nada (chave primária por cliente, gateway e evento).
 - Gateway simulado com página de pagamento no próprio app, só fora de produção; produção recusa o simulado. O Asaas entra como outra implementação da mesma interface.
 - Inadimplência só avisa por enquanto: o que bloquear é decisão pendente do usuário.
+
+## 2026-11-25: bloqueio por inadimplência
+
+- Escolha do usuário: só ações novas. Com a assinatura em pagamento em atraso, ficam bloqueados abrir inventário, fechar, gerar relatório assinado e convidar pessoas. O trabalho em andamento (lançar e aprovar dados), as consultas, os downloads, o verificador, a cobrança e a LGPD continuam: o cliente não perde acesso ao que já é dele, nem o verificador fica parado.
+- A recusa vem do servidor, com a mensagem que diz como resolver; o aviso aparece em todas as telas do cliente (texto diferente para o administrador, que regulariza, e para os demais).
+- Sem cobrança configurada, nunca bloqueia (nem consulta a assinatura).

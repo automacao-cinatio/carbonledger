@@ -26,6 +26,7 @@
     {% include "partes/topo.html" %}
     <div class="page-wrapper">
       {% if portal.tenant_nome %}{% include "partes/faixa_estado.html" %}{% endif %}
+      {% if portal.em_atraso %}{% include "partes/aviso_cobranca.html" %}{% endif %}
       <main id="conteudo" class="page-body" tabindex="-1">
         <div class="container-xl">
           {% block conteudo %}{% endblock %}
