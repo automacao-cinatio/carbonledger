@@ -337,6 +337,8 @@ async def ver_inventario(
                 if not s.fonte.ativa
                 else ("Fora da materialidade", "secondary")
                 if not s.fonte.material
+                else ("Unidade fora do limite", "secondary")
+                if not s.fonte.dentro_do_limite
                 else ("Completa", "success")
                 if s.progresso.aprovados == s.progresso.esperados
                 else ("Em coleta", "primary")

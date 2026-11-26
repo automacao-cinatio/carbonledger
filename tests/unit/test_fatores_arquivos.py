@@ -92,6 +92,20 @@ def test_vigencia_sobreposta_no_mesmo_arquivo() -> None:
     assert _linhas_com_erro(erro.value) == {3: "vigencia_inicio"}
 
 
+def test_so_o_co2_pode_ser_biogenico() -> None:
+    # CH4 ou N2O marcado como biogenico sairia do escopo e somaria outro gas ao CO2 biogenico.
+    texto = (
+        "codigo;descricao;categoria;gas;biogenico;valor;unidade;vigencia_inicio;vigencia_fim;fonte;referencia\n"
+        "teste.bio;d;escopo1.a;CO2;sim;2,4;kg/L;01/01/2020;;f;\n"
+        "teste.bio;d;escopo1.a;CH4;sim;0,0003;kg/L;01/01/2020;;f;\n"
+        "teste.bio;d;escopo1.a;N2O;nao;0,0001;kg/L;01/01/2020;;f;\n"
+    )
+    with pytest.raises(ErroArquivo) as erro:
+        ler_fatores(_bytes(texto))
+    assert _linhas_com_erro(erro.value) == {3: "biogenico"}
+    assert "use nao" in erro.value.problemas[0].mensagem
+
+
 def test_mistura_que_passa_de_100() -> None:
     texto = (
         "combustivel;componente;percentual;vigencia_inicio;vigencia_fim;fonte\n"

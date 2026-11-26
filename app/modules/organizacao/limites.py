@@ -46,3 +46,19 @@ def percentual_consolidado(abordagem: Abordagem, unidade: FatosDaUnidade) -> Dec
     if abordagem is Abordagem.CONTROLE_FINANCEIRO:
         return CEM if unidade.controle_financeiro else Decimal(0)
     return unidade.participacao_societaria
+
+
+def dentro_do_limite(abordagem: Abordagem, unidade: FatosDaUnidade) -> bool:
+    """A unidade entra no inventario (percentual maior que zero). Fora dele, as fontes dela nao
+    cobram dado, nao contam no progresso nem geram pendencia no calculo ou no fechamento."""
+    return percentual_consolidado(abordagem, unidade) > 0
+
+
+# O mesmo criterio em SQL, para consultas que juntam fonte_emissao f, unidade u e inventario i.
+# tests/isolation/test_limite_organizacional.py confere que bate com dentro_do_limite.
+SQL_DENTRO_DO_LIMITE = (
+    "(CASE i.abordagem"
+    " WHEN 'controle_operacional' THEN u.controle_operacional"
+    " WHEN 'controle_financeiro' THEN u.controle_financeiro"
+    " ELSE u.participacao_societaria > 0 END)"
+)

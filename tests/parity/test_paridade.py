@@ -41,6 +41,10 @@ def _rodar(pasta: Path) -> paridade.Caso:
 @pytest.mark.parametrize("pasta", OFICIAIS, ids=[p.name for p in OFICIAIS])
 def test_caso_oficial_bate_com_a_ferramenta(pasta: Path) -> None:
     caso = _rodar(pasta)
+    # Pendencia tira o lancamento da conta: o total pode caber na tolerancia sem bater de fato.
+    assert caso.resultado.pendencias == (), f"{caso.nome}: o caso tem pendencias: " + "; ".join(
+        f"{p.motivo} {p.detalhe}" for p in caso.resultado.pendencias
+    )
     divergencias = paridade.comparar(caso, _tolerancia())
     assert not divergencias, (
         f"{caso.nome} ({caso.ferramenta}, {paridade.hash_do_caso(pasta)[:12]}):\n"

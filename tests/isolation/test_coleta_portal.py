@@ -474,3 +474,73 @@ async def _usar_gwp_de_teste(banco: Banco, inventario_id: str) -> None:
         )
     finally:
         await conexao.close()
+
+
+def test_fonte_de_unidade_fora_do_limite(app_cliente: TestClient, dados: Dados) -> None:
+    """Unidade sem controle operacional num inventario por controle operacional: a fonte dela
+    aparece como fora do limite, com aviso, e nao conta no progresso."""
+    cliente = app_cliente
+    _tenant_id, token = asyncio.run(
+        criar_tenant(obter_configuracao(), "Cliente Limite", "dona@limite.example")
+    )
+    entrar(cliente, f"/convite/{token}/dev", sujeito="dona-limite", email="dona@limite.example")
+    cabecalho = csrf(cliente)
+    cliente.post("/organizacao/grupos", data={"nome": "Grupo Limite"}, headers=cabecalho)
+    grupo_id = re.search(  # type: ignore[union-attr]
+        r"/organizacao/grupos/([0-9a-f-]{36})/editar", cliente.get("/organizacao").text
+    ).group(1)
+    empresa_id = _id_do_redirect(
+        cliente.post(
+            "/organizacao/empresas",
+            data={
+                "grupo_id": grupo_id,
+                "cnpj": "11.222.333/0001-81",
+                "nome": "Limite Industria S.A.",
+                "uf": "SP",
+                "municipio": "Campinas",
+            },
+            headers=cabecalho,
+        )
+    )
+    resposta = cliente.post(
+        f"/organizacao/empresas/{empresa_id}/unidades",
+        data={
+            "nome": "Coligada Sorocaba",
+            "uf": "SP",
+            "municipio": "Sorocaba",
+            "participacao_societaria": "30",
+        },
+        headers=cabecalho,
+    )
+    assert resposta.status_code == 204
+    unidade_id = re.search(  # type: ignore[union-attr]
+        r"/organizacao/unidades/([0-9a-f-]{36})/editar",
+        cliente.get(f"/organizacao/empresas/{empresa_id}").text,
+    ).group(1)
+    inventario_id = _id_do_redirect(
+        cliente.post(
+            f"/coleta/empresas/{empresa_id}/inventarios",
+            data={"ano": str(ANO), "abordagem": "controle_operacional"},
+            headers=cabecalho,
+        )
+    )
+    fonte_id = _id_do_redirect(
+        cliente.post(
+            f"/coleta/inventarios/{inventario_id}/fontes",
+            data={
+                "unidade_id": unidade_id,
+                "categoria": "escopo1.combustao_estacionaria",
+                "descricao": "Gerador da coligada",
+                "unidade_medida": "L",
+                "periodicidade": "anual",
+                "material": "sim",
+            },
+            headers=cabecalho,
+        )
+    )
+    fonte = cliente.get(f"/coleta/fontes/{fonte_id}").text
+    assert "Unidade fora do limite do inventário" in fonte
+    assert "Dados aprovados da fonte" not in fonte
+    inventario = cliente.get(f"/coleta/inventarios/{inventario_id}").text
+    assert "Unidade fora do limite" in inventario
+    assert "Cadastre as fontes de emissão" in inventario  # nada conta no progresso

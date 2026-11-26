@@ -407,3 +407,10 @@
 - Checagem do contêiner da API no ECS passa ao /vivo (novo, sem consultar dependência): com o /saude, uma troca de nó do RDS ou do Redis fazia o ECS matar todas as tarefas da API juntas. O balanceador continua no /saude.
 - Alarme de memória do Redis: o ElastiCache publica a métrica por nó (CacheClusterId), não pelo grupo; com treat_missing_data notBreaching o alarme nunca dispararia. Agora um alarme por nó.
 - Testes: /vivo responde 200 sem consultar dependência. make infra (fmt, validate, Trivy), actionlint, mypy, bandit, pip-audit, gitleaks e 1066 testes verdes.
+
+## Revisão de código do cálculo (2026-11-26)
+
+- Unidade fora do limite organizacional (0% na abordagem do inventário: sem o controle escolhido, ou participação 0): as fontes dela cobravam dado de cada período, geravam pendência no cálculo, pediam evidência no fechamento e entravam no e-mail da campanha, e o inventário não fechava, embora contribuíssem com zero. Decisão do usuário: ficam fora. Método fator_direto 1.3.0 (a montagem pula a fonte, sem pendência); coleta, fechamento e campanha usam o mesmo critério (limites.dentro_do_limite e SQL_DENTRO_DO_LIMITE). A tela da fonte avisa e diz como incluir; a lista mostra "Unidade fora do limite"; o verificador vê a fonte entre as excluídas, com o motivo.
+- Importação de fatores: biogenico=sim só com CO2. Um CH4 ou N2O marcado como biogênico saía do escopo 1 em silêncio e somava massa de outro gás ao CO2 biogênico.
+- Paridade: caso oficial com pendência falha com a lista delas (a pendência tira o lançamento da conta e o total podia caber na tolerância).
+- Testes: montagem com unidade a 0%, regra SQL igual à de Python em todas as combinações, campanha, fechamento e cálculo no banco, tela da fonte e importação com CH4 biogênico.
