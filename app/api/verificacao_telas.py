@@ -31,6 +31,7 @@ from app.core.security.acesso import (
     resolver_verificacao,
 )
 from app.core.security.sessao import ArmazemSessoes, Sessao
+from app.modules.cobranca.bloqueio import exigir_em_dia
 from app.modules.coleta import evidencias
 from app.modules.coleta import servico as coleta
 from app.modules.coleta.categorias import periodos, rotulo, rotulo_periodo
@@ -133,6 +134,7 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
 async def conceder(
     request: Request, sessao: SessaoTenant, acesso: Administrador, configuracao: Config
 ) -> Response:
+    await exigir_em_dia(sessao)
     token, email, ano, prazo = await verificacao.conceder(
         sessao, acesso, await _formulario(request)
     )

@@ -412,3 +412,7 @@
 
 - Webhook da cobrança aceita corpo de até 64 KB (o evento tem poucos KB); acima, 413.
 - COBRANCA_TABELA só no formato brasileiro de valor (vírgula decimal, ponto só de milhar).
+
+## Verificador com pagamento em atraso (2026-11-26)
+
+- Escolha do usuário: acesso novo de verificador bloqueado em atraso (é convidar uma pessoa). O acesso já concedido segue valendo, e revogar continua permitido.

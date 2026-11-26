@@ -426,3 +426,8 @@
 - Tabela de preços (COBRANCA_TABELA): "390.00" era lido como R$ 39.000,00 (o ponto saía como separador de milhar). Agora só o formato brasileiro (390,00 ou 1.234,56); o resto é recusado na subida, com a mensagem de como escrever.
 - Revisados sem achado: rodada diária (trava da assinatura, savepoint do gateway, conciliação, idempotência da fatura e do evento), corrida entre webhook e rodada, volta de inadimplente para ativa e os quatro pontos de bloqueio.
 - Testes: corpo grande no webhook e preços com ponto decimal.
+
+## Bloqueio do acesso novo de verificador em atraso (2026-11-26)
+
+- Decisão do usuário: com o pagamento em atraso, dar acesso novo a verificador fica bloqueado, como convidar pessoas. O verificador que já tem acesso continua lendo, e revogar continua permitido.
+- POST /verificacao/concessoes passa por exigir_em_dia; mensagem, aviso das telas e runbook de cobrança atualizados. Teste em test_bloqueio_portal.
