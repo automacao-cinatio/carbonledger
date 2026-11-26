@@ -13,4 +13,5 @@ tests
 docs
 data
 infra
+!infra/sql/papeis.sql
 backups

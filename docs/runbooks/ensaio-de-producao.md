@@ -30,9 +30,9 @@ Endereço: https://localhost:8443 (o navegador avisa que não confia no certific
 ## Diferenças para a nuvem
 
 - KMS local com chave fixa de desenvolvimento (infra/kms/seed.yaml) no lugar do AWS KMS.
-- MinIO no lugar do S3; retenção de 1 dia no ensaio (em produção, a configurada).
+- MinIO no lugar do S3; retenção de 1 dia no ensaio (em produção, a configurada). Na AWS, S3_ENDPOINT fica vazio e as credenciais vêm do papel da tarefa (docs/runbooks/infra-aws.md).
 - Caddy com CA interna no lugar do balanceador com certificado público.
-- Certificado do Postgres gerado a cada subida; na nuvem, o do banco gerenciado, com sslmode=verify-full.
+- Certificado do Postgres gerado a cada subida; na nuvem, o do RDS (sslmode=require: TLS obrigatório, sem conferir a cadeia, porque a imagem ainda não traz a CA do RDS).
 - Sem login interativo: em produção só Google e Microsoft, que pedem contas reais.
 - Mailpit como SMTP.
 

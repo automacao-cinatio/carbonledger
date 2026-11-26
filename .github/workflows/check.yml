@@ -41,6 +41,16 @@ jobs:
       - name: make check
         run: make check
 
+  infra:
+    # Terraform da AWS: formato, validacao e Trivy, em container e sem conta (nada e aplicado).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: make infra
+        run: make infra
+
   imagem:
     # A imagem de producao precisa montar e gerar PDF (Chromium dentro dela). Nada e publicado.
     runs-on: ubuntu-latest
@@ -60,4 +70,14 @@ jobs:
           pdf = asyncio.run(gerar_pdf('<!DOCTYPE html><html lang=\"pt-BR\"><body>ok</body></html>'))
           assert pdf.startswith(b'%PDF-'), 'sem PDF'
           print('imagem ok')
+          "
+
+      # Como no ECS: raiz so leitura e /tmp num volume vazio (o VOLUME da imagem da a permissao).
+      - name: Papeis do banco na imagem e /tmp gravavel com raiz so leitura
+        run: |
+          docker run --rm --read-only -v carbonledger-tmp:/tmp carbonledger:ci python -c "
+          import pathlib, app.core.papeis_banco as p
+          assert p.PAPEIS_SQL.is_file(), 'sem papeis.sql'
+          pathlib.Path('/tmp/teste').write_text('ok')
+          print('papeis e /tmp ok')
           "

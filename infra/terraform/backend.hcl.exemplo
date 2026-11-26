@@ -1,0 +1,8 @@
+# Copie para backend.hcl (fora do git) e rode: terraform init -backend-config=backend.hcl
+# O bucket do estado e criado a mao uma vez (versionado, cifrado, sem acesso publico); o
+# estado guarda as senhas geradas, entao so a equipe de infra le esse bucket.
+bucket       = "PREFIXO-terraform-estado"
+key          = "carbonledger/producao.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

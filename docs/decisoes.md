@@ -371,3 +371,14 @@
 - Falha do gateway vira aviso e não desfaz a rodada: vencimento e inadimplência não dependem do gateway estar no ar.
 - Pedido de relatório preso aparece como falhou na leitura, sem escrever no GET; a gravação da falha acontece no próximo pedido.
 - Endereço do Asaas por lista permitida (dois valores), não por lista proibida.
+
+## 2026-11-25: infra da AWS (P25)
+
+- ECS Fargate com RDS, em us-east-1 (escolha do usuário). Os dados ficam fora do Brasil: isso entra na política de privacidade e nos contratos.
+- E-mail pelo SES, na mesma conta; o remetente é verificado por DKIM no Route 53.
+- ClamAV como serviço próprio no ECS, achado por DNS interno (Cloud Map), em vez de contêiner ao lado da API: worker e API usam o mesmo.
+- Senhas dos papéis do banco, do Redis e o token do webhook gerados pelo Terraform e guardados no Secrets Manager; também ficam no estado do Terraform, que mora num bucket cifrado e restrito. Segredos de terceiros nascem vazios e o operador grava.
+- Banco com sslmode=require (TLS sem conferir a cadeia), como já era o app; conferir a CA do RDS (verify-full) fica para quando a imagem trouxer o pacote de CAs da AWS.
+- Redis sem despejo de chave (noeviction): com a memória cheia a fila para e o alarme avisa, em vez de perder tarefa.
+- WAF começa só contando nas regras gerenciadas; o limite por IP bloqueia desde o início.
+- Checagem de saúde: componente minio renomeado para armazenamento, porque na AWS é o S3.

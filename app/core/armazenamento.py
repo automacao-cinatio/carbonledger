@@ -41,25 +41,40 @@ class ArmazemObjetos(Protocol):
 CODIGOS_VERSAO_AUSENTE = frozenset({"NoSuchVersion", "InvalidArgument"})
 
 
+def cliente_s3(configuracao: Configuracao) -> Any:
+    """Cliente S3: MinIO com endpoint e chave (dev), ou AWS pela cadeia padrao (papel da tarefa)."""
+    opcoes: dict[str, Any] = {}
+    estilo = "virtual"
+    if configuracao.s3_endpoint:
+        # A configuracao recusa endpoint sem chave; aqui so confere de novo.
+        if configuracao.s3_access_key is None or configuracao.s3_secret_key is None:
+            raise ValueError("S3_ENDPOINT sem S3_ACCESS_KEY e S3_SECRET_KEY")
+        opcoes = {
+            "endpoint_url": configuracao.s3_endpoint,
+            "aws_access_key_id": configuracao.s3_access_key.get_secret_value(),
+            "aws_secret_access_key": configuracao.s3_secret_key.get_secret_value(),
+        }
+        estilo = "path"
+    return boto3.client(
+        "s3",
+        region_name=configuracao.s3_regiao,
+        config=ConfigBotocore(
+            signature_version="s3v4",
+            s3={"addressing_style": estilo},
+            connect_timeout=5,
+            read_timeout=30,
+            retries={"max_attempts": 3},
+        ),
+        **opcoes,
+    )
+
+
 class ArmazemS3:
     def __init__(self, configuracao: Configuracao) -> None:
         self.bucket = configuracao.s3_bucket_evidencias
         self.modo = configuracao.evidencias_modo_retencao
         self.retencao = timedelta(days=configuracao.evidencias_retencao_dias)
-        self._cliente: Any = boto3.client(
-            "s3",
-            endpoint_url=configuracao.s3_endpoint,
-            aws_access_key_id=configuracao.s3_access_key.get_secret_value(),
-            aws_secret_access_key=configuracao.s3_secret_key.get_secret_value(),
-            region_name=configuracao.s3_regiao,
-            config=ConfigBotocore(
-                signature_version="s3v4",
-                s3={"addressing_style": "path"},
-                connect_timeout=5,
-                read_timeout=30,
-                retries={"max_attempts": 3},
-            ),
-        )
+        self._cliente: Any = cliente_s3(configuracao)
 
     def _guardar(self, chave: str, conteudo: bytes, sha256: bytes, tipo: str) -> ObjetoGuardado:
         resposta = self._cliente.put_object(

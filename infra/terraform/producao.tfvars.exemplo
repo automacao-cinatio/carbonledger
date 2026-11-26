@@ -1,0 +1,27 @@
+# Copie para producao.tfvars (fora do git). Segredo nenhum aqui: eles vao para o Secrets
+# Manager (segredos_externos) depois do primeiro apply.
+dominio         = "app.exemplo.com.br"
+zona_route53_id = "Z0000000000000000000"
+prefixo_bucket  = "exemplo-carbonledger-prod"
+imagem_tag      = "COMMIT_SHA"
+email_remetente = "CarbonLedger <nao-responda@exemplo.com.br>"
+email_alertas   = "infra@exemplo.com.br"
+
+variaveis_app = {
+  OIDC_GOOGLE_CLIENT_ID    = "ID_DO_CLIENTE_GOOGLE"
+  OIDC_MICROSOFT_CLIENT_ID = "ID_DO_CLIENTE_MICROSOFT"
+  # Cobranca (P22), quando a CINATIO definir os precos:
+  # COBRANCA_TABELA   = "3:390,00;10:290,00;*:190,00"
+  # COBRANCA_GATEWAY  = "asaas"
+  # ASAAS_BASE_URL    = "https://api.asaas.com/v3"
+  # Carimbo do tempo (P19):
+  # TSA_URL = "https://..."
+}
+
+# Acrescente ASAAS_API_KEY, ANTHROPIC_API_KEY, TSA_USUARIO e TSA_SENHA quando forem usados.
+segredos_externos = [
+  "OIDC_GOOGLE_CLIENT_SECRET",
+  "OIDC_MICROSOFT_CLIENT_SECRET",
+  "SMTP_USUARIO",
+  "SMTP_SENHA",
+]

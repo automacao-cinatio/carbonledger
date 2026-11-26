@@ -26,7 +26,7 @@
 - [ ] P22 Cobrança
 - [x] P23 LGPD
 - [x] P24 Painel
-- [ ] P25 Infra AWS
+- [ ] P25 Infra AWS (Terraform escrito e checado; falta a conta para aplicar)
 - [ ] P26 CI/CD (parcial: CI endurecido e imagem testada; deploy depende do P25)
 - [ ] P27 Backup e go-live
 
@@ -383,3 +383,12 @@
 - Asaas: cobranca_paga pela listagem filtrada por externalReference (RECEIVED, CONFIRMED, RECEIVED_IN_CASH). Endereço por lista permitida: sandbox fora de produção, produção só em produção.
 - Mensagem de falha interna do relatório sem afirmar que nada foi gravado; exemplo do próximo passo na /ui posta na ação de demonstração.
 - Testes: falha do gateway, conciliação, troca de gateway e trava (o teste da trava falha sem o FOR UPDATE), status de conciliação no Asaas, endereços recusados, pedido preso na tela e o exemplo da /ui.
+
+## P25 Terraform da AWS, sem aplicar (2026-11-25)
+
+- Decisões do usuário: ECS Fargate com RDS, em us-east-1.
+- infra/terraform: VPC em duas zonas (pública, app e dados), ECS Fargate (api, worker, beat, ClamAV e as tarefas avulsas migrar, papeis e operacao), RDS PostgreSQL 16 Multi-AZ com TLS obrigatório, ElastiCache Redis com TLS e senha, S3 com Object Lock, duas chaves KMS, Secrets Manager, balanceador com WAF, ACM, Route 53, SES e alarmes.
+- App: S3_ENDPOINT e as chaves do S3 ficam opcionais (na AWS, papel da tarefa); a checagem de saúde pergunta pelo bucket (componente agora se chama armazenamento). Comando python -m app.core.papeis_banco cria os papéis no RDS; os testes de isolamento usam o mesmo código. Imagem traz o papeis.sql e declara VOLUME /tmp.
+- make infra (terraform fmt e validate e Trivy, em container) e job infra no CI. Exceções do Trivy anotadas no recurso, com o motivo.
+- Testes: regras do S3 na AWS e no MinIO, saúde pelo bucket, papéis idempotentes e desfeitos por inteiro em caso de erro; CI confere papeis.sql e /tmp gravável com raiz só leitura.
+- Runbook docs/runbooks/infra-aws.md, com os pontos a confirmar na primeira subida (BYPASSRLS no RDS, /tmp no Fargate, WAF).
