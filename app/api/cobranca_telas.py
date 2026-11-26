@@ -7,7 +7,9 @@
   funcao cobranca_localizar e processa com o contexto dele. Token invalido: 404, sem detalhe.
   Token valido com evento que nao e de uma fatura da plataforma (outra cobranca da conta, ou
   evento sem cobranca): 200, ignorado. O Asaas reenvia o que nao recebe 200 e pausa a fila
-  depois de 15 falhas seguidas.
+  depois de 15 falhas seguidas. Um pagamento que chegue antes da fatura gravada (ou depois de
+  uma rodada desfeita) nao se perde: a rodada diaria concilia as faturas em aberto com o
+  gateway antes dos vencimentos.
 - /cobranca/simulador/...: so com o gateway simulado e fora de producao. Pagar ali processa o
   mesmo evento de um webhook de pagamento.
 """

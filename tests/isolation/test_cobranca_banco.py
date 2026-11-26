@@ -3,6 +3,7 @@ evento do gateway (uma vez so), localizacao pelo webhook, periodo de teste e pri
 
 from collections.abc import AsyncIterator
 from datetime import date
+from typing import Any
 from uuid import UUID
 
 import asyncpg
@@ -200,3 +201,160 @@ async def test_fatura_so_muda_situacao_e_gateway(conexao_admin: asyncpg.Connecti
             "SELECT has_column_privilege('app_user', 'fatura', $1, 'UPDATE')", coluna
         )
         assert tem is esperado, coluna
+
+
+class GatewayFalso(GatewaySimulado):
+    """Gateway controlado pelo teste: falha quando mandado, diz quais referencias estao pagas e
+    pode rodar algo no meio da emissao (para testar a trava da assinatura)."""
+
+    def __init__(self, nome: str = "simulado") -> None:
+        super().__init__("http://localhost:8000", "token-de-teste")
+        self.nome = nome
+        self.falhar = False
+        self.falhar_conciliacao = False
+        self.pagas: set[str] = set()
+        self.criados: list[str] = []
+        self.no_meio: Any = None
+
+    async def criar_cliente(self, tenant_id: str, nome: str, pagador: Pagador | None) -> str:
+        if self.no_meio is not None:
+            await self.no_meio()
+        if self.falhar:
+            raise RuntimeError("gateway fora do ar (simulado)")
+        self.criados.append(tenant_id)
+        return f"{self.nome}_cli_{tenant_id}"
+
+    async def criar_cobranca(self, *args: Any, **kwargs: Any) -> Any:
+        if self.falhar:
+            raise RuntimeError("gateway fora do ar (simulado)")
+        return await super().criar_cobranca(*args, **kwargs)
+
+    async def cobranca_paga(self, referencia: str) -> bool:
+        if self.falhar_conciliacao:
+            raise RuntimeError("gateway fora do ar (simulado)")
+        return referencia in self.pagas
+
+
+async def test_falha_do_gateway_nao_desfaz_vencimento(
+    conexao_app: asyncpg.Connection, dados: Dados
+) -> None:
+    gateway = GatewayFalso()
+    async for _ in _em_tenant(conexao_app, dados.tenant_a):
+        marco = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 3, 5), PARAMETROS, gateway
+        )
+        assert marco.fatura_emitida is not None
+        # Abril com o gateway fora: marco vence e passa da tolerancia; a inadimplencia fica
+        # gravada, a fatura de abril nao sai e a falha vira aviso.
+        gateway.falhar = gateway.falhar_conciliacao = True
+        await conexao_app.execute("UPDATE assinatura SET gateway_cliente_id = NULL")
+        abril = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 4, 1), PARAMETROS, gateway
+        )
+        assert abril.fatura_emitida is None and abril.situacao == "inadimplente"
+        assert abril.avisos == [
+            servico.AVISO_GATEWAY_CONCILIACAO,
+            servico.AVISO_GATEWAY_EMISSAO,
+        ]
+        assert await conexao_app.fetchval("SELECT situacao FROM assinatura") == "inadimplente"
+        assert (
+            await conexao_app.fetchval(
+                "SELECT situacao FROM fatura WHERE fatura_id = $1", marco.fatura_emitida
+            )
+            == "vencida"
+        )
+        # O passo que falhou foi desfeito inteiro: nem o id de cliente ficou gravado.
+        assert await conexao_app.fetchval("SELECT gateway_cliente_id FROM assinatura") is None
+        # No dia seguinte, com o gateway de volta, a fatura de abril sai.
+        gateway.falhar = gateway.falhar_conciliacao = False
+        de_volta = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 4, 2), PARAMETROS, gateway
+        )
+        assert de_volta.fatura_emitida is not None and de_volta.avisos == []
+
+
+async def test_conciliacao_recupera_pagamento_sem_webhook(
+    conexao_app: asyncpg.Connection, dados: Dados
+) -> None:
+    gateway = GatewayFalso()
+    async for _ in _em_tenant(conexao_app, dados.tenant_a):
+        marco = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 3, 5), PARAMETROS, gateway
+        )
+        assert marco.fatura_emitida is not None
+        await servico.rodada(conexao_app, dados.tenant_a, date(2026, 4, 1), PARAMETROS, gateway)
+        assert await conexao_app.fetchval("SELECT situacao FROM assinatura") == "inadimplente"
+        # Pagou, mas o webhook se perdeu: a rodada pergunta ao gateway e marca paga.
+        gateway.pagas.add(str(marco.fatura_emitida))
+        conciliada = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 4, 2), PARAMETROS, gateway
+        )
+        assert conciliada.situacao == "ativa"
+        assert (
+            await conexao_app.fetchval(
+                "SELECT situacao FROM fatura WHERE fatura_id = $1", marco.fatura_emitida
+            )
+            == "paga"
+        )
+        origem = await conexao_app.fetchval(
+            "SELECT dados->>'origem' FROM audit_log WHERE acao = 'cobranca.fatura_paga'"
+        )
+        assert origem == "conciliacao"
+
+
+async def test_troca_de_gateway_cria_cliente_novo(
+    conexao_app: asyncpg.Connection, dados: Dados
+) -> None:
+    asaas = GatewayFalso("asaas")
+    async for _ in _em_tenant(conexao_app, dados.tenant_a):
+        await conexao_app.execute(
+            "UPDATE assinatura SET gateway_cliente_id = 'sim_cli_antigo', pagador_nome = 'P',"
+            " pagador_cnpj = '11222333000181', pagador_email = 'p@p.example',"
+            " pagador_sincronizado = true"
+        )
+        rodada = await servico.rodada(
+            conexao_app, dados.tenant_a, date(2026, 3, 5), PARAMETROS, asaas
+        )
+        assert rodada.fatura_emitida is not None and asaas.criados == [str(dados.tenant_a)]
+        assinatura = await conexao_app.fetchrow("SELECT * FROM assinatura")
+        assert assinatura["gateway"] == "asaas"
+        assert assinatura["gateway_cliente_id"] == f"asaas_cli_{dados.tenant_a}"
+        assert (
+            await conexao_app.fetchval(
+                "SELECT dados::text FROM audit_log WHERE acao = 'cobranca.gateway_trocado'"
+            )
+            is not None
+        )
+
+
+async def test_rodada_trava_a_assinatura(banco: Any, dados: Dados) -> None:
+    """Durante a emissao, salvar o pagador espera (aqui, com lock_timeout curto, e recusado):
+    a troca nao se perde no meio da rodada."""
+    gateway = GatewayFalso()
+    tentativas: list[str] = []
+
+    async def salvar_no_meio() -> None:
+        outra = await asyncpg.connect(banco.dsn_app)
+        try:
+            async with outra.transaction():
+                await aplicar_contexto(
+                    outra, ContextoTenant(tenant_id=dados.tenant_b, escopo=Escopo.TENANT)
+                )
+                await outra.execute("SET LOCAL lock_timeout = '300ms'")
+                try:
+                    await outra.execute("UPDATE assinatura SET pagador_sincronizado = false")
+                    tentativas.append("gravou")
+                except asyncpg.LockNotAvailableError:
+                    tentativas.append("esperou")
+        finally:
+            await outra.close()
+
+    gateway.no_meio = salvar_no_meio
+    conexao = await asyncpg.connect(banco.dsn_app)
+    try:
+        async for _ in _em_tenant(conexao, dados.tenant_b):
+            # Sem escrita antes: quem trava a linha e so o FOR UPDATE da rodada.
+            await servico.rodada(conexao, dados.tenant_b, date(2026, 3, 5), PARAMETROS, gateway)
+    finally:
+        await conexao.close()
+    assert tentativas == ["esperou"]

@@ -375,3 +375,11 @@
 
 - O item do PDF passou a gerar dentro do worker, onde o relatório sai desde a migração 0020 (antes, gerava na API).
 - Ensaio completo: 12 de 12 itens ok, com o banco em 0021, o worker saudável pela checagem nova e o Chromium rodando no worker sem root e com a raiz só leitura.
+
+## Correções da revisão de código dos PRs #5 a #9 (2026-11-25)
+
+- Pedido de relatório preso: passado o prazo, já aparece como falhou na leitura e o botão de gerar volta (antes, só um novo pedido destravava, e o botão estava escondido).
+- Rodada de cobrança: conciliação com o gateway antes dos vencimentos, chamadas ao gateway em savepoint (falha vira aviso e não desfaz vencimento nem inadimplência), assinatura travada com FOR UPDATE e cliente novo quando o gateway muda.
+- Asaas: cobranca_paga pela listagem filtrada por externalReference (RECEIVED, CONFIRMED, RECEIVED_IN_CASH). Endereço por lista permitida: sandbox fora de produção, produção só em produção.
+- Mensagem de falha interna do relatório sem afirmar que nada foi gravado; exemplo do próximo passo na /ui posta na ação de demonstração.
+- Testes: falha do gateway, conciliação, troca de gateway e trava (o teste da trava falha sem o FOR UPDATE), status de conciliação no Asaas, endereços recusados, pedido preso na tela e o exemplo da /ui.

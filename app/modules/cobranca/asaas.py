@@ -10,6 +10,8 @@
 - Webhook: o token configurado no Asaas chega no cabecalho asaas-access-token. O corpo traz o
   id do evento (chave de repeticao: a entrega e "at least once"), event e payment.id.
   PAYMENT_RECEIVED e PAYMENT_CONFIRMED contam como pagamento; os demais ficam registrados.
+- Conciliacao: GET /payments filtrado pelo externalReference; status RECEIVED, CONFIRMED ou
+  RECEIVED_IN_CASH conta como pago.
 O valor vai em reais com duas casas, escrito a partir dos centavos: nada passa por float.
 """
 
@@ -27,6 +29,9 @@ URL_PRODUCAO = "https://api.asaas.com/v3"
 URL_SANDBOX = "https://api-sandbox.asaas.com/v3"
 CABECALHO_WEBHOOK = "asaas-access-token"
 EVENTOS_DE_PAGAMENTO = frozenset({"PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"})
+# Status de cobranca paga na listagem (conciliacao): os mesmos dos eventos e o recebido em
+# dinheiro, que tambem quita a cobranca.
+STATUS_PAGOS = frozenset({"RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"})
 AGENTE = "CarbonLedger"
 TEMPO_LIMITE_S = 20.0
 
@@ -143,6 +148,10 @@ class GatewayAsaas:
                 "POST", "/payments", corpo=_json_com_valor(dados, valor_centavos)
             )
         return Cobranca(str(existente["id"]), str(existente.get("invoiceUrl") or ""))
+
+    async def cobranca_paga(self, referencia: str) -> bool:
+        cobranca = await self._primeiro("/payments", referencia)
+        return cobranca is not None and str(cobranca.get("status")) in STATUS_PAGOS
 
     def ler_evento(self, cabecalhos: dict[str, str], corpo: bytes) -> Evento | None:
         recebido = cabecalhos.get(CABECALHO_WEBHOOK, "")

@@ -363,3 +363,11 @@
 - PAYMENT_RECEIVED e PAYMENT_CONFIRMED contam como pago. Estorno e remoção só ficam registrados; desfazer um pagamento é decisão humana.
 - A URL de produção do Asaas só em produção, e produção só com ela: nada de cobrança real a partir de dev.
 - O e-mail de cobrança não vai para a trilha de auditoria (pode ser de pessoa); a trilha registra só que o pagador mudou.
+
+## 2026-11-25: correções da revisão de código
+
+- Webhook com cobrança desconhecida continua respondendo 200 (a fila do Asaas não pode pausar); o risco de perder um pagamento fica coberto pela conciliação diária, não por reenvio do Asaas.
+- Conciliação antes dos vencimentos: quem pagou não vira inadimplente por um webhook perdido. RECEIVED_IN_CASH conta como pago na conciliação.
+- Falha do gateway vira aviso e não desfaz a rodada: vencimento e inadimplência não dependem do gateway estar no ar.
+- Pedido de relatório preso aparece como falhou na leitura, sem escrever no GET; a gravação da falha acontece no próximo pedido.
+- Endereço do Asaas por lista permitida (dois valores), não por lista proibida.

@@ -191,11 +191,19 @@ def test_travas_do_asaas() -> None:
         Configuracao(**base)
     with pytest.raises(ValueError, match="ASAAS_API_KEY"):
         Configuracao(**base, asaas_api_key="")
-    # Fora de producao, nunca a URL de producao (nada de cobranca real a partir de dev).
-    with pytest.raises(ValueError, match="URL de producao"):
-        Configuracao(**base, asaas_api_key="k", asaas_base_url=URL_PRODUCAO)
-    with pytest.raises(ValueError, match="https"):
-        Configuracao(**base, asaas_api_key="k", asaas_base_url="http://api-sandbox.asaas.com/v3")
+    # Fora de producao, so o sandbox: nem a URL de producao, nem endereco antigo ou parecido.
+    for url in (
+        URL_PRODUCAO,
+        "https://www.asaas.com/api/v3",
+        "https://sandbox.asaas.com/api/v3",
+        "http://api-sandbox.asaas.com/v3",
+        "https://api-sandbox.asaas.com.example/v3",
+    ):
+        with pytest.raises(ValueError, match="fora de producao"):
+            Configuracao(**base, asaas_api_key="k", asaas_base_url=url)
+    assert Configuracao(**base, asaas_api_key="k", asaas_base_url=URL_SANDBOX + "/").asaas_url == (
+        URL_SANDBOX
+    )
     configuracao = Configuracao(**base, asaas_api_key="k")
     assert configuracao.asaas_url == URL_SANDBOX
     producao = {
@@ -208,8 +216,34 @@ def test_travas_do_asaas() -> None:
         "oidc_dev_emissor": None,
         "database_url": "postgresql://u:p@banco/cl?sslmode=require",
     }
-    with pytest.raises(ValueError, match="URL de producao"):
+    with pytest.raises(ValueError, match="em producao"):
         Configuracao(**base, **producao, asaas_api_key="k")
+    with pytest.raises(ValueError, match="em producao"):
+        Configuracao(
+            **base, **producao, asaas_api_key="k", asaas_base_url="https://www.asaas.com/api/v3"
+        )
     assert Configuracao(
         **base, **producao, asaas_api_key="k", asaas_base_url=URL_PRODUCAO
     ).em_producao
+
+
+@pytest.mark.parametrize(
+    ("status", "paga"),
+    [("RECEIVED", True), ("CONFIRMED", True), ("RECEIVED_IN_CASH", True), ("PENDING", False),
+     ("OVERDUE", False), ("REFUNDED", False)],
+)  # fmt: skip
+async def test_conciliacao_pelo_status(status: str, paga: bool) -> None:
+    falso = AsaasFalso()
+    falso.cobrancas.append({"id": "pay_1", "externalReference": FATURA, "status": status})
+    assert await _gateway(falso).cobranca_paga(FATURA) is paga
+    assert falso.pedidos[0].url.params["externalReference"] == FATURA
+
+
+async def test_conciliacao_sem_cobranca_ou_removida() -> None:
+    falso = AsaasFalso()
+    gateway = _gateway(falso)
+    assert await gateway.cobranca_paga(FATURA) is False
+    falso.cobrancas.append(
+        {"id": "pay_1", "externalReference": FATURA, "status": "RECEIVED", "deleted": True}
+    )
+    assert await gateway.cobranca_paga(FATURA) is False

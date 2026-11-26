@@ -10,7 +10,7 @@
 
 Eventos na trilha: `certificado.cadastrado`, `certificado.desativado`, `relatorio.pedido`, `relatorio.gerado`.
 
-Só um pedido por inventário fica na fila. Pedido que o worker não pegou em 15 minutos (worker parado, fila perdida) sai da fila como falhou no próximo pedido; se o worker pegar depois, não gera nada.
+Só um pedido por inventário fica na fila. Pedido que o worker não pegou em 15 minutos (worker parado, fila perdida, Redis fora no momento de enfileirar) já aparece na tela como falhou e o botão de gerar volta; o próximo pedido grava a falha. Se o worker pegar depois, não gera nada.
 
 ## Problemas comuns
 
@@ -22,7 +22,7 @@ Só um pedido por inventário fica na fila. Pedido que o worker não pegou em 15
 | "Use o e-CNPJ ICP-Brasil" | Em produção, certificado sem CNPJ | Usar o e-CNPJ A1 da empresa |
 | Erro ao gerar, com log de Playwright | Chromium ausente na imagem | Reconstruir a imagem (o Dockerfile instala o Chromium); worker e beat exigem rebuild |
 | "Relatório sendo gerado" não termina | Worker parado ou sem a imagem nova | `make logs` (serviço worker); depois de mudar código, reconstruir a imagem do worker, não só reiniciar. Passados 15 minutos, peça de novo |
-| "A geração falhou por um erro interno" | Exceção inesperada no worker | O log do worker tem `relatorio.pedido_falhou` com o pedido_id (sem dado pessoal) |
+| "A geração falhou por um erro interno" | Exceção inesperada no worker | O log do worker tem `relatorio.pedido_falhou` com o pedido_id (sem dado pessoal). O relatório não foi registrado, mas o PDF pode ter ficado no armazenamento sem registro |
 | Download falha com hash diferente | Objeto do S3 trocado | Tratar como incidente: ver o runbook de integridade |
 
 ## Carimbo do tempo
