@@ -74,7 +74,7 @@ async def test_calcula_o_caso_da_semente(tenant_a: asyncpg.Connection, dados: Da
     )
     assert gravado["escopo1_tco2e"] == Decimal("0.222078")
     assert (gravado["linhas"], gravado["pendencias"]) == (4, 11)
-    assert (gravado["metodo"], gravado["metodo_versao"]) == ("fator_direto", "1.2.0")
+    assert (gravado["metodo"], gravado["metodo_versao"]) == ("fator_direto", "1.3.0")
     soma = await tenant_a.fetchval(
         "SELECT sum(tco2e) FROM calculo_linha WHERE calculo_id = $1", execucao.calculo_id
     )

@@ -32,7 +32,7 @@ from app.modules.calculo.unidades import (
     validar_unidade_de_atividade,
 )
 from app.modules.coleta.categorias import categoria, periodos
-from app.modules.organizacao.limites import Abordagem
+from app.modules.organizacao.limites import SQL_DENTRO_DO_LIMITE, Abordagem
 from app.web.formatos import NumeroInvalido, ler_numero
 
 GWP_PADRAO = "AR5_100"
@@ -83,10 +83,12 @@ class Fonte:
     justificativa: str | None
     ativa: bool
     atividade: str | None = None
+    # Unidade dentro do limite organizacional na abordagem do inventario (percentual > 0).
+    dentro_do_limite: bool = True
 
     @property
     def conta_no_progresso(self) -> bool:
-        return self.ativa and self.material
+        return self.ativa and self.material and self.dentro_do_limite
 
 
 @dataclass(frozen=True)
@@ -333,11 +335,13 @@ def _exigir_em_coleta(inventario: Inventario) -> None:
 _COLUNAS_FONTE = (
     "f.fonte_id, f.empresa_id, f.inventario_id, f.unidade_id, u.nome AS unidade_nome,"
     " f.categoria, f.descricao, f.unidade_medida, f.periodicidade, f.material,"
-    " f.justificativa, f.ativa, f.atividade"
+    " f.justificativa, f.ativa, f.atividade,"
+    f" {SQL_DENTRO_DO_LIMITE} AS dentro_do_limite"
 )
 _DE_FONTE = (
     " FROM fonte_emissao f JOIN unidade u"
     " ON u.tenant_id = f.tenant_id AND u.unidade_id = f.unidade_id"
+    " JOIN inventario i ON i.tenant_id = f.tenant_id AND i.inventario_id = f.inventario_id"
 )
 
 

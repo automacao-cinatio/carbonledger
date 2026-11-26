@@ -28,6 +28,7 @@ from app.modules.calculo import fator_direto
 from app.modules.calculo import servico as calculo
 from app.modules.calculo.fator_direto import hash_canonico
 from app.modules.calculo.montagem import periodos
+from app.modules.organizacao.limites import SQL_DENTRO_DO_LIMITE
 
 TAMANHO_MINIMO_MOTIVO = 20
 TAMANHO_MAXIMO_MOTIVO = 1000
@@ -109,12 +110,15 @@ async def _eventos(conexao: Any, inventario_id: UUID) -> list[Evento]:
 
 async def _periodos_sem_evidencia(conexao: Any, inventario_id: UUID) -> int:
     fontes = await conexao.fetch(
-        "SELECT f.fonte_id, f.periodicidade,"
+        "SELECT f.fonte_id, f.periodicidade,"  # noqa: S608  # nosec B608
         " array_agg(DISTINCT e.periodo) FILTER (WHERE e.evidencia_id IS NOT NULL) AS periodos,"
         " bool_or(e.evidencia_id IS NOT NULL AND e.periodo IS NULL) AS todos"
-        " FROM fonte_emissao f LEFT JOIN evidencia e"
+        " FROM fonte_emissao f"
+        " JOIN unidade u ON u.tenant_id = f.tenant_id AND u.unidade_id = f.unidade_id"
+        " JOIN inventario i ON i.tenant_id = f.tenant_id AND i.inventario_id = f.inventario_id"
+        " LEFT JOIN evidencia e"
         "   ON e.tenant_id = f.tenant_id AND e.fonte_id = f.fonte_id"
-        " WHERE f.inventario_id = $1 AND f.ativa AND f.material"
+        f" WHERE f.inventario_id = $1 AND f.ativa AND f.material AND {SQL_DENTRO_DO_LIMITE}"
         " GROUP BY f.fonte_id, f.periodicidade",
         inventario_id,
     )

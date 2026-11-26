@@ -396,3 +396,10 @@
 - Volta de versão pela entrada `commit` do workflow, só com commit da main; o script de deploy é o da main. Migração não volta: voltar por cima de migração para antes dos serviços e se corrige para a frente.
 - No ECS, a checagem do contêiner (que mata a tarefa) é de vida do processo (/vivo); a de prontidão (/saude, com as dependências) fica no balanceador, que só tira do tráfego.
 - Alarmes do Redis um por nó, pelo nome padrão dos nós do grupo (<grupo>-001, -002).
+
+## Revisão do cálculo (2026-11-26)
+
+- Unidade a 0% na abordagem do inventário fica fora: não pede dado, não conta no progresso, não gera pendência nem pede evidência (decisão do usuário). Método fator_direto 1.3.0; cálculos gravados em versões anteriores continuam conferíveis.
+- O critério mora em app/modules/organizacao/limites.py, em Python e em SQL, com teste que confere os dois.
+- Só o CO2 pode ser marcado como biogênico no arquivo de fatores; CH4 e N2O de biomassa entram no escopo com GWP, como no Programa.
+- Caso oficial de paridade precisa rodar sem pendência.

@@ -38,12 +38,13 @@ from app.modules.calculo.unidades import (
 )
 
 METODO = "fator_direto"
-VERSAO = "1.2.0"
+VERSAO = "1.3.0"
 # Versoes com a mesma conta pura (o que muda entre elas e a montagem da entrada): uma execucao
 # gravada com qualquer uma delas pode ser refeita por este codigo.
 # 1.0.0: so o escopo 1. 1.1.0: escopo 2 junto, com total separado no resultado.
 # 1.2.0: escopo 3 junto, com total separado.
-VERSOES_COMPATIVEIS = ("1.0.0", "1.1.0", "1.2.0")
+# 1.3.0: fonte de unidade fora do limite organizacional (0%) nao entra nem gera pendencia.
+VERSOES_COMPATIVEIS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0")
 PRECISAO = 50
 CEM = Decimal(100)
 TONELADA = "t"

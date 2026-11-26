@@ -5,7 +5,8 @@ paridade com a ferramenta oficial (referencia lida dos arquivos do caso em data/
 Assim a paridade testa o codigo que roda de verdade, nao uma copia.
 
 Regras:
-- entram fontes ativas, materiais e dos escopos 1, 2 e 3;
+- entram fontes ativas, materiais e dos escopos 1, 2 e 3, de unidades dentro do limite
+  organizacional; unidade a 0% na abordagem do inventario fica fora, sem pendencia (1.3.0);
 - entra so o dado aprovado (versao mais recente com decisao aprovada); o resto e pendencia;
 - data de referencia: no escopo 2, sempre o ultimo dia do periodo (o fator do SIN e do mes
   do consumo); nos escopos 1 e 3, a data da compra e, sem ela, o ultimo dia do periodo;
@@ -143,6 +144,8 @@ async def montar(
                 fonte.controle_financeiro,
             ),
         )
+        if consolidado == 0:
+            continue
         if not fonte.atividade:
             pendencias.append(
                 Pendencia(

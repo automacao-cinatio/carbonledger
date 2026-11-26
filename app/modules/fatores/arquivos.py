@@ -301,6 +301,10 @@ def ler_fatores(conteudo: bytes) -> list[LinhaFator]:
         )
         if linha.ok and registro.valor < 0:
             linha._erro("valor", "o fator nao pode ser negativo")
+        # So o CO2 de biomassa fica fora dos escopos. CH4 e N2O de biocombustivel entram com GWP:
+        # marcados como biogenicos, sairiam do escopo e somariam massa de outro gas ao CO2.
+        if linha.ok and registro.biogenico and registro.gas != "CO2":
+            linha._erro("biogenico", "so o CO2 e biogenico; para CH4 e N2O de biomassa, use nao")
         if linha.ok and fim is not None and fim < registro.vigencia_inicio:
             linha._erro("vigencia_fim", "termina antes de comecar")
         if not linha.ok:

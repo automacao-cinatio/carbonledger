@@ -20,13 +20,15 @@
 {{ alerta("warning", "Fonte desativada", "Ela não entra no inventário e não recebe dados novos. O que já foi lançado continua guardado.") }}
 {% elif not fonte.material %}
 {{ alerta("info", "Fonte fora da materialidade", "Justificativa: " ~ fonte.justificativa) }}
+{% elif not fonte.dentro_do_limite %}
+{{ alerta("info", "Unidade fora do limite do inventário", "Na abordagem de consolidação deste inventário, a unidade entra com 0%. A fonte não pede dado, não conta no progresso e não entra no cálculo. Para incluí-la, ajuste o controle ou a participação da unidade em Organização.") }}
 {% endif %}
 
 <section class="card mb-3" aria-labelledby="titulo-dados-fonte">
   <div class="card-header"><h2 class="card-title" id="titulo-dados-fonte">Dados da fonte</h2></div>
   <div class="card-body">
-    {{ ficha([("Categoria", categoria), ("Combustível ou atividade", atividade), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual"), ("Entra no inventário", "Sim" if fonte.material else "Não")]) }}
-    {% if fonte.material and fonte.ativa %}
+    {{ ficha([("Categoria", categoria), ("Combustível ou atividade", atividade), ("Unidade de medida", fonte.unidade_medida), ("Periodicidade", "Mensal" if fonte.periodicidade == "mensal" else "Anual"), ("Entra no inventário", "Sim" if fonte.conta_no_progresso else "Não")]) }}
+    {% if fonte.conta_no_progresso %}
     <div class="row g-3 mt-1">
       <div class="col-md-6">{{ barra_progresso("Dados aprovados da fonte", progresso.aprovados, progresso.esperados) }}</div>
       <div class="col-md-6">{{ barra_progresso("Períodos da fonte com evidência", progresso.com_evidencia, progresso.esperados) }}</div>

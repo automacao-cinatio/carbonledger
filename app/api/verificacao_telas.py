@@ -43,6 +43,7 @@ from app.web.portal import montar_portal, renderizar
 router = APIRouter(prefix="/verificacao", tags=["verificacao"], include_in_schema=False)
 
 FUSO = ZoneInfo("America/Sao_Paulo")
+TEXTO_FORA_DO_LIMITE = "Unidade fora do limite organizacional (0% na abordagem do inventário)."
 
 Leitor = Annotated[Acesso, Depends(exigir_perfil(*Perfil))]
 Administrador = Annotated[Acesso, Depends(exigir_perfil(Perfil.ADMINISTRADOR))]
@@ -236,6 +237,10 @@ async def painel(request: Request, sessao: SessaoTenant, atual: Verificador) -> 
         {"descricao": s.fonte.descricao, "justificativa": s.fonte.justificativa or ""}
         for s in situacoes
         if s.fonte.ativa and not s.fonte.material
+    ] + [
+        {"descricao": s.fonte.descricao, "justificativa": TEXTO_FORA_DO_LIMITE}
+        for s in situacoes
+        if s.fonte.ativa and s.fonte.material and not s.fonte.dentro_do_limite
     ]
     return renderizar(
         request,

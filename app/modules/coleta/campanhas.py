@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 from app.core import audit
 from app.core.erros import AcessoNegado, ColetorDeErros, ErroValidacao
 from app.modules.coleta.categorias import periodos, rotulo_periodo
+from app.modules.organizacao.limites import SQL_DENTRO_DO_LIMITE
 
 Enviar = Callable[[str, str, str], Awaitable[None]]
 
@@ -74,10 +75,13 @@ async def destinatarios(conexao: Any, empresa_id: UUID) -> list[str]:
 
 
 async def pendencias(conexao: Any, inventario_id: UUID) -> list[str]:
-    """Periodos de fontes ativas e materiais sem dado aprovado, em texto para o e-mail."""
+    """Periodos de fontes ativas, materiais e dentro do limite sem dado aprovado, em texto."""
     fontes = await conexao.fetch(
-        "SELECT fonte_id, descricao, periodicidade FROM fonte_emissao"
-        " WHERE inventario_id = $1 AND ativa AND material ORDER BY descricao, fonte_id",
+        "SELECT f.fonte_id, f.descricao, f.periodicidade FROM fonte_emissao f"  # noqa: S608  # nosec B608
+        " JOIN unidade u ON u.tenant_id = f.tenant_id AND u.unidade_id = f.unidade_id"
+        " JOIN inventario i ON i.tenant_id = f.tenant_id AND i.inventario_id = f.inventario_id"
+        f" WHERE f.inventario_id = $1 AND f.ativa AND f.material AND {SQL_DENTRO_DO_LIMITE}"
+        " ORDER BY f.descricao, f.fonte_id",
         inventario_id,
     )
     atuais = {
