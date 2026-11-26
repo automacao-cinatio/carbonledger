@@ -51,20 +51,26 @@ locals {
       dimensoes   = { DBInstanceIdentifier = aws_db_instance.banco.identifier }
       descricao   = "Menos de 10 GB livres no banco"
     }
-    redis-memoria = {
+  }
+
+  # O ElastiCache publica a memoria por no (CacheClusterId), nao pelo grupo: um alarme por no.
+  # Os nos do grupo se chamam <grupo>-001, <grupo>-002 e assim por diante.
+  alarmes_redis = {
+    for indice in range(local.redis_nos) :
+    format("redis-memoria-%03d", indice + 1) => {
       namespace   = "AWS/ElastiCache"
       metrica     = "DatabaseMemoryUsagePercentage"
       estatistica = "Maximum"
       limite      = 80
       comparacao  = "GreaterThanThreshold"
-      dimensoes   = { ReplicationGroupId = aws_elasticache_replication_group.redis.id }
+      dimensoes   = { CacheClusterId = format("%s-%03d", local.nome, indice + 1) }
       descricao   = "Redis acima de 80% da memoria (sem despejo: a fila para quando enche)"
     }
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "alarme" {
-  for_each = local.alarmes
+  for_each = merge(local.alarmes, local.alarmes_redis)
 
   alarm_name          = "${local.nome}-${each.key}"
   alarm_description   = each.value.descricao

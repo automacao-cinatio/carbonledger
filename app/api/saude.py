@@ -8,6 +8,14 @@ from app.modules.saude.servico import verificar_saude
 router = APIRouter(tags=["saude"])
 
 
+@router.get("/vivo")
+async def vivo() -> dict[str, str]:
+    """O processo responde. Sem consultar dependencia: e a checagem do conteiner no ECS, que
+    mata a tarefa quando falha. Com o /saude ali, uma troca de no do banco ou do Redis
+    derrubaria todas as tarefas da API ao mesmo tempo."""
+    return {"status": "vivo"}
+
+
 @router.get("/saude")
 async def saude(
     resposta: Response,
