@@ -15,6 +15,8 @@ import pytest
 from fastapi.testclient import TestClient
 from testcontainers.community.postgres import PostgresContainer
 
+from app.core.papeis_banco import aplicar_papeis
+
 RAIZ = Path(__file__).resolve().parents[2]
 PAPEIS_SQL = RAIZ / "infra" / "sql" / "papeis.sql"
 
@@ -97,18 +99,13 @@ def _dsn(conteiner: PostgresContainer, usuario: str, senha: str) -> str:
 
 
 async def _preparar_papeis(dsn_admin: str) -> None:
+    # O mesmo codigo que cria os papeis no RDS (tarefa avulsa "papeis").
     conexao = await asyncpg.connect(dsn_admin)
     try:
-        await conexao.execute(PAPEIS_SQL.read_text(encoding="utf-8"))
-        for papel, senha in (
-            ("app_owner", SENHA_OWNER),
-            ("app_user", SENHA_USER),
-            ("app_curadoria", SENHA_CURADORIA),
-        ):
-            comando = await conexao.fetchval(
-                "SELECT format('ALTER ROLE %I PASSWORD %L', $1::text, $2::text)", papel, senha
-            )
-            await conexao.execute(comando)
+        await aplicar_papeis(
+            conexao,
+            {"app_owner": SENHA_OWNER, "app_user": SENHA_USER, "app_curadoria": SENHA_CURADORIA},
+        )
     finally:
         await conexao.close()
 

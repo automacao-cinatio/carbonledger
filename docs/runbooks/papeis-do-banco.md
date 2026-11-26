@@ -8,17 +8,9 @@ Trocar uma senha depois da criação do volume exige ALTER ROLE como superusuár
 
 ## Produção (RDS)
 
-1. Conectar com a conta administrativa do RDS, por rede privada e com TLS.
-2. Rodar infra/sql/papeis.sql no banco da aplicação. O script é idempotente.
-3. Definir as senhas com o psql, sem deixar o valor no histórico do shell:
+A tarefa avulsa `papeis` do ECS (docs/runbooks/infra-aws.md) roda `python -m app.core.papeis_banco`: conecta com a conta administrativa do RDS, por rede privada e com TLS, roda infra/sql/papeis.sql e define as senhas de app_owner, app_user e app_curadoria a partir do Secrets Manager. É idempotente. As senhas nunca passam por terminal nem por histórico.
 
-   ```
-   \password app_owner
-   \password app_user
-   ```
-
-4. Guardar as senhas no gerenciador de segredos; a aplicação recebe só DATABASE_URL (app_user) e o job de migração recebe só MIGRACAO_DATABASE_URL (app_owner).
-5. Rodar as migrações com o job de migração e conferir com make test (suíte tests/isolation) num ambiente de homologação.
+A aplicação recebe só DATABASE_URL (app_user); a tarefa `migrar` recebe só MIGRACAO_DATABASE_URL (app_owner); a tarefa `operacao` recebe também CURADORIA_DATABASE_URL. Os testes de isolamento criam os papéis com o mesmo código.
 
 ## Conferência rápida
 

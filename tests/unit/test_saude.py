@@ -6,7 +6,7 @@ from app.modules.saude import servico
 
 def _simular(monkeypatch, banco: bool, redis: bool, minio: bool) -> None:  # type: ignore[no-untyped-def]
     async def falso(_config):  # type: ignore[no-untyped-def]
-        return {"banco": banco, "redis": redis, "minio": minio}
+        return {"banco": banco, "redis": redis, "armazenamento": minio}
 
     monkeypatch.setattr("app.api.saude.verificar_saude", falso)
 
@@ -17,7 +17,7 @@ def test_saude_200_quando_tudo_ok(monkeypatch) -> None:  # type: ignore[no-untyp
     assert resposta.status_code == 200
     assert resposta.json() == {
         "status": "ok",
-        "componentes": {"banco": "ok", "redis": "ok", "minio": "ok"},
+        "componentes": {"banco": "ok", "redis": "ok", "armazenamento": "ok"},
     }
 
 

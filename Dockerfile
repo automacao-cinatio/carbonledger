@@ -27,10 +27,15 @@ RUN apt-get update \
 COPY app ./app
 COPY migrations ./migrations
 COPY alembic.ini ./
+# Papeis do banco: a tarefa avulsa do RDS roda python -m app.core.papeis_banco.
+COPY infra/sql/papeis.sql ./infra/sql/
 
 # Codigo e dependencias ficam do root: o usuario do app so le. O que precisa escrever vai
 # para /tmp (o beat grava a agenda la; o Chromium, o perfil temporario).
 RUN useradd --system --uid 10001 --home-dir /tmp appuser
+# No ECS Fargate (raiz so leitura), /tmp e um volume efemero: com o VOLUME, o ECS copia a
+# permissao 1777 da imagem para ele e o usuario do app consegue escrever.
+VOLUME ["/tmp"]
 USER appuser
 
 EXPOSE 8000

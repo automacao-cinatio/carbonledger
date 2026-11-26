@@ -23,9 +23,11 @@ class Configuracao(BaseSettings):
     # So a linha de comando de curadoria usa (papel app_curadoria); a API nunca recebe.
     curadoria_database_url: str | None = None
 
-    s3_endpoint: str
-    s3_access_key: SecretStr
-    s3_secret_key: SecretStr
+    # S3_ENDPOINT so para MinIO (dev e ensaio de producao), com chave e segredo. Na AWS fica
+    # vazio: endereco padrao do S3 e credenciais pela cadeia padrao (papel da tarefa no ECS).
+    s3_endpoint: str | None = None
+    s3_access_key: SecretStr | None = None
+    s3_secret_key: SecretStr | None = None
     s3_bucket_evidencias: str = "evidencias"
 
     # Evidencias: Object Lock no bucket. Em producao, so COMPLIANCE (nem o dono apaga).
@@ -150,6 +152,13 @@ class Configuracao(BaseSettings):
                     f"ASAAS_BASE_URL: {'em producao' if self.em_producao else 'fora de producao'}"
                     f" so {permitida}."
                 )
+        if self.s3_endpoint and (self.s3_access_key is None or self.s3_secret_key is None):
+            raise ValueError("Com S3_ENDPOINT, defina S3_ACCESS_KEY e S3_SECRET_KEY.")
+        if not self.s3_endpoint and (self.s3_access_key or self.s3_secret_key):
+            raise ValueError(
+                "Sem S3_ENDPOINT (AWS), as credenciais vem do papel da tarefa: tire S3_ACCESS_KEY"
+                " e S3_SECRET_KEY."
+            )
         if self.provedor_chaves not in ("local", "kms"):
             raise ValueError("PROVEDOR_CHAVES aceita local ou kms.")
         if self.provedor_chaves == "kms" and not self.kms_chave_id:

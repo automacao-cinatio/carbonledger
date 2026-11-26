@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate seed test check lint tipos seguranca caracteres backup ensaio-restauracao ensaio-producao ensaio-producao-parar
+.PHONY: up down logs migrate seed test check lint tipos seguranca caracteres backup ensaio-restauracao ensaio-producao ensaio-producao-parar infra
 
 COMPOSE ?= docker compose
 # Modo git: varre o historico de commits (rapido e sem o .venv).
@@ -57,5 +57,16 @@ seguranca:
 
 caracteres:
 	uv run python scripts/verificar_caracteres.py
+
+# Terraform da AWS (P25): formato, validacao e checagem de seguranca, tudo em container e sem
+# conta da AWS (nada e aplicado). Excecoes do Trivy ficam no proprio recurso, com o motivo.
+TERRAFORM ?= docker run --rm -v "$(CURDIR)/infra/terraform:/tf" -w /tf hashicorp/terraform:1.13
+TRIVY ?= docker run --rm -v "$(CURDIR)/infra/terraform:/tf:ro" aquasec/trivy:0.76.2
+
+infra:
+	$(TERRAFORM) fmt -check -recursive
+	$(TERRAFORM) init -backend=false -input=false
+	$(TERRAFORM) validate
+	$(TRIVY) config --quiet --skip-dirs /tf/.terraform --exit-code 1 /tf
 
 check: lint tipos test seguranca caracteres
