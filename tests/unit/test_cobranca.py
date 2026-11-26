@@ -54,8 +54,11 @@ def test_preco_unico_e_milhar() -> None:
         ("10:1,00;3:2,00;*:3,00", "crescentes"),
         ("0:1,00;*:2,00", "limite invalido"),
         ("3=1,00;*:2,00", "sem ':'"),
-        ("*:1,005", "ate centavos"),
-        ("*:-1,00", "zero ou mais"),
+        ("*:1,005", "preco invalido"),
+        ("*:-1,00", "preco invalido"),
+        # Ponto decimal: antes virava 39000 reais (o ponto saia como separador de milhar).
+        ("*:390.00", "preco invalido"),
+        ("*:1.23,00", "preco invalido"),
     ],
 )
 def test_tabela_invalida(texto: str, trecho: str) -> None:

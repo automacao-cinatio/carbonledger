@@ -5,6 +5,7 @@ quer dizer as empresas 1 a 3 a R$ 390,00 cada, da 4 a 10 a R$ 290,00 cada e da 1
 R$ 190,00 cada. Valores em centavos (int), sem float.
 """
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -28,7 +29,14 @@ class Linha:
     subtotal_centavos: int
 
 
+# Formato brasileiro: ponto so como separador de milhar (1.234,56) e virgula decimal. Sem
+# isso, "390.00" virava 39000 reais (o ponto era tirado como milhar).
+_PRECO = re.compile(r"^(\d{1,3}(\.\d{3})+|\d+)(,\d{1,2})?$")
+
+
 def _centavos(texto: str) -> int:
+    if not _PRECO.fullmatch(texto.strip()):
+        raise TabelaInvalida(f"preco invalido: {texto!r} (use 390,00 ou 1.234,56)")
     limpo = texto.strip().replace(".", "").replace(",", ".")
     try:
         valor = Decimal(limpo)

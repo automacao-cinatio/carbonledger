@@ -407,3 +407,8 @@
 ## Revisão de isolamento e segurança (2026-11-26)
 
 - Anonimização LGPD e eventos na trilha numa transação só (o contexto local é trocado por cliente dentro dela).
+
+## Revisão da cobrança (2026-11-26)
+
+- Webhook da cobrança aceita corpo de até 64 KB (o evento tem poucos KB); acima, 413.
+- COBRANCA_TABELA só no formato brasileiro de valor (vírgula decimal, ponto só de milhar).

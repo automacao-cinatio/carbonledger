@@ -93,6 +93,9 @@ def test_roteiro_da_cobranca(app_cliente: TestClient, banco: Banco) -> None:
     errado = "errado"
     assert _webhook(cliente, evento, token=None).status_code == 404
     assert _webhook(cliente, evento, token=errado).status_code == 404
+    # Corpo grande demais: recusado sem ler tudo (o token so e conferido depois do corpo).
+    grande = {**evento, "id": "evt-g", "enchimento": "x" * (70 * 1024)}
+    assert _webhook(cliente, grande, token=None).status_code == 413
     # Autentico, mas de cobranca que nao e da plataforma (ou sem cobranca): 200, ignorado. O
     # Asaas reenvia o que nao recebe 200 e pausa a fila depois de 15 falhas.
     alheio = _webhook(cliente, {**evento, "id": "evt-x", "cobranca_id": "sim_cob_x"})

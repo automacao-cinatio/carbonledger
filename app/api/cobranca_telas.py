@@ -183,6 +183,24 @@ async def salvar_pagador(request: Request, sessao: SessaoTenant, acesso: Adminis
     )
 
 
+# O evento de pagamento tem poucos KB. O corpo e lido antes de conferir o token (que o gateway
+# confere junto com o evento): sem limite, qualquer um mandaria um corpo enorme para a memoria.
+TAMANHO_MAXIMO_WEBHOOK = 64 * 1024
+
+
+async def _corpo_limitado(request: Request) -> bytes | None:
+    """Corpo ate TAMANHO_MAXIMO_WEBHOOK; None se passar (pelo cabecalho ou pelo que chegou)."""
+    declarado = request.headers.get("content-length", "")
+    if declarado.isdigit() and int(declarado) > TAMANHO_MAXIMO_WEBHOOK:
+        return None
+    partes = bytearray()
+    async for pedaco in request.stream():
+        partes.extend(pedaco)
+        if len(partes) > TAMANHO_MAXIMO_WEBHOOK:
+            return None
+    return bytes(partes)
+
+
 @router.post("/webhook/{gateway}")
 async def webhook(gateway: str, request: Request) -> Response:
     configuracao = obter_configuracao()
@@ -190,7 +208,9 @@ async def webhook(gateway: str, request: Request) -> Response:
     nao_encontrado = JSONResponse(status_code=404, content={"detail": "Não encontrado."})
     if implementacao is None or implementacao.nome != gateway:
         return nao_encontrado
-    corpo = await request.body()
+    corpo = await _corpo_limitado(request)
+    if corpo is None:
+        return JSONResponse(status_code=413, content={"detail": "Corpo grande demais."})
     evento = implementacao.ler_evento({k.lower(): v for k, v in request.headers.items()}, corpo)
     if evento is None:
         return nao_encontrado
