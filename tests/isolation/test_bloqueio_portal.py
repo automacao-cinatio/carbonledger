@@ -1,5 +1,6 @@
 """Bloqueio por inadimplencia (so acoes novas): aviso em todas as telas; abrir inventario,
-fechar, gerar relatorio e convidar pessoas recusados; lancar dados continua; pago, libera."""
+fechar, gerar relatorio, convidar pessoas e dar acesso a verificador recusados; lancar dados
+continua; pago, libera."""
 
 import asyncio
 import re
@@ -101,6 +102,11 @@ def test_inadimplente_bloqueia_so_acoes_novas(app_cliente: TestClient, banco: Ba
                      data={"confirmacao": "Atrasada S.A."}, headers=cab)
     )  # fmt: skip
     assert _bloqueado(cliente.post(f"/relatorios/inventarios/{inventario}/gerar", headers=cab))
+    # Acesso novo de verificador tambem (decisao do usuario em 2026-11-26).
+    assert _bloqueado(
+        cliente.post("/verificacao/concessoes", data={"inventario_id": inventario,
+                                                      "email": "v@verifica.example"}, headers=cab)
+    )  # fmt: skip
     # O trabalho em andamento continua: lancar dado e consultar.
     lancado = cliente.post(
         f"/coleta/fontes/{fonte}/periodos/1/lancamentos", data={"quantidade": "100"}, headers=cab

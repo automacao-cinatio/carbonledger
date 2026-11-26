@@ -17,7 +17,7 @@ Trilha: `cobranca.fatura_emitida`, `cobranca.fatura_paga`, `cobranca.situacao_al
 
 ## Pagamento em atraso
 
-Com a assinatura em "pagamento em atraso" (fatura vencida além da tolerância), todas as telas do cliente mostram o aviso e ficam bloqueadas só as ações novas: abrir inventário, fechar inventário, gerar relatório assinado e convidar pessoas. Lançar e aprovar dados, consultar, baixar relatórios, o acesso do verificador, a cobrança e a LGPD continuam. O pagamento confirmado libera na hora. Sem COBRANCA_TABELA, nada é bloqueado.
+Com a assinatura em "pagamento em atraso" (fatura vencida além da tolerância), todas as telas do cliente mostram o aviso e ficam bloqueadas só as ações novas: abrir inventário, fechar inventário, gerar relatório assinado, convidar pessoas e dar acesso novo a verificador. Lançar e aprovar dados, consultar, baixar relatórios, o verificador que já tem acesso, revogar acesso, a cobrança e a LGPD continuam. O pagamento confirmado libera na hora. Sem COBRANCA_TABELA, nada é bloqueado.
 
 ## Gateway simulado (desenvolvimento)
 
