@@ -414,3 +414,8 @@
 - Importação de fatores: biogenico=sim só com CO2. Um CH4 ou N2O marcado como biogênico saía do escopo 1 em silêncio e somava massa de outro gás ao CO2 biogênico.
 - Paridade: caso oficial com pendência falha com a lista delas (a pendência tira o lançamento da conta e o total podia caber na tolerância).
 - Testes: montagem com unidade a 0%, regra SQL igual à de Python em todas as combinações, campanha, fechamento e cálculo no banco, tela da fonte e importação com CH4 biogênico.
+
+## Revisão de isolamento e segurança (2026-11-26)
+
+- Revisados: contexto por transação (set_config local, falha fechada fora de transação), RLS com políticas de tenant, empresa e verificador (cobertura testada tabela a tabela contra o catálogo), papéis do banco, sessão no Redis (hash do token, rotação no login, CSRF por sessão), login OIDC (PKCE, state preso ao navegador, nonce, emissor por provedor, e-mail só verificado), trilha encadeada (lock consultivo por tenant, isolamento padrão em todo o app) e a chamada à IA (formato JSON, fallback do servidor, recusa e truncamento tratados). Nada a corrigir nesses pontos.
+- LGPD: a anonimização e o registro na trilha de cada cliente passam a ir numa transação só. Antes, uma falha no meio deixava a pessoa anonimizada sem o evento na trilha de algum cliente, e a nova tentativa era recusada. Teste com a trilha falhando: tudo volta e a anonimização pode ser refeita.

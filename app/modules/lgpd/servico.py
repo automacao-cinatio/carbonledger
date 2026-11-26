@@ -104,7 +104,12 @@ async def pendentes(conexao: Any) -> list[Any]:
 
 
 async def anonimizar(conexao: Any, usuario_id: UUID, executor: str) -> list[UUID]:
-    """Executa a anonimizacao (uma vez) e registra na trilha de cada cliente da pessoa."""
+    """Executa a anonimizacao (uma vez) e registra na trilha de cada cliente da pessoa.
+
+    Tudo numa transacao so: se o registro na trilha de algum cliente falhar, a anonimizacao
+    tambem volta e pode ser refeita. Em transacoes separadas, uma falha no meio deixava a pessoa
+    anonimizada sem o evento na trilha, e a nova tentativa era recusada (ja anonimizada).
+    """
     async with conexao.transaction():
         try:
             tenants = [
@@ -117,8 +122,8 @@ async def anonimizar(conexao: Any, usuario_id: UUID, executor: str) -> list[UUID
             if getattr(erro, "sqlstate", None) == "CL031":
                 raise PessoaJaAnonimizada(str(usuario_id)) from erro
             raise
-    for tenant_id in tenants:
-        async with conexao.transaction():
+        for tenant_id in tenants:
+            # O contexto local vale ate o fim da transacao; cada cliente o troca pelo seu.
             await aplicar_contexto(
                 conexao, ContextoTenant(tenant_id=tenant_id, escopo=Escopo.TENANT)
             )

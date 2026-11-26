@@ -403,3 +403,7 @@
 - O critério mora em app/modules/organizacao/limites.py, em Python e em SQL, com teste que confere os dois.
 - Só o CO2 pode ser marcado como biogênico no arquivo de fatores; CH4 e N2O de biomassa entram no escopo com GWP, como no Programa.
 - Caso oficial de paridade precisa rodar sem pendência.
+
+## Revisão de isolamento e segurança (2026-11-26)
+
+- Anonimização LGPD e eventos na trilha numa transação só (o contexto local é trocado por cliente dentro dela).

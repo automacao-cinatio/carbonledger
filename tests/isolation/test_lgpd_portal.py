@@ -5,6 +5,7 @@ import asyncio
 import json
 import re
 from typing import Any
+from unittest.mock import patch
 from urllib.parse import unquote
 from uuid import UUID
 
@@ -32,6 +33,12 @@ async def _anonimizar(banco: Banco, usuario_id: UUID) -> tuple[list[Any], list[U
     conexao = await asyncpg.connect(banco.dsn_app)
     try:
         pendentes = await lgpd.pendentes(conexao)
+        # Falha ao registrar na trilha: a anonimizacao volta junto e pode ser refeita.
+        with (
+            patch.object(lgpd.audit, "registrar_asyncpg", side_effect=RuntimeError("trilha")),
+            pytest.raises(RuntimeError, match="trilha"),
+        ):
+            await lgpd.anonimizar(conexao, usuario_id, "Operadora da plataforma")
         tenants = await lgpd.anonimizar(conexao, usuario_id, "Operadora da plataforma")
         with pytest.raises(lgpd.PessoaJaAnonimizada):
             await lgpd.anonimizar(conexao, usuario_id, "Operadora da plataforma")
