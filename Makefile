@@ -48,10 +48,10 @@ lint:
 	uv run ruff format --check .
 
 tipos:
-	uv run mypy app scripts/backup.py scripts/ensaio_producao.py scripts/demonstracao.py
+	uv run mypy app scripts/backup.py scripts/ensaio_producao.py scripts/demonstracao.py scripts/deploy.py
 
 seguranca:
-	uv run bandit -q -r app scripts/backup.py scripts/ensaio_producao.py scripts/demonstracao.py
+	uv run bandit -q -r app scripts/backup.py scripts/ensaio_producao.py scripts/demonstracao.py scripts/deploy.py
 	uv run pip-audit
 	$(GITLEAKS) git /repo --no-banner
 
