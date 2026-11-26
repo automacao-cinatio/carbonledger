@@ -419,3 +419,10 @@
 
 - Revisados: contexto por transação (set_config local, falha fechada fora de transação), RLS com políticas de tenant, empresa e verificador (cobertura testada tabela a tabela contra o catálogo), papéis do banco, sessão no Redis (hash do token, rotação no login, CSRF por sessão), login OIDC (PKCE, state preso ao navegador, nonce, emissor por provedor, e-mail só verificado), trilha encadeada (lock consultivo por tenant, isolamento padrão em todo o app) e a chamada à IA (formato JSON, fallback do servidor, recusa e truncamento tratados). Nada a corrigir nesses pontos.
 - LGPD: a anonimização e o registro na trilha de cada cliente passam a ir numa transação só. Antes, uma falha no meio deixava a pessoa anonimizada sem o evento na trilha de algum cliente, e a nova tentativa era recusada. Teste com a trilha falhando: tudo volta e a anonimização pode ser refeita.
+
+## Revisão da cobrança e do bloqueio (2026-11-26)
+
+- Webhook da cobrança: o corpo era lido inteiro, sem limite, antes de conferir o token (qualquer um mandava um corpo enorme para a memória). Agora o limite é 64 KB, pelo cabeçalho e pelo que chega; acima disso, 413.
+- Tabela de preços (COBRANCA_TABELA): "390.00" era lido como R$ 39.000,00 (o ponto saía como separador de milhar). Agora só o formato brasileiro (390,00 ou 1.234,56); o resto é recusado na subida, com a mensagem de como escrever.
+- Revisados sem achado: rodada diária (trava da assinatura, savepoint do gateway, conciliação, idempotência da fatura e do evento), corrida entre webhook e rodada, volta de inadimplente para ativa e os quatro pontos de bloqueio.
+- Testes: corpo grande no webhook e preços com ponto decimal.
