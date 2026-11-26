@@ -403,6 +403,12 @@ resource "aws_ecs_service" "api" {
   }
 
   depends_on = [aws_lb_listener.https]
+
+  # A revisao em uso e do workflow de deploy (imagem nova a cada commit); o Terraform so a
+  # define na criacao. Mudou variavel ou limite aqui: rode o deploy para entrar em uso.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }
 
 resource "aws_ecs_service" "worker" {
@@ -423,6 +429,12 @@ resource "aws_ecs_service" "worker" {
   deployment_circuit_breaker {
     enable   = true
     rollback = true
+  }
+
+  # A revisao em uso e do workflow de deploy (imagem nova a cada commit); o Terraform so a
+  # define na criacao. Mudou variavel ou limite aqui: rode o deploy para entrar em uso.
+  lifecycle {
+    ignore_changes = [task_definition]
   }
 }
 
@@ -447,6 +459,12 @@ resource "aws_ecs_service" "beat" {
   deployment_circuit_breaker {
     enable   = true
     rollback = true
+  }
+
+  # A revisao em uso e do workflow de deploy (imagem nova a cada commit); o Terraform so a
+  # define na criacao. Mudou variavel ou limite aqui: rode o deploy para entrar em uso.
+  lifecycle {
+    ignore_changes = [task_definition]
   }
 }
 

@@ -382,3 +382,10 @@
 - Redis sem despejo de chave (noeviction): com a memória cheia a fila para e o alarme avisa, em vez de perder tarefa.
 - WAF começa só contando nas regras gerenciadas; o limite por IP bloqueia desde o início.
 - Checagem de saúde: componente minio renomeado para armazenamento, porque na AWS é o S3.
+
+## 2026-11-25: deploy (P26)
+
+- Deploy manual (workflow_dispatch) e só da main, no ambiente producao do GitHub, onde a CINATIO pode exigir aprovação. Deploy automático a cada merge fica para quando houver homologação.
+- GitHub assume o papel de deploy por OIDC; nenhuma chave da AWS guardada no GitHub.
+- O workflow é dono da revisão em uso dos serviços; o Terraform define a revisão base e cuida do resto. Variável nova no Terraform entra em uso no próximo deploy.
+- Migração roda antes dos serviços e precisa ser compatível com a versão anterior; não há migração para trás automática.

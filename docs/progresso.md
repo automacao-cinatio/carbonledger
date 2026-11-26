@@ -27,7 +27,7 @@
 - [x] P23 LGPD
 - [x] P24 Painel
 - [ ] P25 Infra AWS (Terraform escrito e checado; falta a conta para aplicar)
-- [ ] P26 CI/CD (parcial: CI endurecido e imagem testada; deploy depende do P25)
+- [ ] P26 CI/CD (CI, imagem e workflow de deploy prontos; falta a conta da AWS para o primeiro deploy)
 - [ ] P27 Backup e go-live
 
 ## P01 Esqueleto (concluído em 2026-11-20)
@@ -392,3 +392,10 @@
 - make infra (terraform fmt e validate e Trivy, em container) e job infra no CI. Exceções do Trivy anotadas no recurso, com o motivo.
 - Testes: regras do S3 na AWS e no MinIO, saúde pelo bucket, papéis idempotentes e desfeitos por inteiro em caso de erro; CI confere papeis.sql e /tmp gravável com raiz só leitura.
 - Runbook docs/runbooks/infra-aws.md, com os pontos a confirmar na primeira subida (BYPASSRLS no RDS, /tmp no Fargate, WAF).
+
+## P26 Workflow de deploy (2026-11-25)
+
+- .github/workflows/deploy.yml: manual, só da main, no ambiente producao do GitHub (aprovação opcional), sem chave da AWS: papel assumido por OIDC. Monta e envia a imagem com a tag do commit e roda scripts/deploy.py.
+- scripts/deploy.py: nova revisão de cada tarefa do app trocando só a imagem, migração antes dos serviços (para se não sair com 0), atualização de api, worker e beat e falha se o ECS reverteu.
+- infra/terraform/deploy.tf: provedor OIDC do GitHub e papel de deploy restrito a ECR, revisões de tarefa, migração e os três serviços; saída deploy_github com as variáveis do ambiente. Os serviços ignoram a revisão em uso no Terraform (o deploy é dono dela).
+- Testes: troca só da imagem do app (terceiros intactos, campos de leitura fora), migração que falha interrompe, reversão do circuit breaker detectada. make infra, Trivy e actionlint verdes.

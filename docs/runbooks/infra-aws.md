@@ -37,7 +37,7 @@ make infra    # formato, validação e Trivy, em container e sem conta (também 
    SMTP_USUARIO e SMTP_SENHA são a credencial SMTP do SES: crie um usuário IAM só com `ses:SendRawEmail` e gere a senha SMTP no console do SES.
 4. Criar os papéis do banco com a tarefa avulsa `papeis` (comando abaixo). Ela imprime cada papel com login e BYPASSRLS. Só o app_identidade tem bypassrls=True.
 5. Migrar com a tarefa avulsa `migrar`.
-6. Forçar novo deploy dos serviços: `aws ecs update-service --cluster carbonledger-producao --service api --force-new-deployment` (repita para worker, beat e clamav).
+6. Forçar novo deploy dos serviços: `aws ecs update-service --cluster carbonledger-producao --service api --force-new-deployment` (repita para worker, beat e clamav). Daí em diante, as versões novas saem pelo workflow `deploy` (abaixo).
 7. Pedir ao SES a saída do sandbox. Sem isso, só e-mails verificados recebem convite.
 8. Conferir no endereço real: /saude com 200, HSTS e CSP nos cabeçalhos, /ui com 404 e login pelo Google ou Microsoft. Depois, criar o primeiro tenant pela tarefa `operacao` (`criar-tenant`).
 
@@ -57,7 +57,21 @@ A saída de cada uma fica no grupo de logs `/carbonledger/producao/tarefas`.
 
 ## Deploy de uma versão nova
 
-Imagem nova com a tag do commit, `imagem_tag` atualizada e `terraform apply`. Se a versão tem migração, rode `migrar` antes do apply. As migrações são compatíveis com a versão anterior. Automatizar isso é o resto do P26.
+Pelo workflow `deploy` do GitHub Actions (Actions > deploy > Run workflow), só a partir da main. Ele:
+
+1. monta a imagem e envia ao ECR com a tag do commit;
+2. registra nova revisão de migrar, papeis, operacao, api, worker e beat, trocando só a imagem (variáveis, segredos e limites seguem o Terraform);
+3. roda a migração e para se ela não sair com 0;
+4. atualiza api, worker e beat e falha se o ECS reverteu a versão (circuit breaker).
+
+O GitHub assume o papel `carbonledger-producao-deploy` por OIDC, sem chave guardada, e só a partir do ambiente `producao`. Para configurar:
+
+1. Em Settings > Environments, crie o ambiente `producao`, limite a branch main e, se quiser, exija aprovação de alguém da CINATIO.
+2. Grave nele as variáveis (não são segredo) da saída `terraform output deploy_github`: AWS_DEPLOY_ROLE_ARN, AWS_REGION, ECS_CLUSTER, ECS_PREFIXO, ECR_REPOSITORIO, ECS_SUBNETS e ECS_GRUPOS.
+
+O papel de deploy não mexe em rede, banco, segredo nem chave. Mudanças de infra continuam pelo `terraform apply`. Se mudar variável ou limite de uma tarefa, rode o deploy em seguida: os serviços só usam a revisão que o deploy define (o Terraform ignora a revisão em uso depois da criação).
+
+Voltar uma versão: rode o workflow a partir do commit anterior. As migrações não voltam sozinhas; uma migração errada se corrige com outra migração.
 
 ## Pontos a confirmar na primeira subida
 
