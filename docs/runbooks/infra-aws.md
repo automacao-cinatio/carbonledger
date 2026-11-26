@@ -59,7 +59,7 @@ A saída de cada uma fica no grupo de logs `/carbonledger/producao/tarefas`.
 
 Pelo workflow `deploy` do GitHub Actions (Actions > deploy > Run workflow), só a partir da main. Ele:
 
-1. monta a imagem e envia ao ECR com a tag do commit;
+1. monta a imagem e envia ao ECR com a tag do commit; se a imagem desse commit já está lá (deploy repetido, ou rodado de novo depois de mudar variável no Terraform), reaproveita, porque a tag é imutável;
 2. registra nova revisão de migrar, papeis, operacao, api, worker e beat, trocando só a imagem (variáveis, segredos e limites seguem o Terraform);
 3. roda a migração e para se ela não sair com 0;
 4. atualiza api, worker e beat e falha se o ECS reverteu a versão (circuit breaker).
@@ -71,7 +71,9 @@ O GitHub assume o papel `carbonledger-producao-deploy` por OIDC, sem chave guard
 
 O papel de deploy não mexe em rede, banco, segredo nem chave. Mudanças de infra continuam pelo `terraform apply`. Se mudar variável ou limite de uma tarefa, rode o deploy em seguida: os serviços só usam a revisão que o deploy define (o Terraform ignora a revisão em uso depois da criação).
 
-Voltar uma versão: rode o workflow a partir do commit anterior. As migrações não voltam sozinhas; uma migração errada se corrige com outra migração.
+Voltar uma versão: rode o workflow informando em `commit` o SHA completo de um commit anterior da main (o workflow recusa commit fora da main). O script de deploy usado é sempre o da main; só a imagem vem do commit escolhido. As migrações não voltam sozinhas: se o banco já está numa migração que a versão antiga não conhece, a migração dela falha e o deploy para antes de tocar nos serviços. Nesse caso, corrija para a frente, com um commit novo (e, se preciso, outra migração).
+
+A checagem do contêiner da API no ECS usa /vivo, que só diz que o processo responde: uma troca de nó do RDS ou do Redis não derruba todas as tarefas de uma vez. O /saude, que consulta banco, Redis e S3, fica no balanceador, que só tira a tarefa do tráfego.
 
 ## Pontos a confirmar na primeira subida
 

@@ -399,3 +399,11 @@
 - scripts/deploy.py: nova revisão de cada tarefa do app trocando só a imagem, migração antes dos serviços (para se não sair com 0), atualização de api, worker e beat e falha se o ECS reverteu.
 - infra/terraform/deploy.tf: provedor OIDC do GitHub e papel de deploy restrito a ECR, revisões de tarefa, migração e os três serviços; saída deploy_github com as variáveis do ambiente. Os serviços ignoram a revisão em uso no Terraform (o deploy é dono dela).
 - Testes: troca só da imagem do app (terceiros intactos, campos de leitura fora), migração que falha interrompe, reversão do circuit breaker detectada. make infra, Trivy e actionlint verdes.
+
+## Revisão de código do P25 e do P26 (2026-11-26)
+
+- Deploy repetido do mesmo commit: a tag no ECR é imutável e o docker push falhava, inclusive no caso que o runbook manda fazer (rodar o deploy de novo depois de mudar variável no Terraform) e no primeiro deploy depois do apply (mesmo SHA da imagem manual). Agora o workflow confere a imagem no ECR e a reaproveita; outro erro do ECR para o deploy.
+- Voltar versão: o runbook mandava rodar o workflow "a partir do commit anterior", o que o workflow_dispatch na main não permite. Entrada nova `commit` (SHA completo, recusado se não estiver na main); o script de deploy é sempre o da main e só a imagem vem do commit escolhido. Voltar por cima de uma migração para na migração, antes dos serviços.
+- Checagem do contêiner da API no ECS passa ao /vivo (novo, sem consultar dependência): com o /saude, uma troca de nó do RDS ou do Redis fazia o ECS matar todas as tarefas da API juntas. O balanceador continua no /saude.
+- Alarme de memória do Redis: o ElastiCache publica a métrica por nó (CacheClusterId), não pelo grupo; com treat_missing_data notBreaching o alarme nunca dispararia. Agora um alarme por nó.
+- Testes: /vivo responde 200 sem consultar dependência. make infra (fmt, validate, Trivy), actionlint, mypy, bandit, pip-audit, gitleaks e 1066 testes verdes.

@@ -28,6 +28,18 @@ def test_saude_503_quando_algum_falha(monkeypatch) -> None:  # type: ignore[no-u
     assert resposta.json()["componentes"]["redis"] == "falha"
 
 
+def test_vivo_200_mesmo_com_dependencia_fora(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    # Checagem do conteiner no ECS: nao consulta dependencia, entao a troca de no do banco ou do
+    # Redis nao derruba as tarefas da API.
+    async def nao_chamar(_config):  # type: ignore[no-untyped-def]
+        raise AssertionError("o /vivo nao consulta dependencia")
+
+    monkeypatch.setattr("app.api.saude.verificar_saude", nao_chamar)
+    resposta = TestClient(app).get("/vivo")
+    assert resposta.status_code == 200
+    assert resposta.json() == {"status": "vivo"}
+
+
 def test_resposta_traz_request_id(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     _simular(monkeypatch, True, True, True)
     resposta = TestClient(app).get("/saude")

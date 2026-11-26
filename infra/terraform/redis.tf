@@ -17,6 +17,11 @@ resource "aws_elasticache_parameter_group" "redis" {
   }
 }
 
+# Nos do grupo (principal e replica); os alarmes de memoria sao um por no.
+locals {
+  redis_nos = 2
+}
+
 resource "random_password" "redis" {
   length  = 64
   special = false
@@ -31,7 +36,7 @@ resource "aws_elasticache_replication_group" "redis" {
   port                 = 6379
   parameter_group_name = aws_elasticache_parameter_group.redis.name
 
-  num_cache_clusters         = 2
+  num_cache_clusters         = local.redis_nos
   automatic_failover_enabled = true
   multi_az_enabled           = true
 

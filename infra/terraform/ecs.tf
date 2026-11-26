@@ -155,8 +155,11 @@ resource "aws_ecs_task_definition" "api" {
     name             = "api"
     portMappings     = [{ containerPort = 8000, protocol = "tcp" }]
     logConfiguration = local.log["api"]
+    # /vivo so diz que o processo responde: o ECS mata a tarefa quando falha, e o /saude (que
+    # consulta banco, Redis e S3) derrubaria todas juntas numa troca de no do RDS ou do Redis.
+    # O /saude fica no balanceador, que so tira a tarefa do trafego.
     healthCheck = {
-      command     = ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/saude', timeout=4).status == 200 else 1)"]
+      command     = ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/vivo', timeout=4).status == 200 else 1)"]
       interval    = 15
       timeout     = 5
       retries     = 4

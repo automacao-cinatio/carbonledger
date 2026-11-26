@@ -389,3 +389,10 @@
 - GitHub assume o papel de deploy por OIDC; nenhuma chave da AWS guardada no GitHub.
 - O workflow é dono da revisão em uso dos serviços; o Terraform define a revisão base e cuida do resto. Variável nova no Terraform entra em uso no próximo deploy.
 - Migração roda antes dos serviços e precisa ser compatível com a versão anterior; não há migração para trás automática.
+
+## Revisão do P25 e do P26 (2026-11-26)
+
+- Deploy reaproveita a imagem do commit quando ela já está no ECR (tag imutável); não monta de novo.
+- Volta de versão pela entrada `commit` do workflow, só com commit da main; o script de deploy é o da main. Migração não volta: voltar por cima de migração para antes dos serviços e se corrige para a frente.
+- No ECS, a checagem do contêiner (que mata a tarefa) é de vida do processo (/vivo); a de prontidão (/saude, com as dependências) fica no balanceador, que só tira do tráfego.
+- Alarmes do Redis um por nó, pelo nome padrão dos nós do grupo (<grupo>-001, -002).

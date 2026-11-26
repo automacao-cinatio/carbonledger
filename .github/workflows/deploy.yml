@@ -7,6 +7,11 @@ name: deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit da main a implantar (SHA completo). Vazio: o mais novo da main. Serve para voltar versao."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -23,8 +28,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: producao
-    env:
-      IMAGEM: ${{ vars.ECR_REPOSITORIO }}:${{ github.sha }}
     steps:
       - name: Variaveis do ambiente presentes
         env:
@@ -37,7 +40,27 @@ jobs:
             exit 1
           fi
 
+      # O script de deploy e sempre o da main; so a imagem vem do commit escolhido.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commit a implantar (so da main)
+        env:
+          PEDIDO: ${{ inputs.commit }}
+          REPOSITORIO: ${{ vars.ECR_REPOSITORIO }}
+        run: |
+          versao="${PEDIDO:-$GITHUB_SHA}"
+          if ! [[ "$versao" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Informe o SHA completo (40 caracteres hexadecimais) de um commit da main."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$versao" "$GITHUB_SHA"; then
+            echo "O commit $versao nao esta na main."
+            exit 1
+          fi
+          echo "VERSAO=$versao" >> "$GITHUB_ENV"
+          echo "IMAGEM=$REPOSITORIO:$versao" >> "$GITHUB_ENV"
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -46,10 +69,23 @@ jobs:
 
       - uses: aws-actions/amazon-ecr-login@v2
 
+      # A tag e imutavel no ECR: se a imagem deste commit ja esta la (deploy repetido, ou de novo
+      # depois de mudar variavel no Terraform, ou a imagem do primeiro apply), ela e reaproveitada.
       - name: Montar e enviar a imagem (tag do commit, imutavel no ECR)
+        env:
+          REPOSITORIO: ${{ vars.ECR_REPOSITORIO }}
         run: |
-          docker build -t "$IMAGEM" .
-          docker push "$IMAGEM"
+          if saida=$(aws ecr describe-images --repository-name "${REPOSITORIO#*/}" \
+              --image-ids imageTag="$VERSAO" 2>&1); then
+            echo "Imagem $IMAGEM ja esta no ECR: reaproveitada."
+          elif echo "$saida" | grep -q ImageNotFoundException; then
+            git worktree add "$RUNNER_TEMP/versao" "$VERSAO"
+            docker build -t "$IMAGEM" "$RUNNER_TEMP/versao"
+            docker push "$IMAGEM"
+          else
+            echo "$saida"
+            exit 1
+          fi
 
       - uses: astral-sh/setup-uv@v5
 
