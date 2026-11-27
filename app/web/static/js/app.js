@@ -239,6 +239,31 @@
     }
   });
 
+  // Campo de arquivo: o nome escolhido aparece ao lado do botao em portugues.
+  function mostrarArquivo(entrada) {
+    var nome = document.getElementById(entrada.id.replace(/^campo-/, "nome-"));
+    if (!nome) {
+      return;
+    }
+    var arquivos = Array.prototype.map.call(entrada.files || [], function (arquivo) {
+      return arquivo.name;
+    });
+    nome.textContent = arquivos.length ? arquivos.join(", ") : "Nenhum arquivo escolhido";
+  }
+
+  document.addEventListener("change", function (evento) {
+    var alvo = evento.target;
+    if (alvo.matches && alvo.matches("[data-arquivo]")) {
+      mostrarArquivo(alvo);
+    }
+  });
+
+  document.addEventListener("reset", function (evento) {
+    window.setTimeout(function () {
+      evento.target.querySelectorAll("[data-arquivo]").forEach(mostrarArquivo);
+    }, 0);
+  });
+
   document.addEventListener("hidden.bs.modal", function (evento) {
     evento.target.querySelectorAll("[data-confirmar-texto]").forEach(function (entrada) {
       entrada.value = "";

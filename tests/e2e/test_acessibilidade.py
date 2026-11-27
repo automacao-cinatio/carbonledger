@@ -117,6 +117,27 @@ def test_interacoes_do_portal(servidor: str, pagina: Any) -> None:
     aviso.get_by_text("Ação de exemplo concluída").wait_for()
     confirmar.wait_for(state="hidden")
 
+    # Arquivo: botao e nome em portugues, qualquer que seja o idioma do navegador. O campo de
+    # verdade guarda o rotulo so dele (o botao e decorativo) e mostra o foco no botao.
+    entrada_arquivo = pagina.get_by_label("Evidência", exact=True)
+    assert entrada_arquivo.get_attribute("id") == "campo-arquivo"
+    assert pagina.locator("#nome-arquivo").inner_text() == "Nenhum arquivo escolhido"
+    botao_arquivo = pagina.locator("label.cl-arquivo-botao[for='campo-arquivo']")
+    assert botao_arquivo.inner_text().strip() == "Escolher arquivo"
+    with pagina.expect_file_chooser() as escolha:
+        botao_arquivo.click()
+    escolha.value.set_files(
+        {"name": "conta-de-luz.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.7"}
+    )
+    pagina.wait_for_function(
+        "() => document.getElementById('nome-arquivo').textContent === 'conta-de-luz.pdf'"
+    )
+    entrada_arquivo.focus()
+    pagina.keyboard.press("Shift+Tab")
+    pagina.keyboard.press("Tab")
+    contorno = botao_arquivo.evaluate("e => getComputedStyle(e).outlineStyle")
+    assert contorno == "solid"
+
     # Glossario: a definicao aparece ao focar o botao de ajuda.
     pagina.get_by_role("button", name="O que é CO₂e?").focus()
     pagina.get_by_text("Dióxido de carbono equivalente").wait_for()
