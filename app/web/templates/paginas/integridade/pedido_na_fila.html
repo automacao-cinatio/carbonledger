@@ -1,0 +1,2 @@
+{% from "componentes/feedback.html" import acompanhamento %}
+{{ acompanhamento("pedido-integridade", "Verificação em andamento", "Pedida às " ~ pedido.pedido_em ~ ". Num cliente grande leva alguns minutos; a tela se atualiza sozinha quando terminar.", "/integridade/pedidos/" ~ pedido.pedido_id ~ "/situacao", segundos=5) }}

@@ -155,8 +155,30 @@ class Resultado:
 # ---------------------------------------------------------------- hash canonico
 
 
+# Campos de cada dataclass ja em ordem (a ordem de sorted, como na cadeia de _canonico).
+_CAMPOS_ORDENADOS: dict[type, tuple[str, ...]] = {}
+
+
 def _canonico(valor: Any) -> Any:
     """Forma estavel para o hash: 2,60 e 2,6 dao o mesmo texto; datas em ISO."""
+    # Atalho pelo tipo exato dos casos comuns (mesma saida da cadeia abaixo, so mais rapido).
+    tipo = type(valor)
+    if tipo is str or tipo is int or tipo is bool or valor is None:
+        return valor
+    if tipo is Decimal:
+        normalizado = valor.normalize()
+        return format(normalizado, "f") if normalizado != 0 else "0"
+    if tipo is dict:
+        return {str(k): _canonico(v) for k, v in sorted(valor.items())}
+    if tipo is list or tipo is tuple:
+        return [_canonico(v) for v in valor]
+    if tipo is UUID:
+        return str(valor)
+    campos = _CAMPOS_ORDENADOS.get(tipo)
+    if campos is None and hasattr(valor, "__dataclass_fields__"):
+        campos = _CAMPOS_ORDENADOS[tipo] = tuple(sorted(valor.__dataclass_fields__))
+    if campos is not None:
+        return {nome: _canonico(getattr(valor, nome)) for nome in campos}
     if isinstance(valor, Decimal):
         normalizado = valor.normalize()
         return format(normalizado, "f") if normalizado != 0 else "0"
@@ -280,6 +302,24 @@ def escopo_da_categoria(categoria: str) -> int:
     return 3 if categoria.startswith("escopo3.") else 1
 
 
+def hash_da_entrada(entrada: Entrada, versao: str = VERSAO) -> bytes:
+    """O hash_entrada de calcular(), sem fazer a conta (so depende da entrada).
+
+    Na mesma precisao do calculo: o normalize() do hash canonico depende do contexto.
+    """
+    with localcontext() as contexto:
+        contexto.prec = PRECISAO
+        return hash_canonico(
+            METODO,
+            versao,
+            entrada.gwp_conjunto,
+            entrada.conhecido_em,
+            sorted(entrada.itens, key=_chave_item),
+            entrada.gwps,
+            _ordenar_pendencias(entrada.pendencias),
+        )
+
+
 def calcular(entrada: Entrada, versao: str = VERSAO) -> Resultado:
     if versao not in VERSOES_COMPATIVEIS:
         raise ValueError(f"versao do metodo desconhecida: {versao}")
@@ -318,15 +358,7 @@ def calcular(entrada: Entrada, versao: str = VERSAO) -> Resultado:
             Decimal(0),
         )
         biogenico = sum((x.massa_t for x in linhas if x.biogenico), Decimal(0))
-        hash_entrada = hash_canonico(
-            METODO,
-            versao,
-            entrada.gwp_conjunto,
-            entrada.conhecido_em,
-            itens,
-            entrada.gwps,
-            _ordenar_pendencias(entrada.pendencias),
-        )
+        hash_entrada = hash_da_entrada(entrada, versao)
         totais: tuple[Decimal, ...]
         if versao == "1.0.0":
             totais = (escopo1, biogenico)

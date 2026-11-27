@@ -1,13 +1,21 @@
 {% extends "base.html" %}
 {% from "componentes/layout.html" import cabecalho_pagina, proximo_passo, ficha %}
 {% from "componentes/formulario.html" import botao %}
-{% from "componentes/feedback.html" import alerta, glossario %}
+{% from "componentes/feedback.html" import alerta, glossario, acompanhamento %}
 {% from "componentes/dados.html" import tabela %}
 {% block titulo %}Integridade{% endblock %}
 {% block conteudo %}
 {% call cabecalho_pagina("Integridade", pretitulo=portal.tenant_nome) %}
+  {% if pedido_na_fila is none %}
   {{ botao("Verificar agora", "primary", "shield-check", atributos={"hx-post": "/integridade/verificar", "hx-swap": "none"}, indicador_id="ind-verificar") }}
+  {% endif %}
 {% endcall %}
+
+{% if pedido_na_fila is not none %}
+{% with pedido=pedido_na_fila %}{% include "paginas/integridade/pedido_na_fila.html" %}{% endwith %}
+{% elif pedido_falhou is not none %}
+{{ alerta("warning", "A última verificação pedida não terminou", pedido_falhou.mensagem ~ " (pedida às " ~ pedido_falhou.pedido_em ~ ")") }}
+{% endif %}
 
 <p class="text-secondary">
   Toda noite o sistema confere, sem confiar em quem gravou: a

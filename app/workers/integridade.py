@@ -6,16 +6,18 @@ nem grava dado de cliente.
 """
 
 import asyncio
+from collections.abc import Callable
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 from celery.schedules import crontab
 
-from app.core.armazenamento import ArmazemS3
+from app.core.armazenamento import ArmazemObjetos, ArmazemS3
 from app.core.config import obter_configuracao
 from app.core.db import dsn_asyncpg
 from app.core.tenancy import ContextoTenant
-from app.modules.integridade import servico
+from app.modules.integridade import pedidos, servico
 from app.workers.celery_app import celery_app
 from app.workers.registro import TAREFAS_GLOBAIS
 from app.workers.tarefas import tarefa_de_tenant
@@ -39,6 +41,25 @@ async def verificar_tenant(
         pedida_por=contexto.usuario_id,
     )
     return {"integra": relatorio.integra, "falhas": len(relatorio.falhas)}
+
+
+@tarefa_de_tenant("integridade.processar_pedido")
+async def processar_pedido(conexao: Any, contexto: ContextoTenant, *, pedido_id: str) -> str:
+    """Verificacao pedida na tela (integridade_pedido): o desfecho fica no proprio pedido."""
+    return await pedidos.processar(
+        conexao,
+        tenant_id=contexto.tenant_id,
+        pedido_id=UUID(pedido_id),
+        armazem=armazem(),
+    )
+
+
+def _armazem_da_configuracao() -> ArmazemObjetos:
+    return ArmazemS3(obter_configuracao())
+
+
+# Os testes trocam por um armazem falso (como dependencias, em app.workers.relatorios).
+armazem: Callable[[], ArmazemObjetos] = _armazem_da_configuracao
 
 
 async def _tenants() -> list[str]:

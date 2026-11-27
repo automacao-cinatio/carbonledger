@@ -131,6 +131,16 @@ async def _periodos_sem_evidencia(conexao: Any, inventario_id: UUID) -> int:
     return faltando
 
 
+async def fechamento_atual(conexao: Any, inventario_id: UUID) -> Evento | None:
+    """So o fechamento em vigor, sem as checagens (que refazem o calculo do inventario aberto).
+    Para quem so precisa saber se ha fechamento e qual: relatorios e verificador."""
+    inventario = await _inventario(conexao, inventario_id)
+    if inventario["estado"] != "fechado":
+        return None
+    fechamentos = [e for e in await _eventos(conexao, inventario_id) if e.tipo == "fechamento"]
+    return fechamentos[-1] if fechamentos else None
+
+
 async def situacao(conexao: Any, inventario_id: UUID, *, travar: bool = False) -> Situacao:
     inventario = await _inventario(conexao, inventario_id, travar=travar)
     ultimo = await conexao.fetchrow(
@@ -154,7 +164,8 @@ async def situacao(conexao: Any, inventario_id: UUID, *, travar: bool = False) -
         return resultado
     checagens.append(Checagem("calculo", True, "Há um cálculo feito."))
     _inv, entrada = await calculo.montar_entrada(conexao, inventario_id, ultimo["conhecido_em"])
-    atualizado = fator_direto.calcular(entrada).hash_entrada == bytes(ultimo["hash_entrada"])
+    # So o hash da entrada (sem refazer a conta): a conferencia logo abaixo ja refaz.
+    atualizado = fator_direto.hash_da_entrada(entrada) == bytes(ultimo["hash_entrada"])
     checagens.append(
         Checagem(
             "atualizado",

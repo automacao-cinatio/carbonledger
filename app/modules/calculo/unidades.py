@@ -25,6 +25,9 @@ class UnidadeInvalida(ValueError):
     """Unidade que o registro nao conhece ou que nao serve para o uso pedido."""
 
 
+# Cache so da leitura do nome: a unidade do pint e imutavel, entao a conta nao muda. Nome
+# invalido levanta excecao, que o lru_cache nao guarda (e recusado de novo a cada vez).
+@lru_cache(maxsize=1024)
 def unidade(texto: str) -> pint.Unit:
     try:
         resultado = registro().Unit(texto.strip())
@@ -39,6 +42,7 @@ def unidade(texto: str) -> pint.Unit:
     return resultado
 
 
+@lru_cache(maxsize=1024)
 def validar_unidade_de_fator(texto: str) -> tuple[pint.Unit, pint.Unit]:
     """Separa "massa/atividade" e confere: (unidade do gas, unidade da atividade)."""
     partes = texto.split("/")
