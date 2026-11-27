@@ -289,3 +289,46 @@ def test_moeda_e_uma_grandeza_propria() -> None:
     assert str(validar_unidade_de_atividade("BRL")) == "BRL"
     assert not mesma_dimensao("BRL", "kg")
     assert mesma_dimensao("t*km", "kg*km")
+
+
+# ---------------------------------------------------------------- hash fixo e hash da entrada
+
+
+def _entrada_de_referencia() -> m.Entrada:
+    return replace(
+        _entrada(
+            _item("1234.5678901234567890123", lancamento=100, periodo=1),
+            _item("0.000001", "m**3", lancamento=101, periodo=2),
+            _item("1000", lancamento=102, periodo=3),
+        ),
+        pendencias=(m.Pendencia(FONTE, 4, "falta_dado", "sem dado"),),
+    )
+
+
+def test_hashes_fixos_nao_mudam_com_otimizacao() -> None:
+    """Valores tirados do codigo anterior aos atalhos do hash canonico (desempenho, 2026-11-27).
+    Se mudarem, calculos gravados deixam de conferir: nunca ajuste o valor para passar."""
+    resultado = m.calcular(_entrada_de_referencia())
+    assert resultado.hash_entrada.hex() == (
+        "82555f8017a9064175a2b5b729d164a09c9f58c1cdab8c5dc066e3e8bf55fa4d"
+    )
+    assert resultado.hash_resultado.hex() == (
+        "977b57ed40e6f1063fef8e7cbec4f8577a464c8f0d8aad769e178d24932787e1"
+    )
+
+
+@settings(deadline=None)
+@given(
+    st.lists(
+        st.decimals(min_value=D(0), max_value=D("1e12"), places=12, allow_nan=False),
+        min_size=1,
+        max_size=6,
+    ),
+    st.sampled_from(sorted(m.VERSOES_COMPATIVEIS)),
+)
+def test_hash_da_entrada_e_o_mesmo_do_calculo(quantidades: list[Decimal], versao: str) -> None:
+    itens = [
+        _item(str(q), lancamento=100 + i, periodo=1 + i % 12) for i, q in enumerate(quantidades)
+    ]
+    entrada = _entrada(*reversed(itens))
+    assert m.hash_da_entrada(entrada, versao) == m.calcular(entrada, versao).hash_entrada

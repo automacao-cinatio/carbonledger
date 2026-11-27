@@ -237,11 +237,15 @@ async def importar_planilha(
     )
     # O registro da planilha entra antes dos lancamentos (chave estrangeira); o total e
     # contado antes, conferindo quais linhas mudam algo.
-    mudam = []
-    for lida in lidas:
-        anteriores = await servico.historico(sessao, lida.fonte.fonte_id, lida.novo.periodo)
-        if not servico.igual_ao_atual(anteriores[0] if anteriores else None, lida.novo):
-            mudam.append(lida)
+    # Versoes atuais de todas as fontes numa consulta so (antes, duas por linha).
+    atuais = await servico.versoes_atuais(sessao, list({lida.fonte.fonte_id for lida in lidas}))
+    mudam = [
+        lida
+        for lida in lidas
+        if not servico.igual_ao_atual(
+            atuais.get((lida.fonte.fonte_id, lida.novo.periodo)), lida.novo
+        )
+    ]
     await sessao.execute(
         text(
             "INSERT INTO planilha_importacao (tenant_id, planilha_id, empresa_id, inventario_id,"
@@ -262,8 +266,14 @@ async def importar_planilha(
         },
     )
     for lida in mudam:
-        await servico.gravar_lancamento(
-            sessao, acesso, lida.fonte, lida.novo, origem="planilha", planilha_id=planilha_id
+        await servico.gravar_versao(
+            sessao,
+            acesso,
+            lida.fonte,
+            lida.novo,
+            atuais.get((lida.fonte.fonte_id, lida.novo.periodo)),
+            origem="planilha",
+            planilha_id=planilha_id,
         )
     await audit.registrar(
         sessao,

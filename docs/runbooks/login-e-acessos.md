@@ -18,16 +18,14 @@ O comando cria o tenant e mostra um link de convite por provedor habilitado. Rep
 
 ## Desenvolvimento
 
-O serviço mock-oidc simula o provedor. Para entrar:
+O serviço mock-oidc simula o provedor, com a tela de login própria de infra/mock-oidc/login.html (nas cores da plataforma). Para entrar:
 
 1. Crie um tenant com o comando acima e abra o link do provedor "dev" no navegador.
-2. Na tela do simulador, preencha o usuário (vira o sujeito do token) e, em claims, por exemplo:
+2. Na tela "Entrar", digite o e-mail do convite (e, se quiser, o nome) e clique em Entrar. O identificador da pessoa é o próprio e-mail; em "Opções avançadas" dá para usar outro (os da demonstração e do teste de volume usam `dona-demonstracao`, `dona-<data>` e assim por diante). A tela lembra o último acesso no navegador.
+3. Os botões "Administradora da demonstração" e "Gestor da demonstração" entram direto com as pessoas fictícias de `make seed`.
+4. O e-mail precisa ser o mesmo do convite. Os e-mails de convite chegam no Mailpit (http://localhost:8025).
 
-   ```json
-   {"email": "admin@cliente.com.br", "email_verified": true, "name": "Admin"}
-   ```
-
-3. O e-mail precisa ser o mesmo do convite. Os e-mails de convite chegam no Mailpit (http://localhost:8025).
+Por baixo, a tela envia ao simulador os mesmos campos da tela original dele (username e claims); nada muda no fluxo OIDC do app. Mudou a tela? Recrie o serviço: `docker compose up -d --force-recreate mock-oidc`.
 
 ## Google
 

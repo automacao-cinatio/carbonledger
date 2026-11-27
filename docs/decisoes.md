@@ -421,3 +421,11 @@
 
 - O campo de arquivo mostra botão e nome em português, sem depender do idioma do navegador. O campo nativo continua sendo o que vai no formulário e o que o leitor de tela e o teclado usam; o botão é um rótulo (abre o seletor sem JS) e fica fora da árvore de acessibilidade.
 - Perde-se arrastar o arquivo para cima do campo, que o botão nativo aceitava no Chrome; o clique e o teclado bastam.
+
+## Desempenho com volume (2026-11-27)
+
+- Verificação de integridade pedida na tela roda no worker, como o relatório: pedido em integridade_pedido, um na fila por cliente, prazo de 60 minutos (maior que o do relatório, porque num cliente grande leva minutos). A diária segue direto pelo beat, sem pedido.
+- Otimização no cálculo só onde a saída é idêntica por construção: cache da leitura de unidade (o pint devolve objeto imutável) e atalho por tipo exato no hash canônico. A conversão de unidade continua passando pelo pint mesmo quando a unidade é a mesma: pular mudaria dígitos finais do Decimal em casos-limite.
+- Teste com hashes literais de uma entrada de referência, tirados do código anterior: se mudarem, cálculos gravados deixam de conferir. Nunca ajustar o valor para passar.
+- A checagem "cálculo atualizado" do fechamento compara só o hash da entrada (fator_direto.hash_da_entrada); a conferência que refaz a conta continua.
+- Não mexido: auto_reload do Jinja (custo só no volume montado do dev) e a conferência do fechamento, que refaz a conta de propósito.

@@ -305,6 +305,12 @@ async def _semear_coleta(conexao: asyncpg.Connection) -> None:
             " '{}', '[]', true)",
             tenant,
         )
+        await conexao.execute(
+            "INSERT INTO integridade_pedido (tenant_id, pedido_id, pedido_por)"
+            " VALUES ($1, gen_random_uuid(), $2)",
+            tenant,
+            revisor,
+        )
         # Evento sem mudar o estado (o inventario segue em coleta): so para a suite de
         # vazamento ter linhas dos dois tenants.
         await conexao.execute(
@@ -538,6 +544,17 @@ def app_cliente(
         tarefa_relatorio.gerar_pedido(tenant_id=str(tenant_id), pedido_id=str(pedido_id))
 
     monkeypatch.setattr(relatorios_telas, "enfileirar_relatorio", enfileirar_na_hora)
+
+    # Verificacao de integridade pedida na tela: a tarefa do worker roda na hora, com o S3 falso.
+    from app.api import integridade_telas
+    from app.workers import integridade as tarefa_integridade
+
+    monkeypatch.setattr(tarefa_integridade, "armazem", lambda: app.state.armazem)
+
+    def verificar_na_hora(*, tenant_id: Any, pedido_id: Any) -> None:
+        tarefa_integridade.processar_pedido(tenant_id=str(tenant_id), pedido_id=str(pedido_id))
+
+    monkeypatch.setattr(integridade_telas, "enfileirar_verificacao", verificar_na_hora)
     with TestClient(app, follow_redirects=False) as cliente:
         yield cliente
     obter_configuracao.cache_clear()

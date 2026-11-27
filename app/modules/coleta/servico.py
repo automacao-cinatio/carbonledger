@@ -13,7 +13,7 @@ Observacao, motivo e justificativa nao vao para a trilha: texto livre pode ter d
 """
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -561,19 +561,27 @@ async def definir_fonte_ativa(
 
 # ---------------------------------------------------------------- lancamentos
 
+# Colunas fixas da versao, na ordem dos campos de Versao, com fonte_id em segundo (agrupa).
+_COLUNAS_VERSAO = (
+    "l.lancamento_id", "l.fonte_id", "l.periodo", "l.versao", "l.quantidade", "l.unidade",
+    "l.data_compra", "l.observacao", "l.origem", "l.criado_por", "l.criado_em",
+    "d.decisao", "d.motivo", "d.decidido_por",
+)  # fmt: skip
 _SQL_VERSOES = (
-    "SELECT l.lancamento_id, l.fonte_id, l.periodo, l.versao, l.quantidade, l.unidade,"
-    " l.data_compra, l.observacao, l.origem, l.criado_por, l.criado_em,"
-    " d.decisao, d.motivo, d.decidido_por"
+    f"SELECT {', '.join(_COLUNAS_VERSAO)}"  # noqa: S608  # nosec B608
     " FROM lancamento l LEFT JOIN lancamento_decisao d"
     "   ON d.tenant_id = l.tenant_id AND d.lancamento_id = l.lancamento_id"
 )
+if [c.split(".")[1] for c in _COLUNAS_VERSAO if c != "l.fonte_id"] != [
+    campo.name for campo in fields(Versao)
+]:
+    raise RuntimeError("_COLUNAS_VERSAO fora da ordem dos campos de Versao")
 
 
 def _versao(linha: Any) -> Versao:
-    dados = linha._asdict()
-    dados.pop("fonte_id", None)
-    return Versao(**dados)
+    # Por posicao: row._asdict() e o acesso por nome custavam mais que a consulta no painel.
+    lancamento_id, _fonte_id, *resto = linha
+    return Versao(lancamento_id, *resto)
 
 
 async def historico(sessao: AsyncSession, fonte_id: UUID, periodo: int) -> list[Versao]:
@@ -585,6 +593,23 @@ async def historico(sessao: AsyncSession, fonte_id: UUID, periodo: int) -> list[
         {"fonte": fonte_id, "periodo": periodo},
     )
     return [_versao(linha) for linha in linhas]
+
+
+async def versoes_atuais(
+    sessao: AsyncSession, fonte_ids: list[UUID]
+) -> dict[tuple[UUID, int], Versao]:
+    """Versao mais recente de cada (fonte, periodo), numa consulta so."""
+    if not fonte_ids:
+        return {}
+    linhas = await sessao.execute(
+        text(
+            "SELECT DISTINCT ON (l.fonte_id, l.periodo)"
+            + _SQL_VERSOES.removeprefix("SELECT")
+            + " WHERE l.fonte_id = ANY(:ids) ORDER BY l.fonte_id, l.periodo, l.versao DESC"
+        ),
+        {"ids": fonte_ids},
+    )
+    return {(linha.fonte_id, linha.periodo): _versao(linha) for linha in linhas}
 
 
 async def obter_lancamento(sessao: AsyncSession, lancamento_id: UUID) -> tuple[UUID, Versao]:
@@ -664,6 +689,23 @@ async def gravar_lancamento(
     atual = anteriores[0] if anteriores else None
     if igual_ao_atual(atual, novo):
         return None
+    return await gravar_versao(
+        sessao, acesso, fonte, novo, atual, origem=origem, planilha_id=planilha_id
+    )
+
+
+async def gravar_versao(
+    sessao: AsyncSession,
+    acesso: Acesso,
+    fonte: Fonte,
+    novo: NovoLancamento,
+    atual: Versao | None,
+    *,
+    origem: str,
+    planilha_id: UUID | None = None,
+) -> UUID:
+    """Grava a versao seguinte a `atual` (ja lida por quem chama). Se outra pessoa gravou o
+    mesmo periodo no meio tempo, a chave unica recusa e a pessoa e avisada."""
     lancamento_id = uuid4()
     versao = (atual.versao + 1) if atual else 1
     try:
@@ -790,20 +832,36 @@ async def situacao_das_fontes(
     fontes = await listar_fontes(sessao, inventario_id)
     if fonte_id is not None:
         fontes = [f for f in fontes if f.fonte_id == fonte_id]
+    return await _situacoes(sessao, fontes)
+
+
+async def progresso_dos_inventarios(
+    sessao: AsyncSession, inventario_ids: list[UUID]
+) -> dict[UUID, Progresso]:
+    """Progresso total de varios inventarios com as mesmas tres consultas (painel)."""
+    if not inventario_ids:
+        return {}
+    linhas = await sessao.execute(
+        text(
+            f"SELECT {_COLUNAS_FONTE}{_DE_FONTE}"  # nosec B608
+            " WHERE f.inventario_id = ANY(:ids)"
+            " ORDER BY f.ativa DESC, u.nome, f.categoria, f.descricao"
+        ),
+        {"ids": inventario_ids},
+    )
+    por_inventario: dict[UUID, list[SituacaoFonte]] = defaultdict(list)
+    for situacao in await _situacoes(sessao, [Fonte(**linha._asdict()) for linha in linhas]):
+        por_inventario[situacao.fonte.inventario_id].append(situacao)
+    return {i: progresso_total(por_inventario.get(i, [])) for i in inventario_ids}
+
+
+async def _situacoes(sessao: AsyncSession, fontes: list[Fonte]) -> list[SituacaoFonte]:
     situacoes = {f.fonte_id: SituacaoFonte(f) for f in fontes}
     if not situacoes:
         return []
     ids = list(situacoes)
-    linhas = await sessao.execute(
-        text(
-            "SELECT DISTINCT ON (l.fonte_id, l.periodo)"
-            + _SQL_VERSOES.removeprefix("SELECT")
-            + " WHERE l.fonte_id = ANY(:ids) ORDER BY l.fonte_id, l.periodo, l.versao DESC"
-        ),
-        {"ids": ids},
-    )
-    for linha in linhas:
-        situacoes[linha.fonte_id].atuais[linha.periodo] = _versao(linha)
+    for (fonte, periodo), versao in (await versoes_atuais(sessao, ids)).items():
+        situacoes[fonte].atuais[periodo] = versao
     contagem: dict[UUID, dict[int | None, int]] = defaultdict(dict)
     for linha in await sessao.execute(
         text(

@@ -182,3 +182,5 @@ def test_log_da_requisicao_leva_tenant_id(cliente: TestClient, dados: Dados) -> 
     assert requisicoes
     assert requisicoes[-1]["tenant_id"] == str(dados.tenant_a)
     assert "usuario_id" not in requisicoes[-1]
+    assert isinstance(requisicoes[-1]["duracao_ms"], float)
+    assert requisicoes[-1]["duracao_ms"] >= 0

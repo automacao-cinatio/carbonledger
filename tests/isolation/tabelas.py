@@ -28,6 +28,7 @@ TABELAS_COM_TENANT: dict[str, bool] = {
     "meta": True,
     "acao_reducao": True,
     "integridade_verificacao": False,
+    "integridade_pedido": False,
     "campanha": True,
     "campanha_envio": True,
     "certificado_assinatura": True,

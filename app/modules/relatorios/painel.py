@@ -94,14 +94,17 @@ async def montar(
     for numero in numeros:
         por_empresa[numero.empresa_id].append(numero)
 
+    ultimos = {e.empresa_id: next(iter(por_empresa.get(e.empresa_id, [])), None) for e in empresas}
+    # Uma leitura para todas as empresas (antes, tres consultas por empresa).
+    progressos = await coleta.progresso_dos_inventarios(
+        sessao, [u.inventario_id for u in ultimos.values() if u is not None]
+    )
     linhas: list[LinhaEmpresa] = []
     for empresa in empresas:
-        ultimo = next(iter(por_empresa.get(empresa.empresa_id, [])), None)
+        ultimo = ultimos[empresa.empresa_id]
         progresso = (0, 0)
         if ultimo is not None:
-            total = coleta.progresso_total(
-                await coleta.situacao_das_fontes(sessao, ultimo.inventario_id)
-            )
+            total = progressos[ultimo.inventario_id]
             progresso = (total.aprovados, total.esperados)
         linhas.append(
             LinhaEmpresa(

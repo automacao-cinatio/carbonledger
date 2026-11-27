@@ -4,6 +4,8 @@
 
 Toda noite, às 3h (horário de Brasília), o beat dispara `integridade.disparar`, que enfileira `integridade.verificar_tenant` para cada cliente. Administrador e gestor também podem pedir a verificação na tela Integridade (menu do usuário).
 
+O pedido da tela também roda no worker, desde a migração 0022: o botão grava um pedido em `integridade_pedido` e enfileira `integridade.processar_pedido`; a tela mostra "Verificação em andamento" e se atualiza sozinha. Há no máximo um pedido na fila por cliente. Pedido que o worker não pega em 60 minutos aparece como não terminado, com o motivo, e o botão volta. Se isso acontecer, confira se o worker está de pé (`make logs`, serviço worker) antes de pedir de novo. Falha inesperada no meio vira pedido não terminado, sem verificação registrada, e log `integridade.pedido_falhou` só com o id do pedido.
+
 Para cada cliente, sem confiar em quem gravou:
 
 | Item | Como confere | Falha quer dizer |
@@ -29,4 +31,4 @@ Trate como incidente de segurança. Não corrija nada no banco nem no S3 antes d
 
 ## Custo
 
-A verificação relê todos os arquivos do S3. Com muitos arquivos, ela demora e gera tráfego de leitura; se ficar pesada, o próximo passo é conferir por amostragem nos dias úteis e por completo no fim de semana.
+A verificação relê todos os arquivos do S3 e refaz todos os cálculos. No teste de volume (12 empresas, dois anos, 6.792 dados, cerca de 400 arquivos) ela leva uns 12 segundos no worker; o tempo cresce com o uso. Se ficar pesada, o próximo passo é conferir por amostragem nos dias úteis e por completo no fim de semana. Ver desempenho.md.

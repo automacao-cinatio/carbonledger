@@ -248,7 +248,10 @@ services:
     image: ghcr.io/navikt/mock-oauth2-server:latest
     restart: unless-stopped
     environment:
-      JSON_CONFIG: '{"interactiveLogin": true}'
+      # Tela de login propria (infra/mock-oidc/login.html), nas cores da plataforma.
+      JSON_CONFIG: '{"interactiveLogin": true, "loginPagePath": "/config/login.html"}'
+    volumes:
+      - ./infra/mock-oidc:/config:ro
     ports:
       - "127.0.0.1:18080:8080"
 

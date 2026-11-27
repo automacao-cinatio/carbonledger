@@ -439,3 +439,28 @@
 - O campo aponta para o rótulo com aria-labelledby: sem isso, o Chrome somava o texto do botão ao nome anunciado, mesmo com aria-hidden.
 - Vale para as quatro telas com arquivo: evidência da fonte, importação da planilha, certificado A1 e /ui.
 - Teste no navegador: nome acessível só do rótulo, texto em português, nome do arquivo depois da escolha pelo seletor e contorno de foco no botão. Conferido também com o navegador em inglês.
+
+## Desempenho com volume (2026-11-27)
+
+- Escolha do usuário entre as tarefas sem conta externa. scripts/volume.py gera um cliente grande pelo próprio app (12 empresas, 30 fontes, dois anos: 24 inventários, 6.792 dados aprovados, 12 fechados) e mede telas e ações. Runbook docs/runbooks/desempenho.md, com a tabela de antes e depois.
+- Verificar integridade: 11,5 s dentro da requisição, crescendo com o uso. Agora vai para o worker: migração 0022 (integridade_pedido, um na fila por cliente, prazo de 60 minutos), tarefa integridade.processar_pedido e a tela acompanha sozinha. O clique leva 66 ms.
+- Relatórios (777 para 117 ms): a tela refazia o cálculo do inventário aberto só para saber o fechamento atual. Função nova fechamento_atual, sem as checagens.
+- Fechamento (736 para 455 ms): a checagem "cálculo atualizado" rodava o cálculo inteiro para pegar o hash da entrada. Função nova fator_direto.hash_da_entrada (mesma precisão), e atalhos no hash canônico e cache da leitura de unidade do pint. Nenhuma conta mudou: hashes fixos tirados do código anterior num teste, e a verificação de integridade refez todos os cálculos gravados antes da mudança e conferiu.
+- Painel (428 para 280 ms): progresso de todas as empresas numa leitura (antes, três consultas por empresa) e a versão de cada dado lida por posição (row._asdict() custava mais que a consulta).
+- Importar planilha sem mudança (726 para 150 ms): versões atuais lidas numa consulta, não duas por linha.
+- Log de cada requisição com duracao_ms (tempo no servidor).
+- Achado do ambiente: no Windows, localhost soma uns 200 ms por requisição; o script usa 127.0.0.1.
+- Testes: pedido de integridade (fila única, concluído, tarefa repetida, falha inesperada, preso, tela, 404 para outro cliente), hashes fixos, hash da entrada igual ao do cálculo (hypothesis), duracao_ms no log. Tabela nova na cobertura de RLS e na suíte de vazamento. 1101 testes verdes.
+
+## Tela de login do ambiente de teste (2026-11-27)
+
+- Pedido do usuário: a tela do simulador de login (mock-oauth2-server) era difícil de usar. Página própria em infra/mock-oidc/login.html (loginPagePath), nas cores e na fonte da plataforma: e-mail, nome opcional, identificador avançado e atalhos para as pessoas da demonstração. Lembra o último acesso no navegador; nenhum e-mail real fica no repositório.
+- Só no ambiente local: produção não tem o simulador. O fluxo OIDC do app não mudou.
+- Conferido num navegador: e-mail inválido mostra como corrigir, o atalho e o formulário entram na plataforma.
+- Cliente CINATIO criado na pilha local para o usuário, com convite de administrador para o e-mail dele.
+
+## Botão Sair sempre à vista (2026-11-27)
+
+- Pedido do usuário. O Sair existia só dentro do menu do usuário (difícil de achar). Agora há um botão Sair no topo, ao lado do nome, com indicador e nome acessível "Sair da plataforma"; o item do menu continua.
+- Celular: só o ícone, e o seletor de empresa e o nome quebram linha em vez de espremer. Conferido a 1400, 800 e 400 px.
+- Teste: o topo traz o botão; axe-core sem violação.

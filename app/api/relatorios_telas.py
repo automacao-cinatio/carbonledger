@@ -124,8 +124,7 @@ async def indice(request: Request, sessao: SessaoTenant, acesso: Leitor) -> HTML
     atual = None
     if inventario is not None:
         conexao = await conexao_asyncpg(sessao)
-        situacao = await fechamento.situacao(conexao, inventario.inventario_id)
-        atual = situacao.fechamento_atual
+        atual = await fechamento.fechamento_atual(conexao, inventario.inventario_id)
         contexto["fechamento_atual"] = atual
         contexto["relatorios"] = [
             {
@@ -251,7 +250,7 @@ async def gerar(
             "certificado", "O certificado da empresa está vencido. Envie outro antes de gerar."
         )
     conexao = await conexao_asyncpg(sessao)
-    if (await fechamento.situacao(conexao, inventario_id)).fechamento_atual is None:
+    if await fechamento.fechamento_atual(conexao, inventario_id) is None:
         raise ErroValidacao("relatorio", "O relatório só sai de inventário fechado. Feche antes.")
     pedido_id = await pedidos.pedir(
         conexao,

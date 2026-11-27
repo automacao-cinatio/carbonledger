@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar no CarbonLedger (ambiente de teste)</title>
+  <!--
+    Tela de login do provedor simulado (mock-oauth2-server, loginPagePath), so no ambiente
+    local. Nao e uma tela do app: o login continua pelo fluxo OIDC de sempre. O formulario
+    envia os campos que o simulador espera (username e claims); o identificador e o proprio
+    e-mail, para a mesma pessoa cair sempre na mesma identidade. Cores e fonte copiadas de
+    app/web/static/css/tema.css (o simulador nao serve os estaticos do app).
+  -->
+  <style>
+    :root {
+      --marinho-900: #13213f;
+      --marinho-700: #233b6e;
+      --marinho-100: #e6ebf5;
+      --indigo-700: #3730a3;
+      --indigo-600: #4338ca;
+      --indigo-50: #eef0ff;
+      --ambar-300: #fcd34d;
+      --fundo: #f5f7fb;
+      --texto: #1f2937;
+      --texto-suave: #4b5563;
+      --borda: #8592ab;
+      --borda-suave: #d5dbe7;
+      --perigo: #b42318;
+      --fonte: Arial, "Liberation Sans", Helvetica, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--fonte);
+      color: var(--texto);
+      background: var(--fundo);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    :focus-visible { outline: 3px solid var(--indigo-600); outline-offset: 2px; }
+    .topo {
+      background: var(--marinho-900);
+      color: #fff;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .topo :focus-visible { outline-color: var(--ambar-300); }
+    .marca { font-size: 1.25rem; font-weight: bold; letter-spacing: 0.01em; }
+    .selo {
+      margin-left: auto;
+      font-size: 0.8rem;
+      background: var(--marinho-700);
+      border: 1px solid #fff;
+      border-radius: 999px;
+      padding: 0.2rem 0.7rem;
+    }
+    main { flex: 1; display: flex; justify-content: center; padding: 2.5rem 1rem; }
+    .cartao {
+      background: #fff;
+      border: 1px solid var(--borda-suave);
+      border-radius: 10px;
+      box-shadow: 0 4px 18px rgba(19, 33, 63, 0.08);
+      width: 100%;
+      max-width: 440px;
+      padding: 2rem;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 0.35rem; color: var(--marinho-900); }
+    .sub { margin: 0 0 1.75rem; color: var(--texto-suave); line-height: 1.45; }
+    label { display: block; font-weight: bold; margin-bottom: 0.35rem; }
+    .dica { font-weight: normal; color: var(--texto-suave); font-size: 0.875rem; }
+    input[type="email"], input[type="text"] {
+      width: 100%;
+      font: inherit;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--borda);
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      color: var(--texto);
+    }
+    input[aria-invalid="true"] { border-color: var(--perigo); }
+    .erro { color: var(--perigo); font-size: 0.9rem; margin: -0.6rem 0 1rem; min-height: 1em; }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 0.7rem 1rem;
+      width: 100%;
+    }
+    .principal {
+      background: var(--indigo-700);
+      color: #fff;
+      border: 1px solid var(--indigo-700);
+      font-weight: bold;
+    }
+    .principal:hover { background: var(--indigo-600); }
+    .separador {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--texto-suave);
+      font-size: 0.875rem;
+      margin: 1.75rem 0 1rem;
+    }
+    .separador::before, .separador::after {
+      content: "";
+      flex: 1;
+      border-top: 1px solid var(--borda-suave);
+    }
+    .atalhos { display: grid; gap: 0.6rem; }
+    .atalho {
+      background: var(--indigo-50);
+      color: var(--marinho-900);
+      border: 1px solid var(--borda-suave);
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .atalho:hover { border-color: var(--indigo-600); }
+    .atalho strong { font-size: 0.95rem; }
+    .atalho span { font-size: 0.85rem; color: var(--texto-suave); }
+    .aviso {
+      margin-top: 1.75rem;
+      background: var(--marinho-100);
+      border-radius: 6px;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.875rem;
+      color: var(--texto);
+      line-height: 1.45;
+    }
+    details { margin-bottom: 1rem; }
+    summary { cursor: pointer; color: var(--indigo-700); font-size: 0.9rem; margin-bottom: 0.75rem; }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <span class="marca">CarbonLedger</span>
+    <span class="selo">Ambiente de teste</span>
+  </header>
+
+  <main>
+    <div class="cartao">
+      <h1>Entrar</h1>
+      <p class="sub">Use o e-mail que recebeu o convite. Neste computador não há senha: a tela confirma o e-mail e você entra.</p>
+
+      <form id="entrar" method="post" novalidate>
+        <label for="email">E-mail</label>
+        <input id="email" type="email" autocomplete="email" required
+               aria-describedby="erro-email" placeholder="nome@empresa.com.br">
+        <div id="erro-email" class="erro" aria-live="polite"></div>
+
+        <label for="nome">Nome <span class="dica">(opcional, aparece no topo da plataforma)</span></label>
+        <input id="nome" type="text" autocomplete="name">
+
+        <details>
+          <summary>Opções avançadas</summary>
+          <label for="sujeito">Identificador <span class="dica">(em branco: o próprio e-mail)</span></label>
+          <input id="sujeito" type="text" autocomplete="off">
+        </details>
+
+        <input type="hidden" name="username" id="campo-username">
+        <input type="hidden" name="claims" id="campo-claims">
+        <button type="submit" class="principal">Entrar</button>
+      </form>
+
+      <div class="separador">ou entre com um acesso de teste</div>
+      <div class="atalhos">
+        <button type="button" class="atalho" data-sujeito="dona-demonstracao"
+                data-email="dona@demonstracao.example" data-nome="Dona Demonstracao">
+          <strong>Administradora da demonstração</strong>
+          <span>dona@demonstracao.example</span>
+        </button>
+        <button type="button" class="atalho" data-sujeito="gestor-demonstracao"
+                data-email="gestor@demonstracao.example" data-nome="Gestor Demonstracao">
+          <strong>Gestor da demonstração</strong>
+          <span>gestor@demonstracao.example</span>
+        </button>
+      </div>
+
+      <p class="aviso">Esta tela só existe no seu computador, para testes. Na plataforma publicada você entra com Google ou Microsoft, com a senha dessa conta.</p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      var form = document.getElementById("entrar");
+      var email = document.getElementById("email");
+      var nome = document.getElementById("nome");
+      var sujeito = document.getElementById("sujeito");
+      var erro = document.getElementById("erro-email");
+      var CHAVE = "carbonledger-dev-ultimo-acesso";
+
+      // Lembra o ultimo acesso neste navegador (nada vai para o repositorio).
+      try {
+        var salvo = JSON.parse(window.localStorage.getItem(CHAVE) || "null");
+        if (salvo) {
+          email.value = salvo.email || "";
+          nome.value = salvo.nome || "";
+          sujeito.value = salvo.sujeito || "";
+        }
+      } catch (ignorado) {}
+
+      function entrar(dadosSujeito, dadosEmail, dadosNome) {
+        var claims = { email: dadosEmail, email_verified: true };
+        if (dadosNome) {
+          claims.name = dadosNome;
+        }
+        document.getElementById("campo-username").value = dadosSujeito;
+        document.getElementById("campo-claims").value = JSON.stringify(claims);
+        form.action = window.location.href;
+        form.submit();
+      }
+
+      form.addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        var valor = email.value.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) {
+          erro.textContent = "Digite o e-mail completo, como nome@empresa.com.br.";
+          email.setAttribute("aria-invalid", "true");
+          email.focus();
+          return;
+        }
+        erro.textContent = "";
+        email.removeAttribute("aria-invalid");
+        var id = sujeito.value.trim() || valor;
+        try {
+          window.localStorage.setItem(CHAVE, JSON.stringify({
+            email: valor, nome: nome.value.trim(), sujeito: sujeito.value.trim()
+          }));
+        } catch (ignorado) {}
+        entrar(id, valor, nome.value.trim());
+      });
+
+      document.querySelectorAll(".atalho").forEach(function (botao) {
+        botao.addEventListener("click", function () {
+          entrar(botao.dataset.sujeito, botao.dataset.email, botao.dataset.nome);
+        });
+      });
+
+      email.focus();
+    })();
+  </script>
+</body>
+</html>

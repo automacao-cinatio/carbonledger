@@ -451,15 +451,16 @@ def test_roteiro_da_coleta(
     )
 
     # 12. Integridade (P20): tudo o que o roteiro gravou confere; um arquivo adulterado no
-    #     armazenamento aparece como falha.
+    #     armazenamento aparece como falha. A verificacao pedida vai para o worker (aqui, a
+    #     tarefa roda logo depois da resposta).
     assert "Nenhuma verificação ainda" in cliente.get("/integridade").text
     assert _aviso(cliente.post("/integridade/verificar", headers=cabecalho)).startswith(
-        "Verificação concluída: tudo confere"
+        "Verificação pedida"
     )
     assert "Tudo confere" in cliente.get("/integridade").text
     chave = next(c for c in armazem.objetos if "/evidencias/" in c)
     armazem.objetos[chave] = (b"%PDF-1.7 adulterado", "application/pdf")
-    assert "1 falha(s)" in _aviso(cliente.post("/integridade/verificar", headers=cabecalho))
+    cliente.post("/integridade/verificar", headers=cabecalho)
     pagina = cliente.get("/integridade").text
     assert "Falhas de integridade" in pagina and "SHA-256 diferente do registrado" in pagina
 
