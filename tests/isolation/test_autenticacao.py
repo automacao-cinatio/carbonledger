@@ -124,7 +124,9 @@ def test_roteiro_completo_de_acesso(
     )
     assert alheia.status_code == 422
 
-    # 4. Sair encerra a sessao.
+    # 4. Sair encerra a sessao. O botao fica sempre a vista no topo (e tambem no menu).
+    topo = cliente.get("/").text
+    assert 'aria-label="Sair da plataforma"' in topo and topo.count('hx-post="/sair"') == 2
     saida = cliente.post("/sair", headers={**csrf, "HX-Request": "true"})
     assert saida.status_code == 204
     assert saida.headers["hx-redirect"] == "/entrar"
