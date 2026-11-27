@@ -416,3 +416,8 @@
 ## Verificador com pagamento em atraso (2026-11-26)
 
 - Escolha do usuário: acesso novo de verificador bloqueado em atraso (é convidar uma pessoa). O acesso já concedido segue valendo, e revogar continua permitido.
+
+## Seletor de arquivo (2026-11-27)
+
+- O campo de arquivo mostra botão e nome em português, sem depender do idioma do navegador. O campo nativo continua sendo o que vai no formulário e o que o leitor de tela e o teclado usam; o botão é um rótulo (abre o seletor sem JS) e fica fora da árvore de acessibilidade.
+- Perde-se arrastar o arquivo para cima do campo, que o botão nativo aceitava no Chrome; o clique e o teclado bastam.

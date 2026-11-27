@@ -431,3 +431,11 @@
 
 - Decisão do usuário: com o pagamento em atraso, dar acesso novo a verificador fica bloqueado, como convidar pessoas. O verificador que já tem acesso continua lendo, e revogar continua permitido.
 - POST /verificacao/concessoes passa por exigir_em_dia; mensagem, aviso das telas e runbook de cobrança atualizados. Teste em test_bloqueio_portal.
+
+## Seletor de arquivo em português (2026-11-27)
+
+- Docker Desktop iniciado e verificação completa da main antes de mexer: ruff, mypy, bandit, pip-audit, gitleaks e caracteres limpos; 1083 testes ok e 1 pulado (paridade sem caso oficial em data/paridade).
+- Macro campo_arquivo: o campo nativo fica escondido só na tela (visually-hidden) e um rótulo com cara de botão ("Escolher arquivo") abre o seletor, sem depender de JS. O nome do arquivo escolhido aparece ao lado (app.js). Foco pelo teclado e erro aparecem no botão (tema.css).
+- O campo aponta para o rótulo com aria-labelledby: sem isso, o Chrome somava o texto do botão ao nome anunciado, mesmo com aria-hidden.
+- Vale para as quatro telas com arquivo: evidência da fonte, importação da planilha, certificado A1 e /ui.
+- Teste no navegador: nome acessível só do rótulo, texto em português, nome do arquivo depois da escolha pelo seletor e contorno de foco no botão. Conferido também com o navegador em inglês.

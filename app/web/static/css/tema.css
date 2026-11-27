@@ -305,3 +305,30 @@ body {
     display: none;
   }
 }
+
+/* Campo de arquivo: o campo nativo fica escondido so na tela (visually-hidden) e o botao em
+   portugues mostra o foco e o erro dele. */
+.cl-arquivo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.cl-arquivo-botao {
+  margin-bottom: 0;
+}
+
+.cl-arquivo-entrada:focus-visible + .cl-arquivo-botao {
+  outline: 3px solid var(--cl-indigo-600);
+  outline-offset: 2px;
+}
+
+.cl-arquivo-entrada.is-invalid + .cl-arquivo-botao {
+  border-color: var(--cl-perigo);
+  color: var(--cl-perigo);
+}
+
+.cl-arquivo-nome {
+  overflow-wrap: anywhere;
+}

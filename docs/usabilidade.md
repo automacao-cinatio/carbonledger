@@ -30,7 +30,7 @@ Conferência automática: todas as telas têm h1, próximo passo, seletor de emp
 
 ### Ficou para depois
 
-- Seletor de arquivo: o texto do botão segue o idioma do navegador da pessoa (em inglês só no navegador de teste sem idioma).
+- Seletor de arquivo: o texto do botão segue o idioma do navegador da pessoa (em inglês só no navegador de teste sem idioma). Resolvido em 2026-11-27 (seção abaixo).
 
 ## 2026-11-25: pendências da revisão
 
@@ -39,3 +39,9 @@ Conferência automática: todas as telas têm h1, próximo passo, seletor de emp
 | Resultados | O cartão "Emissões por categoria" repetia o título do gráfico logo abaixo | A legenda do gráfico diz o que ele mostra: total de cada categoria, da maior para a menor, em tCO₂e |
 | Topo | Nome de cliente longo quebrava em duas linhas ao lado do nome da pessoa | Nome da pessoa e do cliente em uma linha, com largura máxima; o nome inteiro fica no title |
 | Painel | O próximo passo mandava escolher a empresa no seletor do topo antes de ir para a coleta | O botão "Ir para a coleta de (empresa)" põe a empresa citada em foco e abre a coleta (destino aceito só entre as telas do menu) |
+
+## 2026-11-27: seletor de arquivo em português
+
+| Tela | Achado | Correção |
+| --- | --- | --- |
+| Evidência da fonte, importação da planilha, certificado A1 e /ui | O botão nativo e o "nenhum arquivo" seguem o idioma do navegador ("Choose file", "No file chosen") | Botão "Escolher arquivo" e o nome do arquivo escolhido em português, em qualquer navegador. O campo de verdade continua no teclado, no leitor de tela (nome só do rótulo) e no envio; o foco e o erro aparecem no botão |

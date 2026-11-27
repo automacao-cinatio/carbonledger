@@ -121,15 +121,26 @@
 {#
   Arquivo: aceitar lista as extensoes (so ajuda o seletor; o servidor confere o conteudo).
   O formulario que o contem precisa de multipart=True.
+  O botao nativo segue o idioma do navegador ("Choose file"); por isso o campo de verdade fica
+  escondido so na tela (continua no teclado, no leitor de tela e no envio) e o botao e o nome
+  do arquivo aparecem em portugues. O clique no botao abre o seletor pelo rotulo (sem JS); o
+  app.js so troca o nome mostrado. aria-labelledby: sem ele, o Chrome soma o texto do botao
+  (mesmo com aria-hidden) ao nome do campo.
 #}
 {% macro campo_arquivo(nome, rotulo, aceitar, ajuda=None, erro=None, obrigatorio=False) -%}
 <div class="mb-3">
-  <label class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
-  <input id="campo-{{ nome }}" name="{{ nome }}" type="file" accept="{{ aceitar }}"
-         class="form-control{{ ' is-invalid' if erro else "" }}"
-         aria-describedby="{{ _descricao(nome, ajuda) }}"
-         {{- ' required aria-required="true"' | safe if obrigatorio else "" }}
-         {{- ' aria-invalid="true"' | safe if erro else "" }}>
+  <label id="rotulo-campo-{{ nome }}" class="form-label{{ ' required' if obrigatorio else "" }}" for="campo-{{ nome }}">{{ rotulo }}</label>
+  <div class="cl-arquivo">
+    <input id="campo-{{ nome }}" name="{{ nome }}" type="file" accept="{{ aceitar }}"
+           class="cl-arquivo-entrada visually-hidden{{ ' is-invalid' if erro else "" }}" data-arquivo
+           aria-labelledby="rotulo-campo-{{ nome }}" aria-describedby="{{ _descricao(nome, ajuda) }}"
+           {{- ' required aria-required="true"' | safe if obrigatorio else "" }}
+           {{- ' aria-invalid="true"' | safe if erro else "" }}>
+    <label for="campo-{{ nome }}" class="btn btn-outline-primary cl-arquivo-botao" aria-hidden="true">
+      <i class="ti ti-upload me-1" aria-hidden="true"></i>Escolher arquivo
+    </label>
+    <span id="nome-{{ nome }}" class="cl-arquivo-nome text-secondary" aria-hidden="true">Nenhum arquivo escolhido</span>
+  </div>
   {% if ajuda %}<div id="ajuda-{{ nome }}" class="form-hint">{{ ajuda }}</div>{% endif %}
   {{ mensagem_campo(nome, erro) }}
 </div>
