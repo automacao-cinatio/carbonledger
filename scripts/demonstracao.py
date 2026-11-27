@@ -1,6 +1,6 @@
 """Dados de demonstracao na pilha local (make seed), com referencia FICTICIA.
 
-    uv run python scripts/demonstracao.py [--app http://localhost:8000]
+    uv run python scripts/demonstracao.py [--app http://localhost:8000] [--convidar EMAIL]
 
 Percorre o app como pessoas de verdade: curadoria importa e aprova a referencia ficticia
 (tests/dados_ficticios/demonstracao, codigos demo.* e GWP DEMO_FICTICIO_100), um cliente novo
@@ -8,7 +8,10 @@ e criado, a administradora entra pelo provedor de dev, cadastra a organizacao, a
 inventario, cadastra as fontes e lanca os dados; um gestor convidado aprova (quem lanca nao
 aprova); as evidencias passam pelo antivirus e pelo S3; o calculo e conferido, o inventario e
 fechado e o relatorio sai assinado com um certificado autoassinado. Uma segunda empresa fica
-com a coleta pela metade, para o painel.
+com a coleta pela metade e uma campanha de coleta aberta para a responsavel dela. Depois: o
+inventario do ano corrente em andamento (painel e metas com evolucao), uma meta de reducao com
+acoes, um verificador com acesso aceito e uma verificacao de integridade feita no worker.
+Com --convidar EMAIL, a pessoa recebe convite de administradora do cliente da demonstracao.
 
 Unico atalho fora do app: o inventario da demonstracao passa a usar o conjunto de GWP
 DEMO_FICTICIO_100 (o padrao e AR5_100, que fica so para o GWP oficial), direto no banco local.
@@ -251,11 +254,13 @@ ENERGIA = ["84,2", "80,5", "88,1", "86,9", "90,4", "92,8", "95,1", "97,3", "91,6
 VIAGENS_KM = "48.300"
 
 
-def _lancar(pessoa: Pessoa, fonte: str, periodos: list[int], valores: list[Any]) -> None:
+def _lancar(
+    pessoa: Pessoa, fonte: str, periodos: list[int], valores: list[Any], ano: int = ANO
+) -> None:
     for periodo, valor in zip(periodos, valores, strict=True):
         dados = {"quantidade": str(valor)}
         if periodo:
-            dados["data_compra"] = f"{ANO}-{periodo:02d}-10"
+            dados["data_compra"] = f"{ano}-{periodo:02d}-10"
         pessoa.post(f"/coleta/fontes/{fonte}/periodos/{periodo}/lancamentos", dados)
 
 
@@ -275,7 +280,31 @@ def _usar_gwp_ficticio(inventario: str) -> None:
     )  # fmt: skip
 
 
-def roteiro(app: str) -> None:
+def _link_de_verificador(para: str) -> str:
+    mensagens = httpx.get(f"{MAILPIT}/api/v1/search", params={"query": f"to:{para}"}).json()
+    if not mensagens.get("messages"):
+        raise ErroDemonstracao(f"acesso de verificador para {para} nao chegou ao Mailpit")
+    texto = httpx.get(f"{MAILPIT}/api/v1/message/{mensagens['messages'][0]['ID']}").json()["Text"]
+    achado = re.search(r"https?://[^/\s]+(/verificacao/convite/\S+/dev)", texto)
+    if achado is None:
+        raise ErroDemonstracao("link do verificador nao encontrado no e-mail")
+    return achado.group(1)
+
+
+def _esperar_integridade(pessoa: Pessoa, limite_s: int = 120) -> None:
+    """A verificacao roda no worker: espera a tela deixar de mostrar o andamento."""
+    fim = time.monotonic() + limite_s
+    while time.monotonic() < fim:
+        pagina = pessoa.pagina("/integridade")
+        if "Verificação em andamento" not in pagina:
+            situacao = "tudo confere" if "Tudo confere" in pagina else "veja a tela Integridade"
+            print(f"   verificacao de integridade concluida: {situacao}")
+            return
+        time.sleep(2)
+    raise ErroDemonstracao(f"a verificacao nao terminou em {limite_s} s; o worker esta de pe?")
+
+
+def roteiro(app: str, convidar: str | None = None) -> None:
     saude = httpx.get(f"{app}/saude", timeout=10)
     if saude.status_code != 200:
         raise ErroDemonstracao(f"API fora do ar em {app}: suba a pilha com make up")
@@ -385,19 +414,94 @@ def roteiro(app: str) -> None:
     _lancar(dona, frota, list(range(1, 7)), [410, 395, 430, 450, 470, 455])
     _aprovar_tudo(gestor, frota, list(range(1, 4)))
 
+    print("9. Responsavel da segunda empresa e campanha de coleta")
+    dona.post("/usuarios/convites", {"email": "responsavel@demonstracao.example",
+                                     "perfil": "responsavel", "empresas": segunda})  # fmt: skip
+    responsavel = Pessoa(app, "responsavel-demonstracao", "responsavel@demonstracao.example")
+    responsavel.entrar(_link_do_ultimo_email("responsavel@demonstracao.example"))
+    prazo = (datetime.now(UTC) + timedelta(days=15)).date().isoformat()
+    dona.post(f"/coleta/inventarios/{inventario_2}/campanha", {
+        "prazo": prazo, "mensagem": "Faltam os meses de julho a dezembro do gerador."})  # fmt: skip
+
+    ano_corrente = datetime.now(UTC).year
+    print(f"10. Inventario {ano_corrente} da primeira empresa em andamento")
+    inventario_3 = dona.criar(
+        f"/coleta/empresas/{empresa}/inventarios",
+        {"ano": str(ano_corrente), "abordagem": "controle_operacional"},
+    )
+    _usar_gwp_ficticio(inventario_3)
+    meses = list(range(1, datetime.now(UTC).month))
+    caldeira_3 = dona.criar(f"/coleta/inventarios/{inventario_3}/fontes", {
+        **base, "categoria": "escopo1.combustao_estacionaria", "descricao": "Caldeira a diesel",
+        "unidade_medida": "L", "periodicidade": "mensal",
+        "atividade": "demo.diesel_comercial"})  # fmt: skip
+    energia_3 = dona.criar(f"/coleta/inventarios/{inventario_3}/fontes", {
+        **base, "categoria": "escopo2.energia_eletrica", "descricao": "Energia da fabrica",
+        "unidade_medida": "MWh", "periodicidade": "mensal",
+        "atividade": "demo.energia_rede"})  # fmt: skip
+    # Menos diesel que no ano anterior: a meta mostra a reducao.
+    diesel_3 = [round(v * 0.85) for v in DIESEL][: len(meses)]
+    _lancar(dona, caldeira_3, meses, diesel_3, ano=ano_corrente)
+    _lancar(dona, energia_3, meses, ENERGIA[: len(meses)], ano=ano_corrente)
+    _aprovar_tudo(gestor, caldeira_3, meses)
+    _aprovar_tudo(gestor, energia_3, meses)
+    dona.post(f"/resultados/inventarios/{inventario_3}/calcular")
+
+    print("11. Meta de reducao com acoes")
+    meta = dona.criar(f"/metas/empresas/{empresa}", {
+        "nome": "Reduzir 30% das emissoes ate 2030", "escopos": "1+2",
+        "inventario_base_id": inventario, "ano_alvo": "2030",
+        "reducao_percentual": "30"})  # fmt: skip
+    acoes = (
+        ("Trocar a caldeira a diesel por gas natural", "Projeto de engenharia em andamento.",
+         "120", str(ano_corrente)),
+        ("Comprar energia renovavel com certificado", "Contrato no mercado livre.", "35",
+         str(ano_corrente + 1)),
+    )  # fmt: skip
+    for titulo, descricao, estimativa, ano_inicio in acoes:
+        dona.post(f"/metas/{meta}/acoes", {"titulo": titulo, "descricao": descricao,
+                                           "reducao_estimada_tco2e": estimativa,
+                                           "ano_inicio": ano_inicio})  # fmt: skip
+    primeira_acao = _achar(rf"/metas/acoes/({UUID})/situacao", dona.pagina(f"/metas/{meta}"))
+    dona.post(f"/metas/acoes/{primeira_acao}/situacao", {"situacao_1": "em_andamento"})
+
+    print("12. Verificador com acesso ao inventario fechado")
+    concessao = {"email": "verificador@demonstracao.example", "inventario_id": inventario,
+                 "prazo_dias": "60"}  # fmt: skip
+    dona.post("/verificacao/concessoes", concessao)
+    verificador = Pessoa(app, "verificador-demonstracao", "verificador@demonstracao.example")
+    verificador.entrar(_link_de_verificador("verificador@demonstracao.example"))
+
+    print("13. Verificacao de integridade (no worker)")
+    dona.post("/integridade/verificar")
+    _esperar_integridade(dona)
+
+    link = ""
+    if convidar:
+        print(f"14. Convite de administradora para {convidar}")
+        dona.post("/usuarios/convites", {"email": convidar, "perfil": "administrador"})
+        link = _link_do_ultimo_email(convidar)
+
     print()
     print(f"Pronto. Abra {app} e entre pelo provedor de desenvolvimento como:")
     print("  administradora: usuario 'dona-demonstracao', e-mail dona@demonstracao.example")
     print("  gestor:         usuario 'gestor-demonstracao', e-mail gestor@demonstracao.example")
+    print("  responsavel:    e-mail responsavel@demonstracao.example")
+    print("  verificador:    e-mail verificador@demonstracao.example")
+    if convidar:
+        print(f"Convite de administradora para {convidar}: {app}{link}")
     print("Todos os fatores, GWP e misturas da demonstracao sao FICTICIOS.")
 
 
 def main(argumentos: list[str] | None = None) -> int:
     analisador = argparse.ArgumentParser(prog="scripts/demonstracao.py")
     analisador.add_argument("--app", default="http://localhost:8000")
+    analisador.add_argument(
+        "--convidar", metavar="EMAIL", help="convida esta pessoa como administradora do cliente"
+    )
     args = analisador.parse_args(argumentos)
     try:
-        roteiro(args.app)
+        roteiro(args.app, args.convidar)
     except ErroDemonstracao as erro:
         print(f"Erro: {erro}", file=sys.stderr)
         return 2

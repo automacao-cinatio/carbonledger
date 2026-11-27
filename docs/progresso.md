@@ -464,3 +464,9 @@
 - Pedido do usuário. O Sair existia só dentro do menu do usuário (difícil de achar). Agora há um botão Sair no topo, ao lado do nome, com indicador e nome acessível "Sair da plataforma"; o item do menu continua.
 - Celular: só o ícone, e o seletor de empresa e o nome quebram linha em vez de espremer. Conferido a 1400, 800 e 400 px.
 - Teste: o topo traz o botão; axe-core sem violação.
+
+## Demonstração completa (2026-11-27)
+
+- Pedido do usuário: uma empresa fictícia com a plataforma toda preenchida. O roteiro de make seed passou a cobrir também responsável com campanha de coleta, inventário do ano corrente em andamento, meta com ações, verificador com acesso aceito e verificação de integridade no worker.
+- Opção --convidar EMAIL: convite de administradora do cliente da demonstração para uma pessoa real, sem gravar o e-mail no projeto.
+- Rodado na pilha local, de ponta a ponta, com a integridade conferindo tudo.
